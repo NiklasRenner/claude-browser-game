@@ -1,0 +1,4 @@
+# Normalise line endings so Windows and Linux checkouts produce identical files
+# (golden test files compare exact text).
+* text=auto eol=lf
+*.png binary

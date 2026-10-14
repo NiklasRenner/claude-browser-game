@@ -3,3 +3,7 @@ dist/
 test-results/
 *.log
 .DS_Store
+coverage/
+*.tsbuildinfo
+.env
+.env.*

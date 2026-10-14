@@ -64,11 +64,18 @@ try {
   await page.waitForTimeout(400);
   await page.screenshot({ path: `${OUT}/02-town.png` });
 
-  // Visit each town tab.
+  // Visit each town tab; the header and tab bar must stay fully visible even when the list is long.
+  const squashed = [];
   for (const tab of ['shop', 'inventory', 'character', 'inn', 'quests']) {
     await page.click(`[data-ui="tab:${tab}"]`);
+    const ok = await page.evaluate(() => {
+      const tabs = document.querySelector('.tabs');
+      const header = document.querySelector('.town-header');
+      return tabs.clientHeight >= 30 && tabs.scrollHeight <= tabs.clientHeight && header.getBoundingClientRect().top >= 0;
+    });
+    if (!ok) squashed.push(tab);
   }
-  check(true, 'all town tabs render');
+  check(squashed.length === 0, `town tab bar stays visible on every tab${squashed.length ? ` (broken on: ${squashed.join(', ')})` : ''}`);
 
   // Start a quest through the real button and fight with real clicks at normal animation speed.
   await page.click('[data-action*="greenwood"]');

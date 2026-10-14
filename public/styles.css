@@ -52,7 +52,11 @@ body.no-webgl #scene { background: radial-gradient(circle at 50% 30%, #3a2f52, v
   max-height: calc(100vh - 32px); overflow-y: auto;
 }
 .main-panel.mode-town { max-height: 62vh; display: flex; flex-direction: column; }
-.main-panel.mode-town .tab-body { overflow-y: auto; padding-right: 4px; }
+/* Header and tabs keep their size; only the tab body shrinks and scrolls.
+   (min-height: 0 is required for a flex child to shrink below its content.) */
+.main-panel.mode-town .town-header,
+.main-panel.mode-town .tabs { flex: none; }
+.main-panel.mode-town .tab-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-right: 4px; }
 
 @media (max-width: 760px) {
   #ui {
