@@ -1,0 +1,98 @@
+[
+  {
+    "classId": "warrior",
+    "seed": 1,
+    "steps": 351,
+    "completed": true,
+    "level": 13,
+    "gold": 2863,
+    "cleared": [
+      "greenwood",
+      "ashen_caves",
+      "frostpeak",
+      "shadow_keep"
+    ],
+    "battlesWon": 39,
+    "battlesLost": 1
+  },
+  {
+    "classId": "warrior",
+    "seed": 2,
+    "steps": 488,
+    "completed": true,
+    "level": 13,
+    "gold": 2774,
+    "cleared": [
+      "greenwood",
+      "ashen_caves",
+      "frostpeak",
+      "shadow_keep"
+    ],
+    "battlesWon": 47,
+    "battlesLost": 5
+  },
+  {
+    "classId": "mage",
+    "seed": 1,
+    "steps": 361,
+    "completed": true,
+    "level": 13,
+    "gold": 2286,
+    "cleared": [
+      "greenwood",
+      "ashen_caves",
+      "frostpeak",
+      "shadow_keep"
+    ],
+    "battlesWon": 39,
+    "battlesLost": 1
+  },
+  {
+    "classId": "mage",
+    "seed": 2,
+    "steps": 368,
+    "completed": true,
+    "level": 13,
+    "gold": 2083,
+    "cleared": [
+      "greenwood",
+      "ashen_caves",
+      "frostpeak",
+      "shadow_keep"
+    ],
+    "battlesWon": 39,
+    "battlesLost": 1
+  },
+  {
+    "classId": "rogue",
+    "seed": 1,
+    "steps": 308,
+    "completed": true,
+    "level": 14,
+    "gold": 2520,
+    "cleared": [
+      "greenwood",
+      "ashen_caves",
+      "frostpeak",
+      "shadow_keep"
+    ],
+    "battlesWon": 40,
+    "battlesLost": 0
+  },
+  {
+    "classId": "rogue",
+    "seed": 2,
+    "steps": 419,
+    "completed": true,
+    "level": 13,
+    "gold": 2159,
+    "cleared": [
+      "greenwood",
+      "ashen_caves",
+      "frostpeak",
+      "shadow_keep"
+    ],
+    "battlesWon": 42,
+    "battlesLost": 2
+  }
+]
