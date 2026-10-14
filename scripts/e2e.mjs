@@ -108,6 +108,33 @@ try {
   check(s2.player.level > 1 && s2.clearedAreas.length >= 1, `bot progressed via UI (level ${s2.player.level}, cleared ${s2.clearedAreas.join(', ')})`);
   await page.evaluate(() => window.__qf.speed(1));
 
+  // Keyboard-only fight at normal animation speed: win with ability keys, then press Enter
+  // *during* the victory animation; the buffered key must start the next fight.
+  await page.evaluate(async () => {
+    const qf = window.__qf;
+    while (qf.state.mode !== 'town') await qf.botStep();
+    await qf.dispatch({ type: 'startQuest', areaId: 'veridia' });
+  });
+  await waitIdle(page);
+  let pressedWhileAnimating = false;
+  for (let i = 0; i < 30; i++) {
+    await page.keyboard.press('1');
+    await page.waitForTimeout(60);
+    const st = await page.evaluate(() => ({ mode: window.__qf.state.mode, busy: window.__qf.busy }));
+    if (st.mode === 'quest') {
+      pressedWhileAnimating = st.busy;
+      await page.screenshot({ path: `${OUT}/06-between-fights.png` });
+      await page.keyboard.press('Enter');
+      break;
+    }
+    await waitIdle(page);
+  }
+  const nextFight = await page
+    .waitForFunction(() => window.__qf.state.mode === 'battle' && !window.__qf.busy, null, { timeout: 8000 })
+    .then(() => true, () => false);
+  check(pressedWhileAnimating, 'Enter was pressed while the victory animation was still playing');
+  check(nextFight, 'Enter between fights starts the next fight (key buffered during animation)');
+
   // Get into a battle for a screenshot with a monster on stage.
   for (let i = 0; i < 50 && (await page.evaluate(() => window.__qf.state.mode)) !== 'battle'; i++) {
     await page.evaluate(() => window.__qf.botStep());

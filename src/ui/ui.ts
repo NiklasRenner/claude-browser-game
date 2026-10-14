@@ -39,10 +39,15 @@ export class UI {
   private titleClass: ClassId = 'security';
   private seenGameComplete = false;
   private lastLogId = 0;
+  /** One-slot input buffer: a key pressed while an animation plays runs as soon as it finishes. */
+  private bufferedKey: Action | null = null;
   private showVictoryModal = false;
 
   constructor(private root: HTMLElement, private game: GameController) {
-    game.subscribe(() => this.render());
+    game.subscribe(() => {
+      this.render();
+      if (!game.busy && this.bufferedKey) queueMicrotask(() => this.flushBufferedKey());
+    });
     root.addEventListener('click', (e) => this.onClick(e));
     root.addEventListener('input', (e) => {
       const t = e.target as HTMLInputElement;
@@ -95,25 +100,28 @@ export class UI {
   }
 
   private onKey(e: KeyboardEvent) {
-    if ((e.target as HTMLElement).tagName === 'INPUT' || e.metaKey || e.ctrlKey) return;
-    const s = this.game.state;
+    if ((e.target as HTMLElement).tagName === 'INPUT' || e.metaKey || e.ctrlKey || e.altKey) return;
     const k = e.key.toLowerCase();
-    if (s.mode === 'battle') {
-      if (k === 'a') void this.run({ type: 'attack' });
-      else if (k === 'f') void this.run({ type: 'flee' });
-      else if (k === 'escape') { this.battleMenu = 'main'; this.render(); }
-      else if (/^[1-9]$/.test(k)) {
-        const spell = knownSpells(s.player!)[Number(k) - 1];
-        if (spell) void this.run({ type: 'cast', spellId: spell.id });
-      } else return;
-    } else if (s.mode === 'quest') {
-      if (k === 'enter' || k === 'c') void this.run({ type: 'continue' });
-      else if (k === 'r') void this.run({ type: 'retreat' });
-      else return;
-    } else if (s.mode === 'defeated' && (k === 'enter' || k === ' ')) {
-      void this.run({ type: 'returnToTown' });
-    } else return;
+    if (k === 'escape' && this.game.state.mode === 'battle') {
+      this.battleMenu = 'main';
+      this.render();
+      e.preventDefault();
+      return;
+    }
+    const action = keyAction(this.game.state, k);
+    if (!action) return;
+    // Enter/Space would otherwise also "click" whatever button has focus.
     e.preventDefault();
+    if (e.repeat) return; // holding a key must not fire a stream of actions
+    if (this.game.busy) this.bufferedKey = action;
+    else void this.run(action);
+  }
+
+  private flushBufferedKey() {
+    const action = this.bufferedKey;
+    this.bufferedKey = null;
+    // The game may have moved on (e.g. the fight ended); drop keys that no longer apply.
+    if (action && !this.game.busy && checkAction(this.game.state, action) === null) void this.run(action);
   }
 
   // ─── Rendering ───────────────────────────────────────────────────────────
@@ -199,7 +207,7 @@ export class UI {
         <label class="name-field">Officer name <input id="hero-name" maxlength="20" placeholder="Hero" autocomplete="off"></label>
         <div class="class-cards">${cards}</div>
         <button class="btn primary big" data-ui="start" id="start-game">Report for duty</button>
-        <p class="muted small">Combat keys: A attack · 1–9 abilities · F beam out. Mission: Enter advance · R return to ship.</p>
+        <p class="muted small">Combat: A attack · 1–9 abilities · F beam out. Between fights: Enter/Space advance · R return to ship.</p>
       </div>`;
   }
 
@@ -294,7 +302,7 @@ export class UI {
       <h2>${area.name}</h2>
       <div class="pips">${pips}</div>
       <p class="muted">${bossNext ? 'Sensors show a massive life sign ahead…' : `Contact ${q.cleared + 1} of ${area.encounters}, then the priority target.`} Earned so far: ${q.earnedXp} XP, ◈ ${q.earnedGold}.</p>
-      <div class="actions">${btn({ type: 'continue' }, bossNext ? 'Engage priority target' : 'Advance', 'primary big')}${btn({ type: 'retreat' }, 'Beam up to ship', 'ghost')}</div>
+      <div class="actions">${btn({ type: 'continue' }, `<span class="key">Enter</span>${bossNext ? 'Engage priority target' : 'Advance'}`, 'primary big')}${btn({ type: 'retreat' }, '<span class="key">R</span>Beam up to ship', 'ghost')}</div>
       ${potions.length ? `<div class="actions small-actions">${potions.map((id) => btn({ type: 'useItem', itemId: id }, `${getItem(id).name} ×${countItem(s.player!, id)}`, 'small')).join('')}</div>` : ''}`;
   }
 
@@ -326,7 +334,7 @@ export class UI {
 
   private defeatedPanel(btn: BtnFn) {
     return `<h2>Officer down</h2><p class="muted">An emergency transport pulled you out just in time. Some credits were lost in the chaos.</p>
-      <div class="actions">${btn({ type: 'returnToTown' }, 'Wake up in sickbay', 'primary big')}</div>`;
+      <div class="actions">${btn({ type: 'returnToTown' }, '<span class="key">Enter</span>Wake up in sickbay', 'primary big')}</div>`;
   }
 
   private victoryModal(s: GameState) {
@@ -335,6 +343,34 @@ export class UI {
       <p>The Hollow Admiral is gone and the Meridian is safe. ${esc(s.player!.name)} reached level ${s.player!.level} after ${s.stats.battlesWon} victories.</p>
       <p class="muted">Your tour of duty continues — every mission can be replayed.</p>
       <button class="btn primary" data-ui="close-modal">Continue tour</button></div></div>`;
+  }
+}
+
+/**
+ * Keyboard shortcuts. Returns the game action for a key in the current mode, or null.
+ * Kept as a pure function of state so it can be unit-tested and reused (e.g. for a help overlay).
+ */
+export function keyAction(s: GameState, key: string): Action | null {
+  const k = key.toLowerCase();
+  const advance = k === 'enter' || k === ' ' || k === 'c';
+  switch (s.mode) {
+    case 'battle': {
+      if (k === 'a') return { type: 'attack' };
+      if (k === 'f') return { type: 'flee' };
+      if (/^[1-9]$/.test(k)) {
+        const spell = knownSpells(s.player!)[Number(k) - 1];
+        return spell ? { type: 'cast', spellId: spell.id } : null;
+      }
+      return null;
+    }
+    case 'quest':
+      if (advance) return { type: 'continue' };
+      if (k === 'r') return { type: 'retreat' };
+      return null;
+    case 'defeated':
+      return advance ? { type: 'returnToTown' } : null;
+    default:
+      return null;
   }
 }
 
