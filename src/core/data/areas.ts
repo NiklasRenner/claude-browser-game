@@ -2,35 +2,35 @@ import type { AreaDef } from '../types';
 
 const areas: AreaDef[] = [
   {
-    id: 'greenwood', name: 'Greenwood Forest', minLevel: 1,
-    description: 'Slimes, wolves and the odd bandit. Something large has been tearing up the undergrowth.',
-    monsters: ['green_slime', 'forest_wolf', 'bandit'], boss: 'thornback_boar', encounters: 3,
+    id: 'veridia', name: 'Veridia Prime', minLevel: 1,
+    description: 'A jungle colony that went quiet. Raiders are picking over the outposts, and something huge is moving through the canopy.',
+    monsters: ['protoplasm', 'razorback_hound', 'raider'], boss: 'thornhide_behemoth', encounters: 3,
     reward: { xp: 40, gold: 30 },
-    palette: { sky: 0x9fd4ff, ground: 0x4f8f3a, fog: 0xbfe3c0 },
+    palette: { sky: 0x8fd6c8, ground: 0x2f7a5a, fog: 0xa8e0c8 },
   },
   {
-    id: 'ashen_caves', name: 'Ashen Caves', minLevel: 4, requires: 'greenwood',
-    description: 'Hot tunnels beneath the hills. Imps dance in the lava light; the dead walk the deeper halls.',
-    monsters: ['cave_bat', 'fire_imp', 'skeleton'], boss: 'magma_golem', encounters: 3,
+    id: 'kethra', name: 'Kethra Mining Moon', minLevel: 4, requires: 'veridia',
+    description: 'A volcanic moon whose mining crew stopped reporting. Their equipment did not stop working.',
+    monsters: ['cave_glider', 'plasma_sprite', 'nanite_husk'], boss: 'magma_colossus', encounters: 3,
     reward: { xp: 120, gold: 90 },
     palette: { sky: 0x2a1410, ground: 0x4a2d22, fog: 0x5a2a1a },
   },
   {
-    id: 'frostpeak', name: 'Frostpeak', minLevel: 8, requires: 'ashen_caves',
-    description: 'A wind-scoured summit. A drake sleeps in the glacier and does not like visitors.',
-    monsters: ['ice_wyrmling', 'yeti', 'frost_wraith'], boss: 'glacius', encounters: 3,
+    id: 'glacies', name: 'Glacies IV', minLevel: 8, requires: 'kethra',
+    description: 'A frozen world with a research station buried in its glacier, and a very old predator underneath.',
+    monsters: ['frost_serpent', 'tundra_brute', 'cryo_phantom'], boss: 'glacius', encounters: 3,
     reward: { xp: 260, gold: 200 },
-    palette: { sky: 0xcfe8ff, ground: 0xe8f2fa, fog: 0xdcecf8 },
+    palette: { sky: 0xcfe0f5, ground: 0xe4eef8, fog: 0xd4e4f4 },
   },
   {
-    id: 'shadow_keep', name: 'Shadow Keep', minLevel: 12, requires: 'frostpeak',
-    description: 'The ruined fortress of a king who forgot how to die.',
-    monsters: ['shade', 'dark_knight', 'vampire'], boss: 'hollow_king', encounters: 3,
+    id: 'void_rift', name: 'The Void Rift', minLevel: 12, requires: 'glacies',
+    description: 'A tear in space ringed by derelict starships. The flagship\'s admiral is still giving orders.',
+    monsters: ['void_shade', 'rift_marauder', 'void_leech'], boss: 'hollow_admiral', encounters: 3,
     reward: { xp: 500, gold: 400 },
-    palette: { sky: 0x120c1c, ground: 0x251b30, fog: 0x1f1530 },
+    palette: { sky: 0x0c0818, ground: 0x2a2436, fog: 0x1a1230 },
   },
 ];
 
 export const AREAS: Record<string, AreaDef> = Object.fromEntries(areas.map((a) => [a.id, a]));
 export const AREA_ORDER: string[] = areas.map((a) => a.id);
-export const FINAL_AREA = 'shadow_keep';
+export const FINAL_AREA = 'void_rift';

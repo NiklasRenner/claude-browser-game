@@ -6,7 +6,7 @@ import { getMonster, initialState, step } from '../src/core';
 import type { Action, ClassId, GameState, StepResult } from '../src/core';
 
 /** Starts a new game in town. */
-export function newGame(classId: ClassId = 'warrior', seed = 1): GameState {
+export function newGame(classId: ClassId = 'security', seed = 1): GameState {
   return act(initialState(seed), { type: 'newGame', name: 'Tester', classId, seed }).state;
 }
 
@@ -28,7 +28,7 @@ export function inBattle(state: GameState, monsterId: string): GameState {
   const s = structuredClone(state);
   const def = getMonster(monsterId);
   s.mode = 'battle';
-  s.quest = { areaId: 'greenwood', cleared: def.boss ? 3 : 0, earnedXp: 0, earnedGold: 0 };
+  s.quest = { areaId: 'veridia', cleared: def.boss ? 3 : 0, earnedXp: 0, earnedGold: 0 };
   s.battle = { monster: { defId: monsterId, hp: def.hp, maxHp: def.hp, statuses: [] }, playerStatuses: [], round: 1 };
   return s;
 }

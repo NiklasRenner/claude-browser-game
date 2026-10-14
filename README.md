@@ -1,8 +1,10 @@
-# QuestForge
+# Starward (working title)
 
-A modern take on the classic turn-based browser RPG (in the spirit of AdventureQuest), rendered with three.js.
+A turn-based sci-fi RPG in the spirit of classic browser RPGs like AdventureQuest, rendered with three.js. The setting is an original, Star Trek-inspired one: you serve aboard the exploration vessel *Meridian*.
 
-Pick a class, take quests from the town board, and fight your way through four areas. Each ends in a boss. Exploit elemental weaknesses, manage HP/MP between fights, level up, spend stat points, and buy better gear.
+Pick a division, take missions from the ship's board, beam down and fight through four worlds, each ending in a priority target. Exploit damage-type vulnerabilities, manage HP/energy between fights, level up, spend stat points, and requisition better gear.
+
+The repository is still called `questforge`; the in-game title is set in `src/ui/ui.ts` (`GAME_TITLE`) and `public/index.html`.
 
 ## Quick start
 
@@ -27,13 +29,16 @@ The e2e test needs a Playwright Chromium (`npx playwright install chromium` once
 
 ## Gameplay
 
-- **Classes:** Warrior (STR, most HP), Mage (INT, spells never miss, fragile), Rogue (DEX, high crit, poison).
-- **Loop:** Town → Quest board → 3 encounters + boss → back to town. HP carries over between fights, so potions, retreating and the inn matter.
-- **Elements:** physical, fire, ice, energy, light, darkness, poison. Monsters show their weaknesses and resistances; buy weapons to exploit them, or swap weapons mid-battle (this costs your turn).
-- **Status effects:** burn, poison, stun, chill (−accuracy), guard (−damage taken), evasive.
-- **Progression:** XP levels grant 4 stat points; skills unlock by level; defeat costs 10% gold.
-- **Saves:** autosaved to `localStorage` after every action; *Continue* on the title screen.
-- **Keys:** Battle `A` attack · `1–9` skills · `F` flee · `Esc` back. Quest `Enter` continue · `R` retreat.
+- **Divisions:** Security Officer (STR, most HP), Science Officer (INT, field-science abilities never miss, fragile), Engineer (DEX, high crit, corrosive nanites).
+- **Loop:** Ship → Mission Board → beam down → 3 hostile contacts + a priority target → beam back up. HP carries over between fights, so medkits, returning to the ship and sickbay matter.
+- **Missions:** Veridia Prime (jungle colony) → Kethra Mining Moon (volcanic) → Glacies IV (ice world) → The Void Rift (derelict fleet).
+- **Damage types:** kinetic, plasma, cryo, ion, photon, void, corrosive. Hostiles show what they're vulnerable to and what they resist; buy weapons to exploit that, or swap weapons mid-fight (costs your turn).
+- **Status effects:** burn, corrode, stun, chill (−accuracy), shield (−damage taken), evasive.
+- **Progression:** XP levels grant 4 stat points; abilities unlock by level; going down costs 10% credits.
+- **Saves:** autosaved to `localStorage` after every action; *Resume duty* on the title screen. Older saves are migrated (see `src/core/save.ts`).
+- **Keys:** Combat `A` attack · `1–9` abilities · `F` beam out · `Esc` back. Mission `Enter` advance · `R` return to ship.
+
+Naming note: internal identifiers are mechanical (`gold`, `mp`, `spells`, `areas`, `monsters`, mode `town`); the player-facing words (credits, energy, abilities, missions, hostiles, ship) live in UI text and content data.
 
 ## Architecture
 
@@ -74,8 +79,9 @@ The browser build exposes `window.__qf` (`state`, `legal()`, `dispatch(action)`,
 
 ## Adding content
 
-- **New monster:** add it to `src/core/data/monsters.ts` and list it in an area. `look` picks a procedural body (`blob`, `beast`, `humanoid`, `flyer`, `golem`, `dragon`, `wraith`).
-- **New item or spell:** add it to `items.ts` / `spells.ts`. Shop stock is everything with a price above 0.
-- **New area:** add it to `areas.ts` with `requires` pointing at the previous area, then add a backdrop case in `src/render/environment.ts`.
+- **New hostile:** add it to `src/core/data/monsters.ts` and list it in an area. `look` picks a procedural body (`blob`, `beast`, `humanoid`, `flyer`, `golem`, `dragon`, `wraith`).
+- **New item or ability:** add it to `items.ts` / `spells.ts`. Weapons have a visual `style` (`melee` or `ranged`); the held model comes from `WEAPON_SHAPES` in `src/render/models.ts`. Quartermaster stock is everything with a price above 0.
+- **New mission:** add it to `areas.ts` with `requires` pointing at the previous one, then add a backdrop case and lighting entry in `src/render/environment.ts`.
+- **Renaming content ids** breaks existing saves: bump `SAVE_VERSION` and add a migration in `src/core/save.ts` (see the v1 → v2 sci-fi migration).
 
 `validateContent()` (run by the test suite) catches broken references. Then run `npm run sim` to check balance and `npm run test:update-golden` to accept the new behaviour.

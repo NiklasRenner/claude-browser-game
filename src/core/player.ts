@@ -1,4 +1,5 @@
 import { getArmor, getClass, getWeapon, spellsFor } from './data';
+import { ELEMENTS } from './types';
 import type { ClassId, Element, GameEvent, Player, Resistances, SpellDef, Stat } from './types';
 
 export const MAX_LEVEL = 30;
@@ -37,7 +38,7 @@ export function derive(player: Player): DerivedStats {
 }
 
 function resistTable(resist: Resistances): Record<Element, number> {
-  const table = { physical: 100, fire: 100, ice: 100, energy: 100, light: 100, darkness: 100, poison: 100 };
+  const table = Object.fromEntries(ELEMENTS.map((el) => [el, 100])) as Record<Element, number>;
   for (const [el, pct] of Object.entries(resist) as [Element, number][]) table[el] = 100 - pct;
   return table;
 }
@@ -61,7 +62,7 @@ export function createPlayer(name: string, classId: ClassId): Player {
     statPoints: 0,
     weapon: cls.startWeapon,
     armor: cls.startArmor,
-    inventory: { [cls.startWeapon]: 1, [cls.startArmor]: 1, health_potion: 2 },
+    inventory: { [cls.startWeapon]: 1, [cls.startArmor]: 1, medkit: 2 },
   };
   fullRestore(player);
   return player;

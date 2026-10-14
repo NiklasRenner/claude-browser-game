@@ -42,4 +42,4 @@ const api = {
   webgl: stage !== null,
 };
 (window as unknown as { __qf: typeof api }).__qf = api;
-if (__DEV__) console.info('QuestForge dev build — window.__qf is available.');
+if (__DEV__) console.info('Starward dev build — window.__qf is available.');

@@ -40,7 +40,7 @@ function randomAction(s: GameState, rng: Rng): Action {
       { type: 'sell', itemId: rng.pick(Object.keys(ITEMS)) },
       { type: 'equip', itemId: rng.pick(Object.keys(ITEMS)) },
       { type: 'useItem', itemId: rng.pick(Object.keys(ITEMS)) },
-      { type: 'cast', spellId: rng.pick(spellsFor('mage', 30).map((x) => x.id)) },
+      { type: 'cast', spellId: rng.pick(spellsFor('science', 30).map((x) => x.id)) },
       { type: 'startQuest', areaId: rng.pick([...AREA_ORDER, 'void']) },
       { type: 'allocateStat', stat: rng.pick(STATS) },
       { type: rng.pick(['attack', 'flee', 'rest', 'continue', 'retreat', 'returnToTown'] as const) },

@@ -79,6 +79,34 @@ export class Effects {
     light.dispose();
   }
 
+  /** Fast energy bolt (ranged weapon fire): a bright streak that travels in a straight line. */
+  async bolt(from: THREE.Vector3, to: THREE.Vector3, color: number, seconds = 0.14) {
+    const dir = to.clone().sub(from);
+    const len = dir.length();
+    const geo = new THREE.CylinderGeometry(0.035, 0.035, Math.min(1.2, len * 0.3), 6);
+    geo.rotateZ(Math.PI / 2);
+    const core = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    const glow = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.1, 0.1, Math.min(1.2, len * 0.3), 6).rotateZ(Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }),
+    );
+    const bolt = new THREE.Group();
+    bolt.add(core, glow);
+    // Geometry runs along X: pitch up/down (Z), then yaw (Y) to face the travel direction.
+    bolt.rotation.set(0, Math.atan2(-dir.z, dir.x), Math.atan2(dir.y, Math.hypot(dir.x, dir.z)));
+    const light = new THREE.PointLight(color, 5, 3);
+    bolt.add(light);
+    this.scene.add(bolt);
+    void this.burst(from, color, 6, 1.2, 0.2, 0);
+    await this.tweens.run(seconds, (t) => bolt.position.lerpVectors(from, to, t), (t) => t);
+    this.scene.remove(bolt);
+    for (const m of [core, glow]) {
+      m.geometry.dispose();
+      (m.material as THREE.Material).dispose();
+    }
+    light.dispose();
+  }
+
   /** Expanding ground ring (casting, buffs, level-up). */
   ring(at: THREE.Vector3, color: number, radius = 1.4, seconds = 0.6): Promise<void> {
     const geo = new THREE.RingGeometry(0.7, 0.85, 32);

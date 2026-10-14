@@ -23,6 +23,42 @@ const MIGRATIONS: Record<number, (state: any) => void> = {
   0: (s) => {
     s.stats ??= { battlesWon: 0, battlesLost: 0, actions: 0 };
   },
+  // 1 → 2: fantasy → sci-fi reskin. Same mechanics, new ids.
+  1: (s) => {
+    const id = (v: string) => V1_IDS[v] ?? v;
+    s.clearedAreas = (s.clearedAreas ?? []).map(id);
+    if (s.quest) s.quest.areaId = id(s.quest.areaId);
+    if (s.battle) {
+      s.battle.monster.defId = id(s.battle.monster.defId);
+      for (const st of [...s.battle.monster.statuses, ...s.battle.playerStatuses]) st.id = id(st.id);
+    }
+    const p = s.player;
+    if (p) {
+      p.classId = id(p.classId);
+      p.weapon = id(p.weapon);
+      p.armor = id(p.armor);
+      p.inventory = Object.fromEntries(Object.entries(p.inventory).map(([k, n]) => [id(k), n]));
+    }
+  },
+};
+
+/** Old (v1) content ids → current ids. Ids only appear in saves as classes, items, areas, monsters and statuses. */
+const V1_IDS: Record<string, string> = {
+  warrior: 'security', mage: 'science', rogue: 'engineer',
+  greenwood: 'veridia', ashen_caves: 'kethra', frostpeak: 'glacies', shadow_keep: 'void_rift',
+  poison: 'corrode', guard: 'shield',
+  training_sword: 'sidearm_mk1', apprentice_staff: 'sonic_emitter', rusty_dagger: 'mag_wrench',
+  iron_sword: 'gauss_pistol', flame_blade: 'plasma_pistol', frost_edge: 'cryo_carbine', venom_fang: 'corrosive_needler',
+  storm_spear: 'ion_lance', sunsteel_mace: 'photon_rifle', dragonfang: 'plasma_cannon',
+  glacier_greatsword: 'stasis_projector', dawnbringer: 'nova_rifle', voidreaver: 'singularity_edge',
+  tunic: 'duty_uniform', leather_armor: 'field_jacket', chainmail: 'composite_vest',
+  emberweave_robe: 'thermal_envirosuit', frostguard_mail: 'arctic_hardsuit', radiant_plate: 'aegis_power_armor',
+  health_potion: 'medkit', mana_potion: 'energy_cell', greater_health_potion: 'trauma_kit',
+  antidote: 'detox_injector', elixir: 'nano_restorer',
+  green_slime: 'protoplasm', forest_wolf: 'razorback_hound', bandit: 'raider', thornback_boar: 'thornhide_behemoth',
+  cave_bat: 'cave_glider', fire_imp: 'plasma_sprite', skeleton: 'nanite_husk', magma_golem: 'magma_colossus',
+  ice_wyrmling: 'frost_serpent', yeti: 'tundra_brute', frost_wraith: 'cryo_phantom',
+  shade: 'void_shade', dark_knight: 'rift_marauder', vampire: 'void_leech', hollow_king: 'hollow_admiral',
 };
 
 export function deserialize(text: string): LoadResult {
@@ -33,7 +69,7 @@ export function deserialize(text: string): LoadResult {
     return { ok: false, error: 'Save data is not valid JSON' };
   }
   if (parsed?.format !== FORMAT || typeof parsed.version !== 'number' || typeof parsed.state !== 'object') {
-    return { ok: false, error: 'Not a QuestForge save' };
+    return { ok: false, error: 'Not a Starward save file' };
   }
   if (parsed.version > SAVE_VERSION) return { ok: false, error: 'Save is from a newer version of the game' };
   const state = parsed.state;

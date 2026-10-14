@@ -1,64 +1,64 @@
 import type { SpellDef } from '../types';
 
 const spells: SpellDef[] = [
-  // ── Warrior: strength-scaled battle skills ──
-  { id: 'power_strike', name: 'Power Strike', classId: 'warrior', level: 1, mp: 6, description: 'A heavy blow for 170% weapon damage.',
+  // ── Security: strength-scaled combat tactics ──
+  { id: 'overcharge', name: 'Overcharge', classId: 'security', level: 1, mp: 6, description: 'Overload your weapon for 170% damage.',
     effects: [{ type: 'damage', element: 'weapon', dice: [0, 0], scaling: 'str', useWeapon: true, mult: 1.7 }] },
-  { id: 'iron_skin', name: 'Iron Skin', classId: 'warrior', level: 3, mp: 8, description: 'Take 40% less damage for 3 enemy turns.',
-    effects: [{ type: 'status', target: 'self', status: 'guard', turns: 3, power: 40 }] },
-  { id: 'second_wind', name: 'Second Wind', classId: 'warrior', level: 5, mp: 12, description: 'Catch your breath and recover health.',
+  { id: 'personal_shield', name: 'Personal Shield', classId: 'security', level: 3, mp: 8, description: 'Take 40% less damage for 3 enemy turns.',
+    effects: [{ type: 'status', target: 'self', status: 'shield', turns: 3, power: 40 }] },
+  { id: 'combat_stim', name: 'Combat Stim', classId: 'security', level: 5, mp: 12, description: 'A shot of adrenaline and coagulant. Recovers health.',
     effects: [{ type: 'heal', dice: [26, 36], scaling: 'str' }] },
-  { id: 'holy_smite', name: 'Holy Smite', classId: 'warrior', level: 8, mp: 16, description: 'Strike with radiant light.',
-    effects: [{ type: 'damage', element: 'light', dice: [24, 34], scaling: 'str' }] },
-  { id: 'whirlwind', name: 'Whirlwind', classId: 'warrior', level: 11, mp: 22, description: '240% weapon damage with a chance to stun.',
+  { id: 'photon_grenade', name: 'Photon Grenade', classId: 'security', level: 8, mp: 16, description: 'A blinding burst of photon energy.',
+    effects: [{ type: 'damage', element: 'photon', dice: [24, 34], scaling: 'str' }] },
+  { id: 'suppressive_fire', name: 'Suppressive Fire', classId: 'security', level: 11, mp: 22, description: '240% weapon damage with a chance to stun.',
     effects: [
       { type: 'damage', element: 'weapon', dice: [0, 0], scaling: 'str', useWeapon: true, mult: 2.4 },
       { type: 'status', target: 'enemy', status: 'stun', turns: 1, power: 0, chance: 25 },
     ] },
 
-  // ── Mage: intelligence-scaled elemental magic ──
-  { id: 'firebolt', name: 'Firebolt', classId: 'mage', level: 1, mp: 6, description: 'Hurl a bolt of fire.',
-    effects: [{ type: 'damage', element: 'fire', dice: [9, 14], scaling: 'int' }] },
-  { id: 'frost_lance', name: 'Frost Lance', classId: 'mage', level: 2, mp: 7, description: 'An icy spear that may chill the target.',
+  // ── Science: intelligence-scaled field science ──
+  { id: 'plasma_burst', name: 'Plasma Burst', classId: 'science', level: 1, mp: 6, description: 'Vent a burst of superheated plasma.',
+    effects: [{ type: 'damage', element: 'plasma', dice: [9, 14], scaling: 'int' }] },
+  { id: 'cryo_beam', name: 'Cryo Beam', classId: 'science', level: 2, mp: 7, description: 'A freezing beam that may chill the target.',
     effects: [
-      { type: 'damage', element: 'ice', dice: [9, 14], scaling: 'int' },
+      { type: 'damage', element: 'cryo', dice: [9, 14], scaling: 'int' },
       { type: 'status', target: 'enemy', status: 'chill', turns: 2, power: 20, chance: 40 },
     ] },
-  { id: 'mend', name: 'Mend', classId: 'mage', level: 3, mp: 10, description: 'Knit wounds closed.',
+  { id: 'regen_field', name: 'Regen Field', classId: 'science', level: 3, mp: 10, description: 'Accelerate cellular repair.',
     effects: [{ type: 'heal', dice: [28, 38], scaling: 'int' }] },
-  { id: 'arc_lightning', name: 'Arc Lightning', classId: 'mage', level: 5, mp: 14, description: 'Lightning that may stun.',
+  { id: 'ion_storm', name: 'Ion Storm', classId: 'science', level: 5, mp: 14, description: 'Ionised discharge that may stun.',
     effects: [
-      { type: 'damage', element: 'energy', dice: [16, 24], scaling: 'int' },
+      { type: 'damage', element: 'ion', dice: [16, 24], scaling: 'int' },
       { type: 'status', target: 'enemy', status: 'stun', turns: 1, power: 0, chance: 20 },
     ] },
-  { id: 'arcane_ward', name: 'Arcane Ward', classId: 'mage', level: 7, mp: 14, description: 'Take 50% less damage for 3 enemy turns.',
-    effects: [{ type: 'status', target: 'self', status: 'guard', turns: 3, power: 50 }] },
-  { id: 'radiance', name: 'Radiance', classId: 'mage', level: 9, mp: 20, description: 'Searing holy light.',
-    effects: [{ type: 'damage', element: 'light', dice: [28, 38], scaling: 'int' }] },
-  { id: 'meteor', name: 'Meteor', classId: 'mage', level: 12, mp: 34, description: 'Call down a burning star.',
+  { id: 'deflector_field', name: 'Deflector Field', classId: 'science', level: 7, mp: 14, description: 'Take 50% less damage for 3 enemy turns.',
+    effects: [{ type: 'status', target: 'self', status: 'shield', turns: 3, power: 50 }] },
+  { id: 'photon_pulse', name: 'Photon Pulse', classId: 'science', level: 9, mp: 20, description: 'A searing pulse of coherent light.',
+    effects: [{ type: 'damage', element: 'photon', dice: [28, 38], scaling: 'int' }] },
+  { id: 'orbital_strike', name: 'Orbital Strike', classId: 'science', level: 12, mp: 34, description: 'Paint the target for the ship\'s plasma batteries.',
     effects: [
-      { type: 'damage', element: 'fire', dice: [46, 62], scaling: 'int' },
+      { type: 'damage', element: 'plasma', dice: [46, 62], scaling: 'int' },
       { type: 'status', target: 'enemy', status: 'burn', turns: 3, power: 8, chance: 60 },
     ] },
 
-  // ── Rogue: dexterity-scaled tricks ──
-  { id: 'venom_strike', name: 'Venom Strike', classId: 'rogue', level: 1, mp: 5, description: 'A poisoned stab that keeps hurting.',
+  // ── Engineer: dexterity-scaled gadgets ──
+  { id: 'nanite_swarm', name: 'Nanite Swarm', classId: 'engineer', level: 1, mp: 5, description: 'A strike that releases corrosive nanites.',
     effects: [
-      { type: 'damage', element: 'poison', dice: [0, 0], scaling: 'dex', useWeapon: true, mult: 1.1 },
-      { type: 'status', target: 'enemy', status: 'poison', turns: 3, power: 4, chance: 75 },
+      { type: 'damage', element: 'corrosive', dice: [0, 0], scaling: 'dex', useWeapon: true, mult: 1.1 },
+      { type: 'status', target: 'enemy', status: 'corrode', turns: 3, power: 4, chance: 75 },
     ] },
-  { id: 'shadow_step', name: 'Shadow Step', classId: 'rogue', level: 3, mp: 7, description: 'Become hard to hit for 2 enemy turns.',
+  { id: 'holo_decoy', name: 'Holo-Decoy', classId: 'engineer', level: 3, mp: 7, description: 'Project a decoy. Hard to hit for 2 enemy turns.',
     effects: [{ type: 'status', target: 'self', status: 'evasive', turns: 2, power: 35 }] },
-  { id: 'bandage', name: 'Bandage', classId: 'rogue', level: 4, mp: 8, description: 'Patch yourself up.',
+  { id: 'field_repair', name: 'Field Repair', classId: 'engineer', level: 4, mp: 8, description: 'Patch your suit and yourself.',
     effects: [{ type: 'heal', dice: [22, 30], scaling: 'dex' }] },
-  { id: 'backstab', name: 'Backstab', classId: 'rogue', level: 5, mp: 12, description: '160% weapon damage, +30% crit chance.',
+  { id: 'exploit_weakness', name: 'Exploit Weakness', classId: 'engineer', level: 5, mp: 12, description: '160% weapon damage, +30% crit chance.',
     effects: [{ type: 'damage', element: 'weapon', dice: [0, 0], scaling: 'dex', useWeapon: true, mult: 1.6, extraCrit: 30 }] },
-  { id: 'frost_vial', name: 'Frost Vial', classId: 'rogue', level: 7, mp: 10, description: 'A thrown vial of liquid cold.',
+  { id: 'cryo_grenade', name: 'Cryo Grenade', classId: 'engineer', level: 7, mp: 10, description: 'A thrown canister of liquid coolant.',
     effects: [
-      { type: 'damage', element: 'ice', dice: [16, 24], scaling: 'dex' },
+      { type: 'damage', element: 'cryo', dice: [16, 24], scaling: 'dex' },
       { type: 'status', target: 'enemy', status: 'chill', turns: 2, power: 20, chance: 50 },
     ] },
-  { id: 'assassinate', name: 'Assassinate', classId: 'rogue', level: 10, mp: 24, description: '260% weapon damage, +25% crit chance.',
+  { id: 'overload', name: 'Precision Overload', classId: 'engineer', level: 10, mp: 24, description: '260% weapon damage, +25% crit chance.',
     effects: [{ type: 'damage', element: 'weapon', dice: [0, 0], scaling: 'dex', useWeapon: true, mult: 2.6, extraCrit: 25 }] },
 ];
 

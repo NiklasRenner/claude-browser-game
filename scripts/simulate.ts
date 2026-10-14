@@ -11,7 +11,7 @@ import type { ClassId } from '../src/core';
 const seeds = Number(process.argv[2] ?? 20);
 const maxSteps = 30000;
 
-console.log(`QuestForge balance sim — ${seeds} seeds per class, max ${maxSteps} steps\n`);
+console.log(`Balance sim — ${seeds} seeds per class, max ${maxSteps} steps\n`);
 console.log('class    done   avg steps  avg lvl  win%   deaths  level when each area first cleared');
 
 for (const classId of Object.keys(CLASSES) as ClassId[]) {

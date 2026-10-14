@@ -7,8 +7,8 @@ import type { GameEvent, GameState } from '../src/core';
 import { act, inBattle, newGame } from './helpers';
 
 /** A battle where the player cannot die, for observing many monster turns. */
-function sturdyBattle(monsterId = 'green_slime'): GameState {
-  const s = inBattle(newGame('warrior', 3), monsterId);
+function sturdyBattle(monsterId = 'protoplasm'): GameState {
+  const s = inBattle(newGame('security', 3), monsterId);
   s.player!.hp = 1_000_000;
   s.battle!.monster.hp = s.battle!.monster.maxHp = 1_000_000;
   return s;
@@ -30,10 +30,10 @@ describe('combat formulas', () => {
   });
 
   it('bounds flee chance', () => {
-    const p = newGame('rogue').player!;
-    const low = fleeChance(p, getMonster('dark_knight'));
+    const p = newGame('engineer').player!;
+    const low = fleeChance(p, getMonster('rift_marauder'));
     p.level = 30;
-    const high = fleeChance(p, getMonster('green_slime'));
+    const high = fleeChance(p, getMonster('protoplasm'));
     assert.ok(low >= 20 && high <= 90 && high > low);
   });
 });
@@ -44,11 +44,11 @@ describe('status effects', () => {
     const rng = new Rng(1);
     const events: GameEvent[] = [];
     runRound(s.player!, s.battle!, rng, events, (ctx) =>
-      applyStatus(ctx.battle.playerStatuses, 'player', 'guard', 3, 40, ctx.events));
-    let guardedMonsterTurns = s.battle!.playerStatuses.some((x) => x.id === 'guard') ? 1 : 0;
+      applyStatus(ctx.battle.playerStatuses, 'player', 'shield', 3, 40, ctx.events));
+    let guardedMonsterTurns = s.battle!.playerStatuses.some((x) => x.id === 'shield') ? 1 : 0;
     for (let i = 0; i < 5; i++) {
       runRound(s.player!, s.battle!, rng, events, () => {});
-      if (s.battle!.playerStatuses.some((x) => x.id === 'guard')) guardedMonsterTurns++;
+      if (s.battle!.playerStatuses.some((x) => x.id === 'shield')) guardedMonsterTurns++;
     }
     assert.equal(guardedMonsterTurns, 3);
   });
@@ -58,7 +58,7 @@ describe('status effects', () => {
     const events: GameEvent[] = [];
     const rng = new Rng(2);
     runRound(s.player!, s.battle!, rng, events, (ctx) =>
-      applyStatus(ctx.battle.monster.statuses, 'monster', 'poison', 3, 5, ctx.events));
+      applyStatus(ctx.battle.monster.statuses, 'monster', 'corrode', 3, 5, ctx.events));
     for (let i = 0; i < 5; i++) runRound(s.player!, s.battle!, rng, events, () => {});
     const ticks = events.filter((e) => e.type === 'statusTick' && e.target === 'monster');
     assert.equal(ticks.length, 3);
@@ -97,7 +97,7 @@ describe('status effects', () => {
 
 describe('battle outcomes', () => {
   it('awards XP and gold on victory and returns to the quest', () => {
-    const s = inBattle(newGame('warrior', 5), 'green_slime');
+    const s = inBattle(newGame('security', 5), 'protoplasm');
     s.battle!.monster.hp = 1;
     s.player!.stats.dex = 200; // guarantee the hit
     const { state, events } = act(s, { type: 'attack' });
@@ -111,18 +111,18 @@ describe('battle outcomes', () => {
   });
 
   it('completes the quest and unlocks the next area when the boss falls', () => {
-    const s = inBattle(newGame('warrior', 5), 'thornback_boar');
+    const s = inBattle(newGame('security', 5), 'thornhide_behemoth');
     s.battle!.monster.hp = 1;
     s.player!.stats.dex = 200;
     const { state, events } = act(s, { type: 'attack' });
     assert.ok(events.some((e) => e.type === 'questComplete' && e.firstClear));
     assert.equal(state.mode, 'town');
-    assert.deepEqual(state.clearedAreas, ['greenwood']);
+    assert.deepEqual(state.clearedAreas, ['veridia']);
     assert.equal(state.quest, null);
   });
 
   it('applies the defeat penalty and lets the player recover in town', () => {
-    const s = inBattle(newGame('mage', 6), 'bandit');
+    const s = inBattle(newGame('science', 6), 'raider');
     s.player!.hp = 1;
     s.player!.gold = 100;
     s.player!.stats.dex = -200; // guarantee our attack misses and theirs lands
@@ -138,19 +138,19 @@ describe('battle outcomes', () => {
   });
 
   it('forbids fleeing from bosses', () => {
-    const s = inBattle(newGame(), 'magma_golem');
+    const s = inBattle(newGame(), 'magma_colossus');
     const r = step(s, { type: 'flee' });
     assert.equal(r.state, s);
-    assert.match((r.events[0] as { reason: string }).reason, /boss/);
+    assert.match((r.events[0] as { reason: string }).reason, /interference/);
   });
 
   it('spends MP when casting and refuses without enough', () => {
-    const s = inBattle(newGame('mage'), 'yeti');
-    const r = act(s, { type: 'cast', spellId: 'firebolt' });
+    const s = inBattle(newGame('science'), 'tundra_brute');
+    const r = act(s, { type: 'cast', spellId: 'plasma_burst' });
     assert.equal(r.state.player!.mp, s.player!.mp - 6);
     const broke = structuredClone(s);
     broke.player!.mp = 0;
-    assert.equal(step(broke, { type: 'cast', spellId: 'firebolt' }).events[0]!.type, 'error');
+    assert.equal(step(broke, { type: 'cast', spellId: 'plasma_burst' }).events[0]!.type, 'error');
   });
 
   it('exploits elemental weaknesses', () => {
@@ -158,14 +158,14 @@ describe('battle outcomes', () => {
     const total = (monsterId: string) => {
       let sum = 0;
       for (let seed = 1; seed <= 30; seed++) {
-        const s = inBattle(newGame('mage', seed), monsterId);
+        const s = inBattle(newGame('science', seed), monsterId);
         s.battle!.monster.hp = s.battle!.monster.maxHp = 10_000;
-        const ev = act(s, { type: 'cast', spellId: 'firebolt' }).events;
+        const ev = act(s, { type: 'cast', spellId: 'plasma_burst' }).events;
         for (const e of ev) if (e.type === 'attack' && e.actor === 'player') sum += e.damage;
       }
       return sum;
     };
-    assert.ok(total('green_slime') > 300);
-    assert.equal(total('magma_golem'), 0);
+    assert.ok(total('protoplasm') > 300);
+    assert.equal(total('magma_colossus'), 0);
   });
 });

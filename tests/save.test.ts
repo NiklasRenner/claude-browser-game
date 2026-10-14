@@ -5,8 +5,8 @@ import type { GameState } from '../src/core';
 import { act, newGame } from './helpers';
 
 function midBattle(): GameState {
-  let s = act(newGame('rogue', 31), { type: 'startQuest', areaId: 'greenwood' }).state;
-  s = act(s, { type: 'cast', spellId: 'venom_strike' }).state;
+  let s = act(newGame('engineer', 31), { type: 'startQuest', areaId: 'veridia' }).state;
+  s = act(s, { type: 'cast', spellId: 'nanite_swarm' }).state;
   return s;
 }
 
@@ -68,5 +68,40 @@ describe('save / load', () => {
     assert.ok(r.ok);
     assert.deepEqual(r.state.stats, { battlesWon: 0, battlesLost: 0, actions: 0 });
     assert.equal(r.state.version, SAVE_VERSION);
+  });
+
+  it('migrates a version-1 (fantasy-era) save to the sci-fi content ids', () => {
+    // Shape of a real v1 save: level-12 warrior mid-battle in Shadow Keep, poisoned and guarded.
+    const v1 = {
+      version: 1, mode: 'battle', rng: 12345, clearedAreas: ['greenwood', 'ashen_caves', 'frostpeak'],
+      quest: { areaId: 'shadow_keep', cleared: 1, earnedXp: 10, earnedGold: 5 },
+      battle: {
+        monster: { defId: 'vampire', hp: 50, maxHp: 124, statuses: [{ id: 'poison', turns: 2, power: 5 }] },
+        playerStatuses: [{ id: 'guard', turns: 1, power: 40 }], round: 3,
+      },
+      player: {
+        name: 'Renner', classId: 'warrior', level: 12, xp: 583, gold: 1913, hp: 300, mp: 80,
+        stats: { str: 25, dex: 9, int: 2, end: 20, luk: 5 }, statPoints: 8,
+        weapon: 'sunsteel_mace', armor: 'frostguard_mail',
+        inventory: { training_sword: 1, tunic: 1, sunsteel_mace: 1, frostguard_mail: 1, health_potion: 3, elixir: 1 },
+      },
+      stats: { battlesWon: 40, battlesLost: 2, actions: 300 },
+    };
+    const r = deserialize(JSON.stringify({ format: 'questforge-save', version: 1, state: v1 }));
+    assert.ok(r.ok, r.ok ? '' : r.error);
+    const s = r.state;
+    assert.equal(s.player!.classId, 'security');
+    assert.equal(s.player!.weapon, 'photon_rifle');
+    assert.equal(s.player!.armor, 'arctic_hardsuit');
+    assert.deepEqual(s.player!.inventory, {
+      sidearm_mk1: 1, duty_uniform: 1, photon_rifle: 1, arctic_hardsuit: 1, medkit: 3, nano_restorer: 1,
+    });
+    assert.deepEqual(s.clearedAreas, ['veridia', 'kethra', 'glacies']);
+    assert.equal(s.quest!.areaId, 'void_rift');
+    assert.equal(s.battle!.monster.defId, 'void_leech');
+    assert.equal(s.battle!.monster.statuses[0]!.id, 'corrode');
+    assert.equal(s.battle!.playerStatuses[0]!.id, 'shield');
+    assert.equal(s.player!.level, 12);
+    assert.equal(s.player!.gold, 1913);
   });
 });

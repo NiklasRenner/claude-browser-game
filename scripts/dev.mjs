@@ -16,4 +16,4 @@ watch(path.join(root, 'public'), { recursive: true }, async () => {
 
 const port = Number(process.env.PORT ?? 5173);
 const { hosts } = await ctx.serve({ servedir: outdir, port });
-console.log(`\n  QuestForge dev server: http://${hosts[0] === '0.0.0.0' ? 'localhost' : hosts[0]}:${port}\n`);
+console.log(`\n  Starward dev server: http://${hosts[0] === '0.0.0.0' ? 'localhost' : hosts[0]}:${port}\n`);

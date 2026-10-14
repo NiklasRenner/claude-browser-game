@@ -11,18 +11,21 @@ import type { Action, ClassId, GameState, ItemDef, Player, Stat, StatusEffect } 
 import type { GameController } from '../game/controller';
 import { ELEMENT_ICONS, STATUS_ICONS } from '../game/elements';
 
+/** Working title — change it here (and in public/index.html). */
+export const GAME_TITLE = 'STARWARD';
+
 type TownTab = 'quests' | 'shop' | 'inventory' | 'character' | 'inn';
 type BattleMenu = 'main' | 'skills' | 'items' | 'gear';
 
 const STAT_NAMES: Record<Stat, string> = {
-  str: 'Strength', dex: 'Dexterity', int: 'Intellect', end: 'Endurance', luk: 'Luck',
+  str: 'Strength', dex: 'Agility', int: 'Intellect', end: 'Endurance', luk: 'Luck',
 };
 const STAT_HELP: Record<Stat, string> = {
-  str: 'Warrior damage. Slight accuracy.',
-  dex: 'Accuracy & evasion. Rogue damage.',
-  int: 'Mage damage. Max MP.',
+  str: 'Security Officer damage. Slight accuracy.',
+  dex: 'Accuracy & evasion. Engineer damage.',
+  int: 'Science Officer damage. Max energy.',
   end: 'Max HP.',
-  luk: 'Critical hits, gold and escaping.',
+  luk: 'Critical hits, credits and emergency beam-outs.',
 };
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -33,7 +36,7 @@ export class UI {
   private tab: TownTab = 'quests';
   private battleMenu: BattleMenu = 'main';
   private titleName = '';
-  private titleClass: ClassId = 'warrior';
+  private titleClass: ClassId = 'security';
   private seenGameComplete = false;
   private lastLogId = 0;
   private showVictoryModal = false;
@@ -151,9 +154,9 @@ export class UI {
       <div class="hud panel">
         <div class="hud-name"><strong>${esc(p.name)}</strong> <span class="muted">Lv ${p.level} ${cls.name}</span></div>
         ${bar('hp', p.hp, d.maxHp, 'HP')}
-        ${bar('mp', p.mp, d.maxMp, 'MP')}
+        ${bar('mp', p.mp, d.maxMp, 'EN')}
         <div class="bar bar-xp" title="XP ${p.xp} / ${xpToNext(p.level)}"><div class="fill" style="width:${pct(p.xp, xpToNext(p.level))}"></div></div>
-        <div class="hud-row"><span class="gold">◉ ${p.gold}</span><span class="muted small">XP ${p.xp}/${xpToNext(p.level)}</span>${p.statPoints ? `<span class="badge">+${p.statPoints} stat pts</span>` : ''}
+        <div class="hud-row"><span class="gold" title="Credits">◈ ${p.gold}</span><span class="muted small">XP ${p.xp}/${xpToNext(p.level)}</span>${p.statPoints ? `<span class="badge">+${p.statPoints} stat pts</span>` : ''}
         ${statusChips(statuses)}</div>
       </div>`;
   }
@@ -166,10 +169,10 @@ export class UI {
     const chips = (els: typeof weak) => els.map((el) => `<span class="el el-${el}">${ELEMENT_ICONS[el]} ${el}</span>`).join(' ');
     return `
       <div class="monster-card panel ${def.boss ? 'boss' : ''}">
-        <div class="hud-name"><strong>${esc(def.name)}</strong> <span class="muted">Lv ${def.level}${def.boss ? ' · BOSS' : ''}</span></div>
+        <div class="hud-name"><strong>${esc(def.name)}</strong> <span class="muted">Lv ${def.level}${def.boss ? ' · PRIORITY TARGET' : ''}</span></div>
         ${bar('hp enemy', b.monster.hp, b.monster.maxHp, 'HP')}
         <div class="hud-row">${statusChips(b.monster.statuses)}</div>
-        ${weak.length ? `<div class="res">Weak: ${chips(weak)}</div>` : ''}
+        ${weak.length ? `<div class="res">Vulnerable: ${chips(weak)}</div>` : ''}
         ${strong.length ? `<div class="res">Resists: ${chips(strong)}</div>` : ''}
       </div>`;
   }
@@ -185,23 +188,23 @@ export class UI {
     const cards = (Object.keys(CLASSES) as ClassId[]).map((id) => {
       const c = CLASSES[id];
       const stats = STATS.map((k) => `<span>${k.toUpperCase()} ${c.baseStats[k]}</span>`).join('');
-      return `<button class="class-card ${id === this.titleClass ? 'selected' : ''}" data-ui="class:${id}" style="--accent:#${c.color.toString(16).padStart(6, '0')}">
+      return `<button class="class-card ${id === this.titleClass ? 'selected' : ''}" data-ui="class:${id}" style="--division:#${c.color.toString(16).padStart(6, '0')}">
         <strong>${c.name}</strong><span class="desc">${c.description}</span><span class="stats">${stats}</span></button>`;
     }).join('');
     return `
       <div class="title-screen">
-        <h1>QuestForge</h1>
-        <p class="tagline">Four lands. Four bosses. One very determined hero.</p>
-        ${this.game.hasSave() ? '<button class="btn primary big" data-ui="continue">Continue adventure</button><div class="or">or start anew</div>' : ''}
-        <label class="name-field">Hero name <input id="hero-name" maxlength="20" placeholder="Hero" autocomplete="off"></label>
+        <h1>${GAME_TITLE}</h1>
+        <p class="tagline">Four worlds. One starship. Report for duty, Ensign.</p>
+        ${this.game.hasSave() ? '<button class="btn primary big" data-ui="continue">Resume duty</button><div class="or">or enlist a new officer</div>' : ''}
+        <label class="name-field">Officer name <input id="hero-name" maxlength="20" placeholder="Hero" autocomplete="off"></label>
         <div class="class-cards">${cards}</div>
-        <button class="btn primary big" data-ui="start" id="start-game">Begin adventure</button>
-        <p class="muted small">Battle keys: A attack · 1–9 skills · F flee. Quest: Enter continue · R retreat.</p>
+        <button class="btn primary big" data-ui="start" id="start-game">Report for duty</button>
+        <p class="muted small">Combat keys: A attack · 1–9 abilities · F beam out. Mission: Enter advance · R return to ship.</p>
       </div>`;
   }
 
   private town(s: GameState, btn: BtnFn) {
-    const tabs: [TownTab, string][] = [['quests', 'Quest Board'], ['shop', 'Shop'], ['inventory', 'Inventory'], ['character', 'Character'], ['inn', 'Inn']];
+    const tabs: [TownTab, string][] = [['quests', 'Mission Board'], ['shop', 'Quartermaster'], ['inventory', 'Locker'], ['character', 'Personnel File'], ['inn', 'Sickbay']];
     const p = s.player!;
     let body = '';
     switch (this.tab) {
@@ -212,7 +215,7 @@ export class UI {
       case 'inn': body = this.inn(p, btn); break;
     }
     return `
-      <div class="town-header"><h2>Brightwater</h2><button class="btn ghost small" data-ui="title">Main menu</button></div>
+      <div class="town-header"><h2>Meridian <span class="muted small">Exploration Vessel</span></h2><button class="btn ghost small" data-ui="title">Main menu</button></div>
       <div class="tabs">${tabs.map(([id, label]) => `<button class="tab ${this.tab === id ? 'active' : ''}" data-ui="tab:${id}">${label}${id === 'character' && p.statPoints ? ' •' : ''}</button>`).join('')}</div>
       <div class="tab-body">${body}</div>`;
   }
@@ -226,8 +229,8 @@ export class UI {
       const danger = p.level < a.minLevel ? `<span class="warn">Recommended level ${a.minLevel}</span>` : `<span class="muted">Level ${a.minLevel}+</span>`;
       return `<div class="row ${unlocked ? '' : 'locked'}">
         <div class="row-main"><strong>${a.name}</strong> ${cleared ? '<span class="badge good">Cleared</span>' : ''} ${danger}
-          <div class="muted small">${unlocked ? a.description : `Locked — defeat the boss of ${getArea(a.requires!).name}.`}</div></div>
-        ${btn({ type: 'startQuest', areaId: id }, unlocked ? 'Set out' : '🔒')}
+          <div class="muted small">${unlocked ? a.description : `Classified — complete the ${getArea(a.requires!).name} mission first.`}</div></div>
+        ${btn({ type: 'startQuest', areaId: id }, unlocked ? 'Beam down' : '🔒')}
       </div>`;
     }).join('')}</div>`;
   }
@@ -238,11 +241,11 @@ export class UI {
         <div class="row ${'level' in item && item.level > p.level ? 'locked' : ''}">
           <div class="row-main"><strong>${item.name}</strong> ${itemStats(item)}
             <div class="muted small">${item.description}${'level' in item ? ` · Lv ${item.level}` : ''}${countItem(p, item.id) ? ` · <em>owned${item.kind === 'consumable' ? ` ×${countItem(p, item.id)}` : ''}</em>` : ''}</div></div>
-          ${btn({ type: 'buy', itemId: item.id }, `◉ ${item.price}`, 'buy')}
+          ${btn({ type: 'buy', itemId: item.id }, `◈ ${item.price}`, 'buy')}
         </div>`).join('');
       return `<h3>${title}</h3><div class="list">${rows}</div>`;
     };
-    return section('weapon', 'Weapons') + section('armor', 'Armor') + section('consumable', 'Potions & supplies');
+    return section('weapon', 'Weapons') + section('armor', 'Armor & suits') + section('consumable', 'Medical & supplies');
   }
 
   private inventory(p: Player, btn: BtnFn) {
@@ -251,7 +254,7 @@ export class UI {
       const actions: string[] = [];
       if (item.kind === 'consumable') actions.push(btn({ type: 'useItem', itemId: id }, 'Use'));
       else actions.push(isEquipped(p, id) ? '<span class="badge good">Equipped</span>' : btn({ type: 'equip', itemId: id }, 'Equip'));
-      if (item.price > 0) actions.push(btn({ type: 'sell', itemId: id }, `Sell ◉${sellPrice(id)}`, 'ghost'));
+      if (item.price > 0) actions.push(btn({ type: 'sell', itemId: id }, `Sell ◈${sellPrice(id)}`, 'ghost'));
       return `<div class="row"><div class="row-main"><strong>${item.name}</strong>${n > 1 ? ` ×${n}` : ''} ${itemStats(item)}
         <div class="muted small">${item.description}</div></div><div class="row-actions">${actions.join('')}</div></div>`;
     }).join('');
@@ -263,21 +266,21 @@ export class UI {
     const stats = STATS.map((k) => `<div class="row"><div class="row-main"><strong>${STAT_NAMES[k]}</strong> <span class="stat-val">${p.stats[k]}</span>
       <div class="muted small">${STAT_HELP[k]}</div></div>${p.statPoints ? btn({ type: 'allocateStat', stat: k }, '+1') : ''}</div>`).join('');
     const resist = ELEMENTS.filter((el) => d.damageTaken[el] !== 100).map((el) => `${ELEMENT_ICONS[el]} ${100 - d.damageTaken[el]}%`).join(', ');
-    const spells = knownSpells(p).map((sp) => `<div class="row"><div class="row-main"><strong>${sp.name}</strong> <span class="mp-cost">${sp.mp} MP</span><div class="muted small">${sp.description}</div></div></div>`).join('');
+    const spells = knownSpells(p).map((sp) => `<div class="row"><div class="row-main"><strong>${sp.name}</strong> <span class="mp-cost">${sp.mp} EN</span><div class="muted small">${sp.description}</div></div></div>`).join('');
     return `
       <div class="two-col">
         <div><h3>Attributes ${p.statPoints ? `<span class="badge">${p.statPoints} to spend</span>` : ''}</h3><div class="list">${stats}</div></div>
         <div><h3>Combat</h3>
           <div class="kv"><span>Accuracy bonus</span><b>+${d.accuracy.toFixed(0)}</b><span>Evasion</span><b>${d.evasion.toFixed(0)}</b>
           <span>Critical chance</span><b>${d.critChance.toFixed(0)}%</b><span>Resistances</span><b>${resist || '—'}</b></div>
-          <h3>Skills</h3><div class="list">${spells}</div>
+          <h3>Abilities</h3><div class="list">${spells}</div>
         </div>
       </div>`;
   }
 
   private inn(p: Player, btn: BtnFn) {
-    return `<div class="inn"><p>The Sleepy Griffin welcomes you. A hot meal and a warm bed restore all HP and MP.</p>
-      ${btn({ type: 'rest' }, `Rest for ◉ ${restCost(p)}`, 'primary', 'You are already fully rested')}</div>`;
+    return `<div class="inn"><p>The ship's doctor looks you over. A regen bed restores all HP and energy.</p>
+      ${btn({ type: 'rest' }, `Treatment ◈ ${restCost(p)}`, 'primary', 'You are already at full health')}</div>`;
   }
 
   private questPanel(s: GameState, btn: BtnFn) {
@@ -290,8 +293,8 @@ export class UI {
     return `
       <h2>${area.name}</h2>
       <div class="pips">${pips}</div>
-      <p class="muted">${bossNext ? 'You sense something big ahead…' : `Encounter ${q.cleared + 1} of ${area.encounters}, then the boss.`} Earned so far: ${q.earnedXp} XP, ◉ ${q.earnedGold}.</p>
-      <div class="actions">${btn({ type: 'continue' }, bossNext ? 'Face the boss!' : 'Press on', 'primary big')}${btn({ type: 'retreat' }, 'Return to town', 'ghost')}</div>
+      <p class="muted">${bossNext ? 'Sensors show a massive life sign ahead…' : `Contact ${q.cleared + 1} of ${area.encounters}, then the priority target.`} Earned so far: ${q.earnedXp} XP, ◈ ${q.earnedGold}.</p>
+      <div class="actions">${btn({ type: 'continue' }, bossNext ? 'Engage priority target' : 'Advance', 'primary big')}${btn({ type: 'retreat' }, 'Beam up to ship', 'ghost')}</div>
       ${potions.length ? `<div class="actions small-actions">${potions.map((id) => btn({ type: 'useItem', itemId: id }, `${getItem(id).name} ×${countItem(s.player!, id)}`, 'small')).join('')}</div>` : ''}`;
   }
 
@@ -301,7 +304,7 @@ export class UI {
     switch (this.battleMenu) {
       case 'skills':
         return `<div class="actions grid">${knownSpells(p).map((sp, i) => btn({ type: 'cast', spellId: sp.id },
-          `<span class="key">${i + 1}</span>${sp.name} <span class="mp-cost">${sp.mp} MP</span>`, 'skill', sp.description)).join('')}${back}</div>`;
+          `<span class="key">${i + 1}</span>${sp.name} <span class="mp-cost">${sp.mp} EN</span>`, 'skill', sp.description)).join('')}${back}</div>`;
       case 'items': {
         const items = Object.keys(p.inventory).filter((id) => getItem(id).kind === 'consumable');
         return `<div class="actions grid">${items.map((id) => btn({ type: 'useItem', itemId: id }, `${getItem(id).name} ×${countItem(p, id)}`, '', getItem(id).description)).join('') || '<span class="muted">No items.</span>'}${back}</div>`;
@@ -313,25 +316,25 @@ export class UI {
       default:
         return `<div class="actions battle-main">
           ${btn({ type: 'attack' }, '<span class="key">A</span>Attack', 'primary big')}
-          <button class="btn big" data-ui="menu:skills" ${this.game.busy ? 'disabled' : ''}>Skills ▸</button>
+          <button class="btn big" data-ui="menu:skills" ${this.game.busy ? 'disabled' : ''}>Abilities ▸</button>
           <button class="btn" data-ui="menu:items" ${this.game.busy ? 'disabled' : ''}>Items ▸</button>
           <button class="btn" data-ui="menu:gear" ${this.game.busy ? 'disabled' : ''}>Swap weapon ▸</button>
-          ${btn({ type: 'flee' }, '<span class="key">F</span>Flee', 'ghost')}
+          ${btn({ type: 'flee' }, '<span class="key">F</span>Beam out', 'ghost')}
         </div>`;
     }
   }
 
   private defeatedPanel(btn: BtnFn) {
-    return `<h2>You have fallen…</h2><p class="muted">The townsfolk drag you back to Brightwater. You lost some gold along the way.</p>
-      <div class="actions">${btn({ type: 'returnToTown' }, 'Wake up in town', 'primary big')}</div>`;
+    return `<h2>Officer down</h2><p class="muted">An emergency transport pulled you out just in time. Some credits were lost in the chaos.</p>
+      <div class="actions">${btn({ type: 'returnToTown' }, 'Wake up in sickbay', 'primary big')}</div>`;
   }
 
   private victoryModal(s: GameState) {
     return `<div class="modal-backdrop"><div class="modal panel">
-      <h2>Brightwater is saved!</h2>
-      <p>The Hollow King is no more. ${esc(s.player!.name)} reached level ${s.player!.level} after ${s.stats.battlesWon} victories.</p>
-      <p class="muted">You can keep adventuring — every area can be replayed.</p>
-      <button class="btn primary" data-ui="close-modal">Keep playing</button></div></div>`;
+      <h2>The rift is sealed!</h2>
+      <p>The Hollow Admiral is gone and the Meridian is safe. ${esc(s.player!.name)} reached level ${s.player!.level} after ${s.stats.battlesWon} victories.</p>
+      <p class="muted">Your tour of duty continues — every mission can be replayed.</p>
+      <button class="btn primary" data-ui="close-modal">Continue tour</button></div></div>`;
   }
 }
 
@@ -351,7 +354,7 @@ function itemStats(item: ItemDef): string {
   }
   if (item.kind === 'armor') {
     const res = Object.entries(item.resist).map(([el, v]) => `${ELEMENT_ICONS[el as keyof typeof ELEMENT_ICONS]}${v}%`).join(' ');
-    return `<span class="muted">🛡${item.block}${item.hp ? ` +${item.hp}HP` : ''}${item.mp ? ` +${item.mp}MP` : ''}${res ? ` ${res}` : ''}</span>`;
+    return `<span class="muted">🛡${item.block}${item.hp ? ` +${item.hp}HP` : ''}${item.mp ? ` +${item.mp}EN` : ''}${res ? ` ${res}` : ''}</span>`;
   }
   return '';
 }

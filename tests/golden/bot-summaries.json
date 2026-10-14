@@ -1,96 +1,96 @@
 [
   {
-    "classId": "warrior",
+    "classId": "security",
     "seed": 1,
     "steps": 351,
     "completed": true,
     "level": 13,
     "gold": 2863,
     "cleared": [
-      "greenwood",
-      "ashen_caves",
-      "frostpeak",
-      "shadow_keep"
+      "veridia",
+      "kethra",
+      "glacies",
+      "void_rift"
     ],
     "battlesWon": 39,
     "battlesLost": 1
   },
   {
-    "classId": "warrior",
+    "classId": "security",
     "seed": 2,
     "steps": 488,
     "completed": true,
     "level": 13,
     "gold": 2774,
     "cleared": [
-      "greenwood",
-      "ashen_caves",
-      "frostpeak",
-      "shadow_keep"
+      "veridia",
+      "kethra",
+      "glacies",
+      "void_rift"
     ],
     "battlesWon": 47,
     "battlesLost": 5
   },
   {
-    "classId": "mage",
+    "classId": "science",
     "seed": 1,
     "steps": 361,
     "completed": true,
     "level": 13,
     "gold": 2286,
     "cleared": [
-      "greenwood",
-      "ashen_caves",
-      "frostpeak",
-      "shadow_keep"
+      "veridia",
+      "kethra",
+      "glacies",
+      "void_rift"
     ],
     "battlesWon": 39,
     "battlesLost": 1
   },
   {
-    "classId": "mage",
+    "classId": "science",
     "seed": 2,
     "steps": 368,
     "completed": true,
     "level": 13,
     "gold": 2083,
     "cleared": [
-      "greenwood",
-      "ashen_caves",
-      "frostpeak",
-      "shadow_keep"
+      "veridia",
+      "kethra",
+      "glacies",
+      "void_rift"
     ],
     "battlesWon": 39,
     "battlesLost": 1
   },
   {
-    "classId": "rogue",
+    "classId": "engineer",
     "seed": 1,
     "steps": 308,
     "completed": true,
     "level": 14,
     "gold": 2520,
     "cleared": [
-      "greenwood",
-      "ashen_caves",
-      "frostpeak",
-      "shadow_keep"
+      "veridia",
+      "kethra",
+      "glacies",
+      "void_rift"
     ],
     "battlesWon": 40,
     "battlesLost": 0
   },
   {
-    "classId": "rogue",
+    "classId": "engineer",
     "seed": 2,
     "steps": 419,
     "completed": true,
     "level": 13,
     "gold": 2159,
     "cleared": [
-      "greenwood",
-      "ashen_caves",
-      "frostpeak",
-      "shadow_keep"
+      "veridia",
+      "kethra",
+      "glacies",
+      "void_rift"
     ],
     "battlesWon": 42,
     "battlesLost": 2

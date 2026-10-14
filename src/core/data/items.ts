@@ -1,45 +1,45 @@
 import type { ArmorDef, ConsumableDef, ItemDef, WeaponDef } from '../types';
 
 const weapons: WeaponDef[] = [
-  // Starter weapons (not sold in the shop, price 0).
-  { kind: 'weapon', id: 'training_sword', name: 'Training Sword', element: 'physical', damage: [4, 7], bonus: 0, crit: 0, level: 1, price: 0, description: 'Dull, but honest.' },
-  { kind: 'weapon', id: 'apprentice_staff', name: 'Apprentice Staff', element: 'physical', damage: [3, 6], bonus: 0, crit: 0, level: 1, price: 0, description: 'Mostly used for leaning on.' },
-  { kind: 'weapon', id: 'rusty_dagger', name: 'Rusty Dagger', element: 'physical', damage: [3, 6], bonus: 2, crit: 3, level: 1, price: 0, description: 'Tetanus counts as a status effect, right?' },
-  // Shop weapons.
-  { kind: 'weapon', id: 'iron_sword', name: 'Iron Sword', element: 'physical', damage: [6, 10], bonus: 2, crit: 0, level: 2, price: 60, description: 'A dependable upgrade.' },
-  { kind: 'weapon', id: 'flame_blade', name: 'Flame Blade', element: 'fire', damage: [8, 13], bonus: 2, crit: 0, level: 3, price: 160, description: 'Sets things on fire. Including, occasionally, things.', proc: { chance: 15, status: 'burn', turns: 3, power: 3 } },
-  { kind: 'weapon', id: 'frost_edge', name: 'Frost Edge', element: 'ice', damage: [8, 13], bonus: 2, crit: 0, level: 3, price: 160, description: 'Cold to the touch; colder to the target.', proc: { chance: 20, status: 'chill', turns: 2, power: 15 } },
-  { kind: 'weapon', id: 'venom_fang', name: 'Venom Fang', element: 'poison', damage: [10, 15], bonus: 3, crit: 5, level: 5, price: 300, description: 'Drips with something green.', proc: { chance: 30, status: 'poison', turns: 3, power: 5 } },
-  { kind: 'weapon', id: 'storm_spear', name: 'Storm Spear', element: 'energy', damage: [11, 17], bonus: 4, crit: 0, level: 6, price: 380, description: 'Crackles before every thrust.', proc: { chance: 8, status: 'stun', turns: 1, power: 0 } },
-  { kind: 'weapon', id: 'sunsteel_mace', name: 'Sunsteel Mace', element: 'light', damage: [12, 18], bonus: 3, crit: 0, level: 7, price: 480, description: 'Undead find it deeply rude.' },
-  { kind: 'weapon', id: 'dragonfang', name: 'Dragonfang', element: 'fire', damage: [17, 25], bonus: 4, crit: 3, level: 10, price: 900, description: 'Carved from a fang that was still warm.', proc: { chance: 20, status: 'burn', turns: 3, power: 7 } },
-  { kind: 'weapon', id: 'glacier_greatsword', name: 'Glacier Greatsword', element: 'ice', damage: [17, 25], bonus: 4, crit: 0, level: 10, price: 900, description: 'Heavy enough to stop rivers.', proc: { chance: 20, status: 'chill', turns: 2, power: 20 } },
-  { kind: 'weapon', id: 'dawnbringer', name: 'Dawnbringer', element: 'light', damage: [22, 32], bonus: 6, crit: 3, level: 13, price: 1500, description: 'The sun, folded a thousand times.' },
-  { kind: 'weapon', id: 'voidreaver', name: 'Voidreaver', element: 'darkness', damage: [22, 32], bonus: 5, crit: 8, level: 14, price: 1600, description: 'Hums a song only it can hear.' },
+  // Starter kit (not sold by the quartermaster, price 0).
+  { kind: 'weapon', id: 'sidearm_mk1', name: 'Mk I Sidearm', style: 'ranged', element: 'kinetic', damage: [4, 7], bonus: 0, crit: 0, level: 1, price: 0, description: 'Standard issue. Reliable, unremarkable.' },
+  { kind: 'weapon', id: 'sonic_emitter', name: 'Sonic Emitter', style: 'ranged', element: 'kinetic', damage: [3, 6], bonus: 0, crit: 0, level: 1, price: 0, description: 'A lab tool, technically. Hums at hostile frequencies.' },
+  { kind: 'weapon', id: 'mag_wrench', name: 'Mag-Wrench', style: 'melee', element: 'kinetic', damage: [3, 6], bonus: 2, crit: 3, level: 1, price: 0, description: 'Fixes conduits. Unfixes faces.' },
+  // Quartermaster stock.
+  { kind: 'weapon', id: 'gauss_pistol', name: 'Gauss Pistol', style: 'ranged', element: 'kinetic', damage: [6, 10], bonus: 2, crit: 0, level: 2, price: 60, description: 'Magnetically accelerated slugs. A dependable upgrade.' },
+  { kind: 'weapon', id: 'plasma_pistol', name: 'Plasma Pistol', style: 'ranged', element: 'plasma', damage: [8, 13], bonus: 2, crit: 0, level: 3, price: 160, description: 'Fires superheated plasma that keeps burning.', proc: { chance: 15, status: 'burn', turns: 3, power: 3 } },
+  { kind: 'weapon', id: 'cryo_carbine', name: 'Cryo Carbine', style: 'ranged', element: 'cryo', damage: [8, 13], bonus: 2, crit: 0, level: 3, price: 160, description: 'Flash-freezes the target\'s outer layer.', proc: { chance: 20, status: 'chill', turns: 2, power: 15 } },
+  { kind: 'weapon', id: 'corrosive_needler', name: 'Corrosive Needler', style: 'ranged', element: 'corrosive', damage: [10, 15], bonus: 3, crit: 5, level: 5, price: 300, description: 'Needles laced with armor-eating nanites.', proc: { chance: 30, status: 'corrode', turns: 3, power: 5 } },
+  { kind: 'weapon', id: 'ion_lance', name: 'Ion Lance', style: 'melee', element: 'ion', damage: [11, 17], bonus: 4, crit: 0, level: 6, price: 380, description: 'A charged polearm that scrambles nervous systems.', proc: { chance: 8, status: 'stun', turns: 1, power: 0 } },
+  { kind: 'weapon', id: 'photon_rifle', name: 'Photon Rifle', style: 'ranged', element: 'photon', damage: [12, 18], bonus: 3, crit: 0, level: 7, price: 480, description: 'Coherent light. Void-touched things hate it.' },
+  { kind: 'weapon', id: 'plasma_cannon', name: 'Heavy Plasma Cannon', style: 'ranged', element: 'plasma', damage: [17, 25], bonus: 4, crit: 3, level: 10, price: 900, description: 'Shoulder-mounted. Do not fire indoors.', proc: { chance: 20, status: 'burn', turns: 3, power: 7 } },
+  { kind: 'weapon', id: 'stasis_projector', name: 'Stasis Projector', style: 'ranged', element: 'cryo', damage: [17, 25], bonus: 4, crit: 0, level: 10, price: 900, description: 'Drops local temperature to near absolute zero.', proc: { chance: 20, status: 'chill', turns: 2, power: 20 } },
+  { kind: 'weapon', id: 'nova_rifle', name: 'Nova Photon Rifle', style: 'ranged', element: 'photon', damage: [22, 32], bonus: 6, crit: 3, level: 13, price: 1500, description: 'A captured star in a rifle stock.' },
+  { kind: 'weapon', id: 'singularity_edge', name: 'Singularity Edge', style: 'melee', element: 'void', damage: [22, 32], bonus: 5, crit: 8, level: 14, price: 1600, description: 'A blade that cuts through the space it occupies.' },
 ];
 
 const armors: ArmorDef[] = [
-  { kind: 'armor', id: 'tunic', name: 'Traveler\'s Tunic', block: 0, resist: {}, hp: 0, mp: 0, level: 1, price: 0, description: 'Keeps the rain off. Mostly.' },
-  { kind: 'armor', id: 'leather_armor', name: 'Leather Armor', block: 4, resist: { physical: 5 }, hp: 10, mp: 0, level: 1, price: 60, description: 'Supple and sensible.' },
-  { kind: 'armor', id: 'chainmail', name: 'Chainmail', block: 7, resist: { physical: 10 }, hp: 25, mp: 0, level: 4, price: 220, description: 'Jingles reassuringly.' },
-  { kind: 'armor', id: 'emberweave_robe', name: 'Emberweave Robe', block: 5, resist: { fire: 30 }, hp: 20, mp: 25, level: 6, price: 360, description: 'Woven from salamander silk.' },
-  { kind: 'armor', id: 'frostguard_mail', name: 'Frostguard Mail', block: 9, resist: { physical: 10, ice: 35 }, hp: 45, mp: 0, level: 8, price: 600, description: 'Never quite warm, never quite frozen.' },
-  { kind: 'armor', id: 'radiant_plate', name: 'Radiant Plate', block: 12, resist: { physical: 15, darkness: 35 }, hp: 70, mp: 15, level: 12, price: 1200, description: 'Glows faintly in the dark. Very faintly.' },
+  { kind: 'armor', id: 'duty_uniform', name: 'Duty Uniform', block: 0, resist: {}, hp: 0, mp: 0, level: 1, price: 0, description: 'Smart, comfortable, not remotely armored.' },
+  { kind: 'armor', id: 'field_jacket', name: 'Padded Field Jacket', block: 4, resist: { kinetic: 5 }, hp: 10, mp: 0, level: 1, price: 60, description: 'Standard away-team outerwear.' },
+  { kind: 'armor', id: 'composite_vest', name: 'Composite Armor Vest', block: 7, resist: { kinetic: 10 }, hp: 25, mp: 0, level: 4, price: 220, description: 'Ceramic plates over a ballistic weave.' },
+  { kind: 'armor', id: 'thermal_envirosuit', name: 'Thermal Envirosuit', block: 5, resist: { plasma: 30 }, hp: 20, mp: 25, level: 6, price: 360, description: 'Rated for walking on lava. Briefly.' },
+  { kind: 'armor', id: 'arctic_hardsuit', name: 'Arctic Hardsuit', block: 9, resist: { kinetic: 10, cryo: 35 }, hp: 45, mp: 0, level: 8, price: 600, description: 'Heated plating and a very good seal.' },
+  { kind: 'armor', id: 'aegis_power_armor', name: 'Aegis Power Armor', block: 12, resist: { kinetic: 15, void: 35 }, hp: 70, mp: 15, level: 12, price: 1200, description: 'Powered plate with a void-dampening field.' },
 ];
 
 const consumables: ConsumableDef[] = [
-  { kind: 'consumable', id: 'health_potion', name: 'Health Potion', heal: 45, mana: 0, price: 25, description: 'Restores 45 HP.' },
-  { kind: 'consumable', id: 'mana_potion', name: 'Mana Potion', heal: 0, mana: 30, price: 30, description: 'Restores 30 MP.' },
-  { kind: 'consumable', id: 'greater_health_potion', name: 'Greater Health Potion', heal: 120, mana: 0, price: 75, description: 'Restores 120 HP.' },
-  { kind: 'consumable', id: 'antidote', name: 'Antidote', heal: 10, mana: 0, cures: ['poison', 'burn'], price: 15, description: 'Cures poison and burns.' },
-  { kind: 'consumable', id: 'elixir', name: 'Elixir', heal: 250, mana: 100, cures: ['poison', 'burn', 'chill'], price: 200, description: 'Restores nearly everything.' },
+  { kind: 'consumable', id: 'medkit', name: 'Medkit', heal: 45, mana: 0, price: 25, description: 'Restores 45 HP.' },
+  { kind: 'consumable', id: 'energy_cell', name: 'Energy Cell', heal: 0, mana: 30, price: 30, description: 'Restores 30 EN.' },
+  { kind: 'consumable', id: 'trauma_kit', name: 'Trauma Kit', heal: 120, mana: 0, price: 75, description: 'Restores 120 HP.' },
+  { kind: 'consumable', id: 'detox_injector', name: 'Detox Injector', heal: 10, mana: 0, cures: ['corrode', 'burn'], price: 15, description: 'Neutralises corrosion and burns.' },
+  { kind: 'consumable', id: 'nano_restorer', name: 'Nano-Restorer', heal: 250, mana: 100, cures: ['corrode', 'burn', 'chill'], price: 200, description: 'Medical nanites. Restores nearly everything.' },
 ];
 
 export const ITEMS: Record<string, ItemDef> = Object.fromEntries(
   [...weapons, ...armors, ...consumables].map((item) => [item.id, item]),
 );
 
-/** Items the town shop sells (starter gear is excluded). */
+/** Items the quartermaster sells (starter kit is excluded). */
 export const SHOP_STOCK: string[] = [...weapons, ...armors, ...consumables]
   .filter((item) => item.price > 0)
   .map((item) => item.id);

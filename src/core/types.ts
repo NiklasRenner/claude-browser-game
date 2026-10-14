@@ -1,6 +1,8 @@
 // ─── Shared game types. Everything here is plain, JSON-serializable data. ───
+// Internal field names (gold, mp, spells, area, monster) are mechanical; the
+// player-facing terms (credits, energy, abilities, mission, hostile) live in UI text.
 
-export const ELEMENTS = ['physical', 'fire', 'ice', 'energy', 'light', 'darkness', 'poison'] as const;
+export const ELEMENTS = ['kinetic', 'plasma', 'cryo', 'ion', 'photon', 'void', 'corrosive'] as const;
 export type Element = (typeof ELEMENTS)[number];
 
 export const STATS = ['str', 'dex', 'int', 'end', 'luk'] as const;
@@ -10,14 +12,14 @@ export type Stats = Record<Stat, number>;
 /** Damage taken in percent per element. 100 = normal, 50 = resist, 150 = weak. */
 export type Resistances = Partial<Record<Element, number>>;
 
-export type ClassId = 'warrior' | 'mage' | 'rogue';
+export type ClassId = 'security' | 'science' | 'engineer';
 
 /**
- * burn/poison: damage `power` at the start of each owner turn.
+ * burn/corrode: damage `power` at the start of each owner turn (plasma / corrosive).
  * stun: owner skips its turn. chill: owner's accuracy −`power`.
- * guard: owner takes `power`% less damage. evasive: owner's evasion +`power`.
+ * shield: owner takes `power`% less damage. evasive: owner's evasion +`power`.
  */
-export type StatusId = 'burn' | 'poison' | 'stun' | 'guard' | 'evasive' | 'chill';
+export type StatusId = 'burn' | 'corrode' | 'stun' | 'shield' | 'evasive' | 'chill';
 
 export interface StatusEffect {
   id: StatusId;
@@ -33,6 +35,8 @@ export interface WeaponDef {
   kind: 'weapon';
   id: string;
   name: string;
+  /** Purely visual: melee weapons lunge, ranged weapons fire a bolt. */
+  style: 'melee' | 'ranged';
   element: Element;
   damage: [number, number];
   /** Flat to-hit bonus. */
@@ -67,7 +71,7 @@ export interface ConsumableDef {
   name: string;
   heal: number;
   mana: number;
-  /** Status removed on use (e.g. antidote). */
+  /** Status removed on use (e.g. detox injector). */
   cures?: StatusId[];
   price: number;
   description: string;

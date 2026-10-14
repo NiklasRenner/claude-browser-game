@@ -1,4 +1,4 @@
-# Working on QuestForge
+# Working on Starward (repo: questforge)
 
 Read README.md for architecture. The short version:
 
@@ -14,3 +14,7 @@ Read README.md for architecture. The short version:
 4. `npm run test:e2e`: after UI or renderer changes. Look at the screenshots in `test-results/`.
 
 When adding a mechanic, add a unit test for its exact semantics and make sure the fuzz test's invariants still cover it.
+
+## Setting
+
+Original sci-fi setting inspired by Star Trek (exploration starship, away missions, divisions). Keep it original: no names, terms, logos or ship designs from Star Trek or other franchises (e.g. no "Starfleet", "phaser", "tricorder", delta insignia, LCARS-style UI).

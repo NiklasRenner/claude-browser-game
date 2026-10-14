@@ -121,9 +121,9 @@ export class GameController {
 }
 
 function classify(line: string): LogLine['kind'] {
-  if (/^(LEVEL UP|Victory|Quest complete|Learned|The Hollow King falls)/.test(line)) return 'good';
-  if (/found|Bought|Sold|Equipped/.test(line)) return 'loot';
-  if (/defeated|failed|⚠/.test(line)) return 'bad';
+  if (/^(LEVEL UP|Hostile neutralised|Mission complete|Learned|The Hollow Admiral falls)/.test(line)) return 'good';
+  if (/salvaged|Bought|Sold|Equipped/.test(line)) return 'loot';
+  if (/You're down|failed|⚠/.test(line)) return 'bad';
   return 'info';
 }
 

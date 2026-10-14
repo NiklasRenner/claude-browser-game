@@ -56,11 +56,11 @@ try {
   await page.screenshot({ path: `${OUT}/01-title.png` });
 
   await page.fill('#hero-name', 'Playwright');
-  await page.click('[data-ui="class:mage"]');
+  await page.click('[data-ui="class:science"]');
   await page.click('#start-game');
-  await page.waitForSelector('text=Brightwater');
+  await page.waitForSelector('text=Meridian');
   const s1 = await page.evaluate(() => window.__qf.state);
-  check(s1.mode === 'town' && s1.player.name === 'Playwright' && s1.player.classId === 'mage', 'new game created from title screen');
+  check(s1.mode === 'town' && s1.player.name === 'Playwright' && s1.player.classId === 'science', 'new game created from title screen');
   await page.waitForTimeout(400);
   await page.screenshot({ path: `${OUT}/02-town.png` });
 
@@ -78,16 +78,16 @@ try {
   check(squashed.length === 0, `town tab bar stays visible on every tab${squashed.length ? ` (broken on: ${squashed.join(', ')})` : ''}`);
 
   // Start a quest through the real button and fight with real clicks at normal animation speed.
-  await page.click('[data-action*="greenwood"]');
+  await page.click('[data-action*="veridia"]');
   await page.waitForSelector('.monster-card');
   await waitIdle(page);
   await page.click('[data-ui="menu:skills"]');
-  await page.click('[data-action*="firebolt"]');
+  await page.click('[data-action*="plasma_burst"]');
   await page.waitForTimeout(350);
   await page.screenshot({ path: `${OUT}/03-battle-mid-animation.png` });
   await waitIdle(page);
   check((await canvasVariety(page)) > 20, 'battle scene renders');
-  check(await page.locator('.log').innerText().then((t) => t.includes('Firebolt')), 'combat log shows the cast');
+  check(await page.locator('.log').innerText().then((t) => t.includes('Plasma Burst')), 'combat log shows the cast');
 
   // Speed up and let the bot play a long stretch through the real controller + renderer.
   await page.evaluate(() => window.__qf.speed(0));
@@ -116,6 +116,20 @@ try {
   await page.waitForTimeout(300);
   await page.screenshot({ path: `${OUT}/04-later-battle.png` });
 
+  // One screenshot per mission backdrop (state is injected via the debug hook; purely visual).
+  for (const areaId of ['veridia', 'kethra', 'glacies', 'void_rift']) {
+    await page.evaluate(async (areaId) => {
+      const qf = window.__qf;
+      while (qf.state.mode !== 'town') await qf.botStep();
+      return qf.dispatch({ type: 'startQuest', areaId });
+    }, areaId);
+    await waitIdle(page);
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: `${OUT}/area-${areaId}.png` });
+    await page.evaluate(() => window.__qf.dispatch({ type: 'flee' }));
+    await waitIdle(page);
+  }
+
   // Save / continue.
   const before = await page.evaluate(() => JSON.stringify(window.__qf.state));
   await page.reload();
@@ -130,7 +144,7 @@ try {
   await mobile.goto('http://127.0.0.1:4199/');
   await mobile.waitForSelector('[data-ui="continue"]').catch(() => {});
   await mobile.click('#start-game');
-  await mobile.click('[data-action*="greenwood"]');
+  await mobile.click('[data-action*="veridia"]');
   await mobile.waitForSelector('.monster-card');
   await waitIdle(mobile);
   await mobile.waitForTimeout(300);

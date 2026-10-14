@@ -3,10 +3,10 @@
  * the scene match a state, and `animate(events, ...)` plays a step's events.
  */
 import * as THREE from 'three';
-import { getArea, getMonster, getSpell, getWeapon } from '../core';
+import { getMonster, getSpell, getWeapon } from '../core';
 import type { GameEvent, GameState } from '../core';
 import { ELEMENT_COLORS, STATUS_ICONS } from '../game/elements';
-import { TOWN_PALETTE, buildEnvironment } from './environment';
+import { buildEnvironment } from './environment';
 import type { Environment } from './environment';
 import { Effects } from './fx';
 import { buildHero, buildMonster, disposeObject } from './models';
@@ -97,8 +97,8 @@ export class Stage {
   /** Makes the scene match `state` immediately (no animation). */
   sync(state: GameState) {
     const areaId = state.quest?.areaId;
-    const key = state.mode === 'title' ? 'title' : areaId && (state.mode === 'battle' || state.mode === 'quest') ? areaId : 'town';
-    this.setEnvironment(key === 'title' ? 'greenwood' : key);
+    const onMission = areaId && (state.mode === 'battle' || state.mode === 'quest');
+    this.setEnvironment(onMission ? areaId : 'ship');
 
     const p = state.player;
     if (p) {
@@ -148,20 +148,23 @@ export class Stage {
       this.scene.remove(this.env.group);
       disposeObject(this.env.group);
     }
-    const palette = key === 'town' ? TOWN_PALETTE : getArea(key).palette;
-    this.env = buildEnvironment(key, palette);
+    const env = buildEnvironment(key);
+    this.env = env;
     this.envKey = key;
-    this.scene.add(this.env.group);
-    (this.scene.fog as THREE.Fog).color.setHex(palette.fog);
-    this.scene.background = new THREE.Color(palette.sky);
-    const dark = key === 'ashen_caves' || key === 'shadow_keep';
-    this.hemi.color.setHex(dark ? 0xffb38a : 0xffffff);
-    this.hemi.groundColor.setHex(palette.ground);
-    this.hemi.intensity = dark ? 1.5 : 1.4;
-    this.sun.intensity = dark ? 1.6 : 2.2;
-    this.sun.color.setHex(key === 'shadow_keep' ? 0xc8a8ff : key === 'ashen_caves' ? 0xff9a5a : 0xffffff);
-    this.rim.intensity = dark ? 3 : 1.2;
-    this.rim.color.setHex(key === 'ashen_caves' ? 0xff7a3a : key === 'shadow_keep' ? 0xd0a8ff : 0xb8c8ff);
+    this.scene.add(env.group);
+    const fog = this.scene.fog as THREE.Fog;
+    fog.color.setHex(env.fog);
+    fog.near = env.fogNear;
+    fog.far = env.fogFar;
+    this.scene.background = new THREE.Color(env.sky);
+    const l = env.lighting;
+    this.hemi.color.setHex(l.hemiSky);
+    this.hemi.groundColor.setHex(l.hemiGround);
+    this.hemi.intensity = l.hemi;
+    this.sun.color.setHex(l.sunColor);
+    this.sun.intensity = l.sun;
+    this.rim.color.setHex(l.rimColor);
+    this.rim.intensity = l.rim;
   }
 
   private removeFigure(f: Figure) {
@@ -221,6 +224,21 @@ export class Stage {
     });
   }
 
+  /**
+   * How an attack looks: abilities that aren't weapon-based fly as an orb, ranged weapons fire a bolt,
+   * monsters' elemental attacks are projectiles, everything else is a melee lunge.
+   */
+  private attackStyle(actor: 'player' | 'monster', element: string, spellId: string | null, state: GameState): 'orb' | 'bolt' | 'melee' {
+    if (actor === 'monster') return element === 'kinetic' ? 'melee' : 'orb';
+    const spell = spellId ? getSpell(spellId) : null;
+    if (spell && !spell.effects.some((x) => x.type === 'damage' && x.useWeapon)) return 'orb';
+    return state.player && getWeapon(state.player.weapon).style === 'ranged' ? 'bolt' : 'melee';
+  }
+
+  private async recoil(f: Figure, dir: number) {
+    await this.tweens.run(0.18, (t) => { f.body.position.x = -Math.sin(t * Math.PI) * 0.12 * dir / f.body.scale.x; });
+  }
+
   private async knockback(f: Figure, dir: number) {
     await this.tweens.run(0.2, (t) => { f.body.position.x = Math.sin(t * Math.PI) * 0.35 * dir / f.body.scale.x; });
   }
@@ -236,7 +254,7 @@ export class Stage {
         await this.tweens.run(0.5, (t) => m.root.scale.copy(target).multiplyScalar(Math.max(0.01, t)), easeOutBack);
         if (e.boss) {
           this.shake = 1;
-          this.fx.popText(this.head(m), 'BOSS', 'pop-boss');
+          this.fx.popText(this.head(m), '⚠ WARNING', 'pop-boss');
         }
         return;
       }
@@ -246,10 +264,13 @@ export class Stage {
         if (!attacker || !target) return;
         const dir = e.actor === 'player' ? 1 : -1;
         const color = ELEMENT_COLORS[e.element];
-        const spell = pendingSpell ? getSpell(pendingSpell) : null;
-        const ranged = spell && !spell.effects.some((x) => x.type === 'damage' && x.useWeapon);
-        if (ranged) {
-          await this.fx.projectile(this.center(attacker).add(new THREE.Vector3(0.5 * dir, 0.3, 0)), this.center(target), color);
+        const style = this.attackStyle(e.actor, e.element, pendingSpell, after);
+        const from = this.center(attacker).add(new THREE.Vector3(0.6 * dir, 0.25, 0.3 * (e.actor === 'player' ? 1 : 0)));
+        if (style === 'orb') {
+          await this.fx.projectile(from, this.center(target), color);
+        } else if (style === 'bolt') {
+          void this.recoil(attacker, dir);
+          await this.fx.bolt(from, this.center(target), color);
         } else {
           await this.lunge(attacker, dir, e.actor === 'monster' ? 1.6 : 1.3);
         }
@@ -263,7 +284,7 @@ export class Stage {
         } else {
           this.fx.popText(this.head(target), 'MISS', 'pop-miss');
         }
-        if (!ranged) await this.recover(attacker);
+        if (style === 'melee') await this.recover(attacker);
         await this.tweens.wait(0.12);
         return;
       }
@@ -274,7 +295,7 @@ export class Stage {
         const dmg = spell.effects.find((x) => x.type === 'damage');
         const element = dmg?.type === 'damage'
           ? (dmg.element === 'weapon' ? getWeapon(after.player!.weapon).element : dmg.element)
-          : 'light';
+          : 'photon';
         this.fx.popText(this.head(f, 0.6), spell.name, 'pop-spell');
         await this.fx.ring(f.root.position, ELEMENT_COLORS[element]);
         return;
@@ -299,7 +320,7 @@ export class Stage {
         const f = this.figureFor(e.target);
         if (!f) return;
         this.flash(f, STATUS_COLORS[e.status]);
-        this.fx.popText(this.head(f), `${e.damage}`, `pop-tick el-${e.status === 'burn' ? 'fire' : 'poison'}`);
+        this.fx.popText(this.head(f), `${e.damage}`, `pop-tick el-${e.status === 'burn' ? 'plasma' : 'corrosive'}`);
         await this.tweens.wait(0.3);
         return;
       }

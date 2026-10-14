@@ -76,59 +76,124 @@ class Builder {
 
 // ─── Hero ──────────────────────────────────────────────────────────────────
 
+type WeaponShape = 'pistol' | 'rifle' | 'cannon' | 'emitter' | 'wrench' | 'lance' | 'blade';
+const WEAPON_SHAPES: Record<string, WeaponShape> = {
+  sonic_emitter: 'emitter', mag_wrench: 'wrench', ion_lance: 'lance', singularity_edge: 'blade',
+  plasma_cannon: 'cannon', cryo_carbine: 'rifle', photon_rifle: 'rifle', stasis_projector: 'rifle', nova_rifle: 'rifle',
+};
+
+/** Builds the held weapon inside the arm group. The arm's local −Y axis points out of the hand. */
+function buildWeapon(b: Builder, arm: THREE.Group, weaponId: string) {
+  const weapon = getWeapon(weaponId);
+  const shape = WEAPON_SHAPES[weaponId] ?? (weapon.style === 'ranged' ? 'pistol' : 'wrench');
+  const color = ELEMENT_COLORS[weapon.element];
+  const body = material(0x2a2f38, { metalness: 0.6, roughness: 0.4 });
+  const trim = material(0x9aa6b8, { metalness: 0.7, roughness: 0.3 });
+  const tip = glow(color, weapon.element === 'kinetic' ? 0.6 : 1.8);
+  const hand = -0.64;
+  switch (shape) {
+    case 'pistol':
+      b.box(0.1, 0.42, 0.1, body, 0, hand - 0.16, 0, arm); // barrel
+      b.box(0.12, 0.14, 0.09, body, -0.1, hand + 0.02, 0, arm); // grip
+      b.box(0.11, 0.06, 0.11, tip, 0, hand - 0.38, 0, arm);
+      break;
+    case 'rifle':
+      b.box(0.12, 0.85, 0.12, body, 0, hand - 0.28, 0, arm);
+      b.box(0.08, 0.3, 0.14, trim, 0.09, hand - 0.2, 0, arm); // energy cell
+      b.box(0.14, 0.3, 0.1, body, 0, hand + 0.2, 0, arm); // stock
+      b.box(0.13, 0.08, 0.13, tip, 0, hand - 0.72, 0, arm);
+      break;
+    case 'cannon':
+      b.cylinder(0.12, 0.15, 0.9, body, 0, hand - 0.3, 0, arm);
+      b.cylinder(0.16, 0.16, 0.18, trim, 0, hand - 0.05, 0, arm);
+      b.cylinder(0.1, 0.1, 0.06, tip, 0, hand - 0.77, 0, arm);
+      break;
+    case 'emitter': {
+      b.cylinder(0.05, 0.05, 0.5, trim, 0, hand - 0.18, 0, arm);
+      const dish = b.cone(0.16, 0.14, tip, 0, hand - 0.46, 0, 10, arm);
+      dish.rotation.x = Math.PI;
+      break;
+    }
+    case 'wrench':
+      b.box(0.06, 0.6, 0.06, trim, 0.04, hand - 0.22, 0, arm);
+      b.box(0.2, 0.1, 0.08, trim, 0.04, hand - 0.52, 0, arm);
+      b.box(0.06, 0.12, 0.08, tip, 0.12, hand - 0.6, 0, arm);
+      break;
+    case 'lance':
+      b.cylinder(0.035, 0.035, 1.9, body, 0.05, hand - 0.2, 0, arm);
+      b.cone(0.08, 0.32, tip, 0.05, hand - 1.3, 0, 4, arm).rotation.x = Math.PI;
+      break;
+    case 'blade':
+      b.box(0.06, 0.18, 0.06, body, 0, hand - 0.02, 0, arm);
+      b.box(0.04, 0.95, 0.12, tip, 0, hand - 0.6, 0, arm);
+      break;
+  }
+  return weapon.style === 'ranged';
+}
+
 export function buildHero(classId: ClassId, weaponId: string, armorId: string): Figure {
   const b = new Builder();
   const cls = CLASSES[classId];
-  const weapon = getWeapon(weaponId);
   const armor = getArmor(armorId);
-  const armorTint = new THREE.Color(cls.color).lerp(new THREE.Color(0x9aa3b5), Math.min(0.6, armor.block / 20));
-  const outfit = material(armorTint.getHex(), { metalness: armor.block > 6 ? 0.5 : 0.1 });
-  const dark = material(0x2b2f3a);
+  const division = material(cls.color);
+  const dark = material(0x1c2028);
   const skin = material(SKIN);
-  const weaponColor = ELEMENT_COLORS[weapon.element];
+  const plate = material(new THREE.Color(0x8a94a6).lerp(new THREE.Color(cls.color), 0.25).getHex(), { metalness: 0.6, roughness: 0.35 });
 
-  // Legs & torso.
+  // Legs, boots, torso. Division colour on the upper body, dark trousers and yoke.
   b.box(0.22, 0.7, 0.24, dark, 0, 0.35, 0.15);
   b.box(0.22, 0.7, 0.24, dark, 0, 0.35, -0.15);
-  b.box(0.42, 0.72, 0.62, outfit, 0, 1.06, 0);
-  b.box(0.44, 0.1, 0.64, material(0x6b4a2b), 0, 0.76, 0);
-  // Head.
+  b.box(0.26, 0.12, 0.28, material(0x0e1014), 0.02, 0.06, 0.15);
+  b.box(0.26, 0.12, 0.28, material(0x0e1014), 0.02, 0.06, -0.15);
+  b.box(0.42, 0.72, 0.62, division, 0, 1.06, 0);
+  b.box(0.44, 0.2, 0.64, dark, 0, 1.36, 0); // shoulder yoke
+  b.box(0.44, 0.08, 0.64, dark, 0, 0.74, 0); // belt
+  b.cone(0.06, 0.14, glow(0xd8e2f0, 0.6), 0.22, 1.2, 0.16, 3).rotation.z = -Math.PI / 2; // insignia
+  // Head and hair.
   b.sphere(0.25, skin, 0, 1.66, 0);
-  b.sphere(0.035, material(0x1b1b1b), 0.22, 1.7, 0.09, 0);
-  b.sphere(0.035, material(0x1b1b1b), 0.22, 1.7, -0.09, 0);
+  b.sphere(0.26, material(0x2a1e16), -0.06, 1.74, 0, 1).scale.set(0.9, 0.7, 1);
+  b.sphere(0.035, material(0x1b1b1b), 0.22, 1.68, 0.09, 0);
+  b.sphere(0.035, material(0x1b1b1b), 0.22, 1.68, -0.09, 0);
+
+  // Armor tiers add plating and eventually a helmet.
+  if (armor.block >= 7) {
+    b.box(0.46, 0.5, 0.66, plate, 0.01, 1.12, 0);
+    b.box(0.3, 0.14, 0.24, plate, 0, 1.44, 0.38);
+    b.box(0.3, 0.14, 0.24, plate, 0, 1.44, -0.38);
+  } else if (armor.block >= 4) {
+    b.box(0.44, 0.45, 0.64, material(0x4a4f5a), 0.005, 1.12, 0);
+  }
+  if (armor.block >= 9) {
+    b.sphere(0.3, plate, -0.02, 1.7, 0, 1);
+    b.box(0.08, 0.12, 0.4, glow(0x5fe8ff, 1.4), 0.26, 1.68, 0);
+  }
+
+  // Class gear.
+  if (classId === 'security') {
+    b.box(0.08, 0.3, 0.5, dark, -0.24, 1.08, 0); // back holster plate
+  } else if (classId === 'science') {
+    b.box(0.04, 0.1, 0.12, glow(0x5fe8ff, 2), 0.25, 1.7, 0.11); // headset eyepiece
+    b.box(0.2, 0.04, 0.04, material(0x9aa6b8), 0.12, 1.75, 0.2);
+    b.box(0.18, 0.3, 0.38, material(0x3a4454), -0.3, 1.1, 0); // sensor pack
+  } else {
+    b.cylinder(0.06, 0.06, 0.06, glow(0xffa53b, 0.8), 0.2, 1.84, 0.08).rotation.z = Math.PI / 2; // goggles
+    b.cylinder(0.06, 0.06, 0.06, glow(0xffa53b, 0.8), 0.2, 1.84, -0.08).rotation.z = Math.PI / 2;
+    for (const z of [-0.2, 0, 0.2]) b.box(0.12, 0.14, 0.12, material(0x5a4a3a), 0.2, 0.72, z); // tool pouches
+  }
+
   // Arms: the front (camera-side) arm holds the weapon.
-  b.box(0.18, 0.62, 0.18, outfit, 0.05, 1.08, -0.42);
+  b.box(0.18, 0.62, 0.18, division, 0.05, 1.08, -0.42);
   const arm = new THREE.Group();
   arm.position.set(0.05, 1.36, 0.42);
   b.group.add(arm);
-  b.box(0.18, 0.62, 0.18, outfit, 0, -0.28, 0, arm);
+  b.box(0.18, 0.62, 0.18, division, 0, -0.28, 0, arm);
   b.sphere(0.1, skin, 0.02, -0.62, 0, 0, arm);
-
-  if (classId === 'warrior') {
-    b.sphere(0.27, material(0x9aa3b5, { metalness: 0.7, roughness: 0.35 }), -0.02, 1.74, 0, 1).scale.set(1, 0.75, 1);
-    b.box(0.5, 0.14, 0.2, material(0x9aa3b5, { metalness: 0.7 }), 0, 1.4, 0.38); // pauldrons
-    b.box(0.5, 0.14, 0.2, material(0x9aa3b5, { metalness: 0.7 }), 0, 1.4, -0.38);
-    const blade = glow(weaponColor, weapon.element === 'physical' ? 0.15 : 0.9);
-    b.box(0.08, 1.0, 0.04, blade, 0.15, -0.95, 0.04, arm).rotation.z = -0.15;
-    b.box(0.08, 0.06, 0.32, material(0xc9a227, { metalness: 0.8 }), 0.06, -0.5, 0.04, arm);
-  } else if (classId === 'mage') {
-    b.cone(0.32, 0.7, outfit, -0.03, 2.05, 0, 7).rotation.z = 0.2;
-    b.cylinder(0.36, 0.36, 0.05, outfit, 0, 1.78, 0);
-    b.cylinder(0.04, 0.04, 1.7, material(0x7a5230), 0.05, -0.55, 0.04, arm);
-    b.sphere(0.13, glow(weaponColor, 1.8), 0.05, 0.34, 0.04, 1, arm);
-    b.cone(0.38, 0.6, outfit, 0, 0.35, 0, 8); // robe skirt
-  } else {
-    b.sphere(0.29, outfit, -0.05, 1.7, 0, 1).scale.set(1, 1, 0.95); // hood
-    b.sphere(0.25, skin, 0.06, 1.64, 0, 1);
-    b.box(0.3, 0.12, 0.5, material(0x2b2f3a), 0.05, 1.56, 0); // mask
-    const blade = glow(weaponColor, weapon.element === 'physical' ? 0.2 : 1);
-    b.box(0.06, 0.55, 0.03, blade, 0.12, -0.8, 0.04, arm).rotation.z = -0.35;
-    b.box(0.06, 0.45, 0.03, blade, 0.12, 0.7, -0.5).rotation.z = 0.6;
-  }
+  const ranged = buildWeapon(b, arm, weaponId);
+  const aim = ranged ? 1.35 : 0.15;
 
   return b.figure((body, t) => {
     body.position.y = Math.sin(t * 2.2) * 0.03;
-    arm.rotation.z = Math.sin(t * 2.2) * 0.06 + 0.15;
+    arm.rotation.z = aim + Math.sin(t * 2.2) * (ranged ? 0.03 : 0.06);
   });
 }
 

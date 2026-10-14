@@ -75,8 +75,8 @@ function tickDots(
 ): number {
   let total = 0;
   for (const s of statuses) {
-    if (s.id !== 'burn' && s.id !== 'poison') continue;
-    const element: Element = s.id === 'burn' ? 'fire' : 'poison';
+    if (s.id !== 'burn' && s.id !== 'corrode') continue;
+    const element: Element = s.id === 'burn' ? 'plasma' : 'corrosive';
     const dmg = Math.round((s.power * damageTaken(element)) / 100);
     total += dmg;
     events.push({ type: 'statusTick', target, status: s.id, damage: dmg });
@@ -202,7 +202,7 @@ export function playerCast(ctx: Ctx, spellId: string): void {
     } else {
       if (effect.target === 'enemy' && (!landed || battle.monster.hp <= 0)) continue;
       if (effect.chance !== undefined && !rng.chance(effect.chance)) continue;
-      const scaled = effect.status === 'burn' || effect.status === 'poison'
+      const scaled = effect.status === 'burn' || effect.status === 'corrode'
         ? Math.round(effect.power * statMultiplier(player.stats[spellScaling(spellId)]))
         : effect.power;
       const list = effect.target === 'self' ? battle.playerStatuses : battle.monster.statuses;
@@ -256,7 +256,7 @@ function monsterAct(ctx: Ctx): void {
   }
   const crit = rng.chance(monsterCrit(monster));
   const raw = rng.int(...attack.damage) * (crit ? MONSTER_CRIT_MULT : 1);
-  const dmg = mitigate(raw, d.damageTaken[attack.element], statusPower(battle.playerStatuses, 'guard'));
+  const dmg = mitigate(raw, d.damageTaken[attack.element], statusPower(battle.playerStatuses, 'shield'));
   player.hp = Math.max(0, player.hp - dmg);
   events.push({ type: 'attack', actor: 'monster', name: attack.name, element: attack.element, hit: true, crit, damage: dmg });
   if (attack.effect && player.hp > 0 && rng.chance(attack.effect.chance)) {

@@ -17,7 +17,7 @@ import { Rng } from './rng';
 import { STATS } from './types';
 import type { Action, ClassId, GameEvent, GameState, Player, StepResult } from './types';
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 export const DEFEAT_GOLD_PENALTY = 0.1;
 
 export function initialState(seed = 1): GameState {
@@ -67,15 +67,15 @@ export function checkAction(state: GameState, action: Action): string | null {
 
   switch (action.type) {
     case 'rest': {
-      if (mode !== 'town') return 'You can only rest in town';
+      if (mode !== 'town') return 'Sickbay is aboard the ship';
       const d = derive(player);
       return player.hp >= d.maxHp && player.mp >= d.maxMp ? 'Already fully rested' : null;
     }
     case 'buy': {
-      if (mode !== 'town') return 'The shop is in town';
-      if (!SHOP_STOCK.includes(action.itemId)) return 'Not sold here';
+      if (mode !== 'town') return 'The quartermaster is aboard the ship';
+      if (!SHOP_STOCK.includes(action.itemId)) return 'Not stocked here';
       const item = getItem(action.itemId);
-      if (player.gold < item.price) return 'Not enough gold';
+      if (player.gold < item.price) return 'Not enough credits';
       if (item.kind !== 'consumable') {
         if (player.level < item.level) return `Requires level ${item.level}`;
         if (countItem(player, item.id) > 0) return 'Already owned';
@@ -83,7 +83,7 @@ export function checkAction(state: GameState, action: Action): string | null {
       return null;
     }
     case 'sell': {
-      if (mode !== 'town') return 'The shop is in town';
+      if (mode !== 'town') return 'The quartermaster is aboard the ship';
       if (countItem(player, action.itemId) <= 0) return 'Not owned';
       if (isEquipped(player, action.itemId)) return 'Unequip it first';
       return sellPrice(action.itemId) > 0 ? null : 'Worthless';
@@ -98,22 +98,22 @@ export function checkAction(state: GameState, action: Action): string | null {
       return isEquipped(player, item.id) ? 'Already equipped' : null;
     }
     case 'allocateStat':
-      if (!outOfBattle) return 'Train outside of battle';
+      if (!outOfBattle) return 'Train aboard the ship or between fights';
       if (!STATS.includes(action.stat)) return 'Unknown stat';
       return player.statPoints > 0 ? null : 'No stat points';
     case 'startQuest':
-      if (mode !== 'town') return 'Quests start from town';
+      if (mode !== 'town') return 'Missions launch from the ship';
       if (!AREA_ORDER.includes(action.areaId)) return 'Unknown area';
       return isAreaUnlocked(state, action.areaId) ? null : 'Area is locked';
     case 'continue':
     case 'retreat':
-      return mode === 'quest' ? null : 'Not on a quest';
+      return mode === 'quest' ? null : 'Not on a mission';
     case 'attack':
       return inBattle ? null : 'Not in battle';
     case 'cast': {
       if (!inBattle) return 'Not in battle';
-      if (!knownSpells(player).some((s) => s.id === action.spellId)) return 'Unknown spell';
-      return player.mp >= getSpell(action.spellId).mp ? null : 'Not enough MP';
+      if (!knownSpells(player).some((s) => s.id === action.spellId)) return 'Unknown ability';
+      return player.mp >= getSpell(action.spellId).mp ? null : 'Not enough energy';
     }
     case 'useItem': {
       if (!outOfBattle && !inBattle) return 'Cannot use items now';
@@ -122,7 +122,7 @@ export function checkAction(state: GameState, action: Action): string | null {
     }
     case 'flee':
       if (!inBattle) return 'Not in battle';
-      return getMonster(state.battle!.monster.defId).boss ? 'You cannot flee from a boss!' : null;
+      return getMonster(state.battle!.monster.defId).boss ? 'Too much interference to beam out!' : null;
     case 'returnToTown':
       return mode === 'defeated' ? null : 'Nothing to return from';
   }
@@ -170,7 +170,7 @@ function apply(state: GameState, action: Action, rng: Rng, events: GameEvent[]):
     rng.state = seed >>> 0;
     state.player = createPlayer(action.name, action.classId);
     state.mode = 'town';
-    events.push({ type: 'message', text: `${state.player.name} the ${CLASSES[action.classId].name} arrives in Brightwater.` });
+    events.push({ type: 'message', text: `${state.player.name} the ${CLASSES[action.classId].name} reports for duty aboard the Meridian.` });
     return;
   }
   const player = state.player!;
@@ -226,7 +226,7 @@ function apply(state: GameState, action: Action, rng: Rng, events: GameEvent[]):
       startNextBattle(state, rng, events);
       return;
     case 'retreat':
-      events.push({ type: 'message', text: 'You head back to town.' });
+      events.push({ type: 'message', text: 'Beaming back to the Meridian.' });
       leaveQuest(state);
       return;
     case 'attack':

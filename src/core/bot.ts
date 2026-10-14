@@ -91,11 +91,11 @@ function townAction(state: GameState, p: Player): Action {
   if (bestArmor && bestArmor.id !== p.armor) return { type: 'equip', itemId: bestArmor.id };
 
   // 4. Stock up on potions.
-  const potion = p.level >= 8 ? 'greater_health_potion' : 'health_potion';
-  const potions = countItem(p, 'health_potion') + countItem(p, 'greater_health_potion');
+  const potion = p.level >= 8 ? 'trauma_kit' : 'medkit';
+  const potions = countItem(p, 'medkit') + countItem(p, 'trauma_kit');
   if (potions < 4 && ok(state, { type: 'buy', itemId: potion })) return { type: 'buy', itemId: potion };
-  if (p.classId === 'mage' && countItem(p, 'mana_potion') < 2 && ok(state, { type: 'buy', itemId: 'mana_potion' })) {
-    return { type: 'buy', itemId: 'mana_potion' };
+  if (p.classId === 'science' && countItem(p, 'energy_cell') < 2 && ok(state, { type: 'buy', itemId: 'energy_cell' })) {
+    return { type: 'buy', itemId: 'energy_cell' };
   }
 
   // 5. Rest, then head out.
@@ -108,11 +108,11 @@ function townAction(state: GameState, p: Player): Action {
 function bestHealthPotion(p: Player): string | null {
   const d = derive(p);
   const missing = d.maxHp - p.hp;
-  if (countItem(p, 'greater_health_potion') > 0 && (missing > 80 || countItem(p, 'health_potion') === 0)) {
-    return 'greater_health_potion';
+  if (countItem(p, 'trauma_kit') > 0 && (missing > 80 || countItem(p, 'medkit') === 0)) {
+    return 'trauma_kit';
   }
-  if (countItem(p, 'health_potion') > 0) return 'health_potion';
-  if (countItem(p, 'elixir') > 0) return 'elixir';
+  if (countItem(p, 'medkit') > 0) return 'medkit';
+  if (countItem(p, 'nano_restorer') > 0) return 'nano_restorer';
   return null;
 }
 
@@ -153,8 +153,8 @@ function battleAction(state: GameState, p: Player): Action {
 
   // Out of mana as a caster: drink.
   const cheapest = Math.min(...spells.map((s) => s.mp));
-  if (p.mp < cheapest && p.classId === 'mage' && countItem(p, 'mana_potion') > 0) {
-    return { type: 'useItem', itemId: 'mana_potion' };
+  if (p.mp < cheapest && p.classId === 'science' && countItem(p, 'energy_cell') > 0) {
+    return { type: 'useItem', itemId: 'energy_cell' };
   }
 
   // Otherwise pick the highest expected damage option.
@@ -176,7 +176,7 @@ function battleAction(state: GameState, p: Player): Action {
     for (const e of spell.effects) {
       if (e.type === 'damage') {
         score += averageEffectDamage(p, e) * (monsterDamageTaken(monster, resolveElement(p, e.element)) / 100) * (e.useWeapon ? hit : 1);
-      } else if (e.type === 'status' && e.target === 'enemy' && (e.status === 'poison' || e.status === 'burn')) {
+      } else if (e.type === 'status' && e.target === 'enemy' && (e.status === 'corrode' || e.status === 'burn')) {
         if (!battle.monster.statuses.some((s) => s.id === e.status)) score += e.power * e.turns * ((e.chance ?? 100) / 100);
       }
     }
@@ -189,7 +189,7 @@ function battleAction(state: GameState, p: Player): Action {
 }
 
 function hasBuff(statuses: StatusEffect[]) {
-  return statuses.some((s) => s.id === 'guard' || s.id === 'evasive');
+  return statuses.some((s) => s.id === 'shield' || s.id === 'evasive');
 }
 
 // ─── Whole-game runner ─────────────────────────────────────────────────────

@@ -19,7 +19,7 @@ describe('player progression', () => {
   });
 
   it('falls back to a default name', () => {
-    assert.equal(createPlayer('   ', 'mage').name, 'Hero');
+    assert.equal(createPlayer('   ', 'science').name, 'Hero');
   });
 
   it('requires strictly more XP for each level', () => {
@@ -27,7 +27,7 @@ describe('player progression', () => {
   });
 
   it('handles multiple level-ups from one XP grant and carries over the remainder', () => {
-    const p = createPlayer('A', 'warrior');
+    const p = createPlayer('A', 'security');
     const events: GameEvent[] = [];
     const need = xpToNext(1) + xpToNext(2) + 5;
     p.hp = 1;
@@ -40,14 +40,14 @@ describe('player progression', () => {
   });
 
   it('caps at MAX_LEVEL', () => {
-    const p = createPlayer('A', 'rogue');
+    const p = createPlayer('A', 'engineer');
     grantXp(p, 10_000_000, []);
     assert.equal(p.level, MAX_LEVEL);
     assert.equal(p.xp, 0);
   });
 
   it('raises current HP along with max HP when training endurance', () => {
-    const p = createPlayer('A', 'warrior');
+    const p = createPlayer('A', 'security');
     p.statPoints = 1;
     const before = derive(p).maxHp;
     allocateStat(p, 'end');
@@ -57,17 +57,17 @@ describe('player progression', () => {
   });
 
   it('unlocks spells by level', () => {
-    const p = createPlayer('A', 'mage');
+    const p = createPlayer('A', 'science');
     const at1 = knownSpells(p).length;
     p.level = 12;
     assert.ok(knownSpells(p).length > at1);
   });
 
   it('applies armor resistances to damage taken', () => {
-    const p = createPlayer('A', 'warrior');
-    assert.equal(derive(p).damageTaken.ice, 100);
-    p.inventory.frostguard_mail = 1;
-    p.armor = 'frostguard_mail';
-    assert.equal(derive(p).damageTaken.ice, 65);
+    const p = createPlayer('A', 'security');
+    assert.equal(derive(p).damageTaken.cryo, 100);
+    p.inventory.arctic_hardsuit = 1;
+    p.armor = 'arctic_hardsuit';
+    assert.equal(derive(p).damageTaken.cryo, 65);
   });
 });
