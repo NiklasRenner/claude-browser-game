@@ -204,3 +204,21 @@ h3 { font-size: 13px; margin-top: 10px; text-transform: uppercase; letter-spacin
   .pop { animation-duration: 0.01s !important; }
   .bar .fill { transition: none; }
 }
+
+/* ─── Ability / element chips ────────────────────────────────────────────── */
+.tags { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-left: 6px; vertical-align: middle; }
+.chip {
+  display: inline-flex; align-items: center; gap: 3px; padding: 0 6px; border-radius: 2px; font-size: 11px; line-height: 18px;
+  background: rgba(255, 255, 255, 0.06); border: 1px solid currentColor; white-space: nowrap; font-weight: 500;
+}
+.btn .chip { border-color: color-mix(in srgb, currentColor 55%, transparent); }
+.btn.primary .chip { background: rgba(4, 18, 28, 0.55); }
+.tag-heal { color: #7dff8a; }
+.tag-status { color: #c9d6e8; }
+.tag-burn { color: #ff8a55; } .tag-corrode { color: #9eec5a; } .tag-chill { color: #8ae0ff; }
+.tag-stun { color: #ffe36a; } .tag-shield { color: #8fd8ff; } .tag-evasive { color: #d8e2f0; }
+.eff { font-size: 10px; margin-left: 2px; }
+.eff-good { color: #7dff8a; } .eff-bad { color: #ff9a7a; } .eff-immune { color: #ff5a4a; }
+.actions.grid .btn.skill { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; text-align: left; white-space: normal; }
+.actions.grid .btn.skill .tags { margin-left: 0; flex-basis: 100%; }
+.actions.grid .btn.skill .mp-cost { margin-left: auto; }

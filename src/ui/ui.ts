@@ -5,9 +5,10 @@
  */
 import {
   AREA_ORDER, CLASSES, ELEMENTS, SHOP_STOCK, STATS, checkAction, countItem, derive, getArea, getClass,
-  getItem, getMonster, isAreaUnlocked, isEquipped, knownSpells, restCost, sellPrice, xpToNext,
+  getItem, getMonster, getWeapon, isAreaUnlocked, isEquipped, knownSpells, monsterDamageTaken, resolveElement, restCost,
+  sellPrice, xpToNext,
 } from '../core';
-import type { Action, ClassId, GameState, ItemDef, Player, Stat, StatusEffect } from '../core';
+import type { Action, ClassId, Element, GameState, ItemDef, MonsterDef, Player, SpellDef, Stat, StatusEffect } from '../core';
 import type { GameController } from '../game/controller';
 import { ELEMENT_ICONS, STATUS_ICONS } from '../game/elements';
 
@@ -274,7 +275,7 @@ export class UI {
     const stats = STATS.map((k) => `<div class="row"><div class="row-main"><strong>${STAT_NAMES[k]}</strong> <span class="stat-val">${p.stats[k]}</span>
       <div class="muted small">${STAT_HELP[k]}</div></div>${p.statPoints ? btn({ type: 'allocateStat', stat: k }, '+1') : ''}</div>`).join('');
     const resist = ELEMENTS.filter((el) => d.damageTaken[el] !== 100).map((el) => `${ELEMENT_ICONS[el]} ${100 - d.damageTaken[el]}%`).join(', ');
-    const spells = knownSpells(p).map((sp) => `<div class="row"><div class="row-main"><strong>${sp.name}</strong> <span class="mp-cost">${sp.mp} EN</span><div class="muted small">${sp.description}</div></div></div>`).join('');
+    const spells = knownSpells(p).map((sp) => `<div class="row"><div class="row-main"><strong>${sp.name}</strong> <span class="mp-cost">${sp.mp} EN</span>${abilityTags(p, sp, null)}<div class="muted small">${sp.description}</div></div></div>`).join('');
     return `
       <div class="two-col">
         <div><h3>Attributes ${p.statPoints ? `<span class="badge">${p.statPoints} to spend</span>` : ''}</h3><div class="list">${stats}</div></div>
@@ -308,11 +309,13 @@ export class UI {
 
   private battlePanel(s: GameState, btn: BtnFn) {
     const p = s.player!;
+    const foe = s.battle ? getMonster(s.battle.monster.defId) : null;
     const back = '<button class="btn ghost" data-ui="menu:main">◂ Back</button>';
     switch (this.battleMenu) {
       case 'skills':
         return `<div class="actions grid">${knownSpells(p).map((sp, i) => btn({ type: 'cast', spellId: sp.id },
-          `<span class="key">${i + 1}</span>${sp.name} <span class="mp-cost">${sp.mp} EN</span>`, 'skill', sp.description)).join('')}${back}</div>`;
+          `<span class="key">${i + 1}</span><span class="skill-name">${sp.name}</span> <span class="mp-cost">${sp.mp} EN</span>${abilityTags(p, sp, foe)}`,
+          'skill', sp.description)).join('')}${back}</div>`;
       case 'items': {
         const items = Object.keys(p.inventory).filter((id) => getItem(id).kind === 'consumable');
         return `<div class="actions grid">${items.map((id) => btn({ type: 'useItem', itemId: id }, `${getItem(id).name} ×${countItem(p, id)}`, '', getItem(id).description)).join('') || '<span class="muted">No items.</span>'}${back}</div>`;
@@ -323,7 +326,7 @@ export class UI {
       }
       default:
         return `<div class="actions battle-main">
-          ${btn({ type: 'attack' }, '<span class="key">A</span>Attack', 'primary big')}
+          ${btn({ type: 'attack' }, `<span class="key">A</span>Attack ${elementChip(getWeapon(p.weapon).element, foe, true)}`, 'primary big')}
           <button class="btn big" data-ui="menu:skills" ${this.game.busy ? 'disabled' : ''}>Abilities ▸</button>
           <button class="btn" data-ui="menu:items" ${this.game.busy ? 'disabled' : ''}>Items ▸</button>
           <button class="btn" data-ui="menu:gear" ${this.game.busy ? 'disabled' : ''}>Swap weapon ▸</button>
@@ -372,6 +375,45 @@ export function keyAction(s: GameState, key: string): Action | null {
     default:
       return null;
   }
+}
+
+// ─── Ability / element tags ─────────────────────────────────────────────────
+
+const STATUS_NAMES: Record<StatusEffect['id'], string> = {
+  burn: 'burn', corrode: 'corrode', stun: 'stun', shield: 'shield', evasive: 'evade', chill: 'chill',
+};
+
+/**
+ * Damage-type chip. With a foe, adds how well it works against them:
+ * ▲ vulnerable, ▼ resisted, ✕ immune.
+ */
+function elementChip(el: Element, foe: MonsterDef | null, iconOnly = false): string {
+  let eff = '';
+  let title = el;
+  if (foe) {
+    const pct = monsterDamageTaken(foe, el);
+    if (pct === 0) { eff = '<b class="eff eff-immune">✕</b>'; title += ` — ${foe.name} is immune`; }
+    else if (pct > 100) { eff = '<b class="eff eff-good">▲</b>'; title += ` — ${foe.name} is vulnerable (${pct}%)`; }
+    else if (pct < 100) { eff = '<b class="eff eff-bad">▼</b>'; title += ` — ${foe.name} resists (${pct}%)`; }
+  }
+  return `<span class="chip el el-${el}" title="${esc(title)}">${ELEMENT_ICONS[el]}${iconOnly ? '' : ` ${el}`}${eff}</span>`;
+}
+
+/** Chips for everything an ability does: damage types, heals and status effects. */
+function abilityTags(p: Player, spell: SpellDef, foe: MonsterDef | null): string {
+  const tags: string[] = [];
+  for (const e of spell.effects) {
+    if (e.type === 'damage') {
+      tags.push(elementChip(resolveElement(p, e.element), foe));
+    } else if (e.type === 'heal') {
+      tags.push('<span class="chip tag-heal" title="Restores HP">✚ heal</span>');
+    } else {
+      const who = e.target === 'self' ? 'You gain' : 'Inflicts';
+      const chance = e.chance !== undefined ? ` (${e.chance}%)` : '';
+      tags.push(`<span class="chip tag-status tag-${e.status}" title="${who} ${STATUS_NAMES[e.status]} for ${e.turns} turn(s)${chance}">${STATUS_ICONS[e.status]} ${STATUS_NAMES[e.status]}${chance}</span>`);
+    }
+  }
+  return `<span class="tags">${tags.join('')}</span>`;
 }
 
 type BtnFn = (action: Action, label: string, cls?: string, hint?: string) => string;

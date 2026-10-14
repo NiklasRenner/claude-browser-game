@@ -135,6 +135,23 @@ try {
   check(pressedWhileAnimating, 'Enter was pressed while the victory animation was still playing');
   check(nextFight, 'Enter between fights starts the next fight (key buffered during animation)');
 
+  // Ability menu: every damaging ability shows its damage type, with effectiveness against this foe.
+  await page.click('[data-ui="menu:skills"]');
+  const chips = await page.evaluate(() => {
+    const buttons = [...document.querySelectorAll('.btn.skill')];
+    return {
+      buttons: buttons.length,
+      withTag: buttons.filter((b) => b.querySelector('.chip')).length,
+      elementChips: document.querySelectorAll('.btn.skill .chip.el').length,
+      effectiveness: document.querySelectorAll('.btn.skill .eff').length,
+    };
+  });
+  check(chips.buttons > 0 && chips.withTag === chips.buttons, `every ability shows effect chips (${chips.withTag}/${chips.buttons})`);
+  check(chips.elementChips > 0 && chips.effectiveness > 0, `damage types shown with effectiveness markers (${chips.elementChips} types, ${chips.effectiveness} markers)`);
+  await page.waitForTimeout(200);
+  await page.screenshot({ path: `${OUT}/07-abilities.png` });
+  await page.click('[data-ui="menu:main"]');
+
   // Get into a battle for a screenshot with a monster on stage.
   for (let i = 0; i < 50 && (await page.evaluate(() => window.__qf.state.mode)) !== 'battle'; i++) {
     await page.evaluate(() => window.__qf.botStep());
