@@ -5,7 +5,7 @@
  */
 import {
   AREA_ORDER, CLASSES, ELEMENTS, SHOP_STOCK, STATS, checkAction, countItem, derive, getArea, getClass,
-  getItem, getMonster, getWeapon, isAreaUnlocked, isEquipped, knownSpells, monsterDamageTaken, resolveElement, restCost,
+  getItem, getMonster, getWeapon, hostileLabels, isAreaUnlocked, isEquipped, knownSpells, monsterDamageTaken, resolveElement, restCost,
   sellPrice, xpToNext,
 } from '../core';
 import type { Action, ClassId, Element, GameState, ItemDef, MonsterDef, Player, SpellDef, Stat, StatusEffect } from '../core';
@@ -40,14 +40,17 @@ export class UI {
   private titleClass: ClassId = 'security';
   private seenGameComplete = false;
   private lastLogId = 0;
-  /** One-slot input buffer: a key pressed while an animation plays runs as soon as it finishes. */
-  private bufferedKey: Action | null = null;
+  /**
+   * Keys pressed while an animation plays (max 3), run in order as soon as it finishes.
+   * Stored raw and resolved at run time, so e.g. Tab, Tab, 1 targets correctly.
+   */
+  private keyQueue: { key: string; shift: boolean }[] = [];
   private showVictoryModal = false;
 
   constructor(private root: HTMLElement, private game: GameController) {
     game.subscribe(() => {
       this.render();
-      if (!game.busy && this.bufferedKey) queueMicrotask(() => this.flushBufferedKey());
+      if (!game.busy && this.keyQueue.length) queueMicrotask(() => this.flushKeyQueue());
     });
     root.addEventListener('click', (e) => this.onClick(e));
     root.addEventListener('input', (e) => {
@@ -109,20 +112,26 @@ export class UI {
       e.preventDefault();
       return;
     }
-    const action = keyAction(this.game.state, k);
+    const action = keyAction(this.game.state, k, e.shiftKey);
     if (!action) return;
-    // Enter/Space would otherwise also "click" whatever button has focus.
+    // Enter/Space would otherwise also "click" whatever button has focus; Tab would move focus.
     e.preventDefault();
-    if (e.repeat) return; // holding a key must not fire a stream of actions
-    if (this.game.busy) this.bufferedKey = action;
-    else void this.run(action);
+    if (e.repeat && k !== 'tab') return; // holding a key must not fire a stream of actions
+    if (this.game.busy) {
+      if (this.keyQueue.length < 3) this.keyQueue.push({ key: k, shift: e.shiftKey });
+    } else {
+      void this.run(action);
+    }
   }
 
-  private flushBufferedKey() {
-    const action = this.bufferedKey;
-    this.bufferedKey = null;
-    // The game may have moved on (e.g. the fight ended); drop keys that no longer apply.
-    if (action && !this.game.busy && checkAction(this.game.state, action) === null) void this.run(action);
+  private flushKeyQueue() {
+    if (this.game.busy) return;
+    const next = this.keyQueue.shift();
+    if (!next) return;
+    // Resolve against the current state; drop keys that no longer apply (e.g. the fight ended).
+    const action = keyAction(this.game.state, next.key, next.shift);
+    if (action && checkAction(this.game.state, action) === null) void this.run(action);
+    else this.flushKeyQueue();
   }
 
   // ─── Rendering ───────────────────────────────────────────────────────────
@@ -172,15 +181,32 @@ export class UI {
 
   private monsterCard(s: GameState) {
     const b = s.battle!;
-    const def = getMonster(b.monster.defId);
+    const target = b.monsters[b.target]!;
+    const def = getMonster(target.defId);
+    const labels = hostileLabels(b.monsters.map((m) => m.defId));
     const weak = ELEMENTS.filter((el) => (def.resist[el] ?? 100) > 100);
     const strong = ELEMENTS.filter((el) => (def.resist[el] ?? 100) < 100);
     const chips = (els: typeof weak) => els.map((el) => `<span class="el el-${el}">${ELEMENT_ICONS[el]} ${el}</span>`).join(' ');
+    // With several hostiles: a clickable list (Tab / Shift+Tab or click a hostile in the scene also work).
+    const roster = b.monsters.length < 2 ? '' : `
+        <div class="roster" role="listbox" aria-label="Targets">
+          ${b.monsters.map((m, i) => {
+            const down = m.hp <= 0;
+            const current = i === b.target;
+            return `<button class="roster-item ${current ? 'current' : ''} ${down ? 'down' : ''}" role="option" aria-selected="${current}"
+              ${down || current || this.game.busy ? 'disabled' : ''} ${actionAttr({ type: 'target', index: i })} title="${esc(labels[i]!)}">
+              <span class="roster-name">${current ? '▸ ' : ''}${esc(labels[i]!)}</span>
+              <span class="roster-hp"><span style="width:${pct(m.hp, m.maxHp)}"></span></span>
+            </button>`;
+          }).join('')}
+          <div class="roster-hint muted">Tab to switch target</div>
+        </div>`;
     return `
       <div class="monster-card panel ${def.boss ? 'boss' : ''}">
-        <div class="hud-name"><strong>${esc(def.name)}</strong> <span class="muted">Lv ${def.level}${def.boss ? ' · PRIORITY TARGET' : ''}</span></div>
-        ${bar('hp enemy', b.monster.hp, b.monster.maxHp, 'HP')}
-        <div class="hud-row">${statusChips(b.monster.statuses)}</div>
+        ${roster}
+        <div class="hud-name"><strong>${esc(labels[b.target]!)}</strong> <span class="muted">Lv ${def.level}${def.boss ? ' · PRIORITY TARGET' : ''}</span></div>
+        ${bar('hp enemy', target.hp, target.maxHp, 'HP')}
+        <div class="hud-row">${statusChips(target.statuses)}</div>
         ${weak.length ? `<div class="res">Vulnerable: ${chips(weak)}</div>` : ''}
         ${strong.length ? `<div class="res">Resists: ${chips(strong)}</div>` : ''}
       </div>`;
@@ -208,7 +234,7 @@ export class UI {
         <label class="name-field">Officer name <input id="hero-name" maxlength="20" placeholder="Hero" autocomplete="off"></label>
         <div class="class-cards">${cards}</div>
         <button class="btn primary big" data-ui="start" id="start-game">Report for duty</button>
-        <p class="muted small">Combat: A attack · 1–9 abilities · F beam out. Between fights: Enter/Space advance · R return to ship.</p>
+        <p class="muted small">Combat: A attack · 1–9 abilities · Tab switch target · F beam out. Between fights: Enter/Space advance · R return to ship.</p>
       </div>`;
   }
 
@@ -263,7 +289,7 @@ export class UI {
       const actions: string[] = [];
       if (item.kind === 'consumable') actions.push(btn({ type: 'useItem', itemId: id }, 'Use'));
       else actions.push(isEquipped(p, id) ? '<span class="badge good">Equipped</span>' : btn({ type: 'equip', itemId: id }, 'Equip'));
-      if (item.price > 0) actions.push(btn({ type: 'sell', itemId: id }, `Sell ◈${sellPrice(id)}`, 'ghost'));
+      actions.push(btn({ type: 'sell', itemId: id }, `Sell ◈${sellPrice(id)}`, 'ghost'));
       return `<div class="row"><div class="row-main"><strong>${item.name}</strong>${n > 1 ? ` ×${n}` : ''} ${itemStats(item)}
         <div class="muted small">${item.description}</div></div><div class="row-actions">${actions.join('')}</div></div>`;
     }).join('');
@@ -309,7 +335,7 @@ export class UI {
 
   private battlePanel(s: GameState, btn: BtnFn) {
     const p = s.player!;
-    const foe = s.battle ? getMonster(s.battle.monster.defId) : null;
+    const foe = s.battle ? getMonster(s.battle.monsters[s.battle.target]!.defId) : null;
     const back = '<button class="btn ghost" data-ui="menu:main">◂ Back</button>';
     switch (this.battleMenu) {
       case 'skills':
@@ -353,11 +379,21 @@ export class UI {
  * Keyboard shortcuts. Returns the game action for a key in the current mode, or null.
  * Kept as a pure function of state so it can be unit-tested and reused (e.g. for a help overlay).
  */
-export function keyAction(s: GameState, key: string): Action | null {
+export function keyAction(s: GameState, key: string, shift = false): Action | null {
   const k = key.toLowerCase();
   const advance = k === 'enter' || k === ' ' || k === 'c';
   switch (s.mode) {
     case 'battle': {
+      if (k === 'tab') {
+        // Cycle through living hostiles (Shift+Tab goes backwards).
+        const b = s.battle!;
+        const n = b.monsters.length;
+        for (let step = 1; step < n; step++) {
+          const i = (b.target + (shift ? n - step : step)) % n;
+          if (b.monsters[i]!.hp > 0) return { type: 'target', index: i };
+        }
+        return null;
+      }
       if (k === 'a') return { type: 'attack' };
       if (k === 'f') return { type: 'flee' };
       if (/^[1-9]$/.test(k)) {
@@ -405,6 +441,7 @@ function abilityTags(p: Player, spell: SpellDef, foe: MonsterDef | null): string
   for (const e of spell.effects) {
     if (e.type === 'damage') {
       tags.push(elementChip(resolveElement(p, e.element), foe));
+      if (e.aoe) tags.push('<span class="chip tag-aoe" title="Hits every hostile">⇶ all</span>');
     } else if (e.type === 'heal') {
       tags.push('<span class="chip tag-heal" title="Restores HP">✚ heal</span>');
     } else {

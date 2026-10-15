@@ -29,8 +29,25 @@ const areas: AreaDef[] = [
     reward: { xp: 500, gold: 400 },
     palette: { sky: 0x0c0818, ground: 0x2a2436, fog: 0x1a1230 },
   },
+  {
+    id: 'xenith', name: 'Xenith Hive World', minLevel: 14, requires: 'void_rift',
+    description: 'The rift\'s collapse woke something on a nearby world. The hive fights in packs: pick your targets.',
+    monsters: ['hive_drone', 'hive_spitter', 'hive_guardian'],
+    groups: [
+      ['hive_drone', 'hive_drone', 'hive_drone'],
+      ['hive_drone', 'hive_spitter'],
+      ['hive_spitter', 'hive_spitter'],
+      ['hive_guardian'],
+      ['hive_drone', 'hive_guardian'],
+      ['hive_drone', 'hive_drone', 'hive_spitter'],
+    ],
+    boss: 'brood_matriarch', bossAdds: ['hive_drone', 'hive_drone'],
+    encounters: 5,
+    reward: { xp: 900, gold: 700 },
+    palette: { sky: 0x6a6a30, ground: 0x4a3a22, fog: 0x8a7a40 },
+  },
 ];
 
 export const AREAS: Record<string, AreaDef> = Object.fromEntries(areas.map((a) => [a.id, a]));
 export const AREA_ORDER: string[] = areas.map((a) => a.id);
-export const FINAL_AREA = 'void_rift';
+export const FINAL_AREA = 'xenith';

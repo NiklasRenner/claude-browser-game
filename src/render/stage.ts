@@ -14,11 +14,17 @@ import type { Figure } from './models';
 import { Tweens, easeOutBack, easeOutCubic } from './tween';
 
 const HERO_BATTLE_X = -2.5;
-const MONSTER_X = 2.6;
+const HERO_POS = new THREE.Vector3(HERO_BATTLE_X, 0, 0.6);
+/** Where hostiles stand, by lineup size: front (closest to camera) to back. */
+const SLOTS: Record<number, [number, number][]> = {
+  1: [[2.6, 0.2]],
+  2: [[1.9, 0.9], [4.0, -1.0]],
+  3: [[1.3, 1.3], [3.2, -0.3], [5.1, -1.9]],
+};
 /** Half-width of the action that must stay on screen (fighters + some margin). */
-const ACTION_HALF_WIDTH = 4.2;
+const ACTION_HALF_WIDTH = 5.2;
 const STATUS_COLORS: Record<string, number> = {
-  burn: 0xff6a2b, poison: 0x72e05a, stun: 0xffe14d, guard: 0x9ab8ff, evasive: 0xc9d6ff, chill: 0x6cc6ff,
+  burn: 0xff6a2b, corrode: 0x8ee84a, stun: 0xffe14d, shield: 0x6cc6ff, evasive: 0xc9d6ff, chill: 0x6cd6ff,
 };
 
 export class Stage {
@@ -33,8 +39,13 @@ export class Stage {
   private envKey = '';
   private hero: Figure | null = null;
   private heroKey = '';
-  private monster: Figure | null = null;
+  /** One figure per lineup slot (same indices as battle.monsters). */
+  private monsters: Figure[] = [];
   private monsterKey = '';
+  /** Lineup slot the player is targeting; the marker follows it. */
+  private targetIdx = 0;
+  private targetMarker = buildTargetMarker();
+  private raycaster = new THREE.Raycaster();
   private hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1.4);
   private sun = new THREE.DirectionalLight(0xffffff, 2.2);
   /** Back light that outlines figures against dark backdrops. */
@@ -54,7 +65,7 @@ export class Stage {
     this.sun.shadow.mapSize.set(1024, 1024);
     Object.assign(this.sun.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10 });
     this.rim.position.set(3, 6, -8);
-    this.scene.add(this.hemi, this.sun, this.rim);
+    this.scene.add(this.hemi, this.sun, this.rim, this.targetMarker);
     this.scene.fog = new THREE.Fog(0xffffff, 14, 45);
     this.fx = new Effects(this.scene, this.camera, overlay, this.tweens);
     this.resize();
@@ -79,7 +90,8 @@ export class Stage {
     this.tweens.tick(dt);
     this.env?.update(dt, this.time);
     this.hero?.idle(this.time);
-    this.monster?.idle(this.time + 1.3);
+    this.monsters.forEach((m, i) => m.idle(this.time + 1.3 + i * 0.7));
+    this.updateTargetMarker();
     // Gentle camera sway plus impact shake.
     this.shake = Math.max(0, this.shake - dt * 3);
     const s = this.shake * 0.15;
@@ -127,19 +139,68 @@ export class Stage {
     }
 
     const battle = state.battle;
-    const mKey = battle ? `${battle.monster.defId}#${state.stats.battlesWon + state.stats.battlesLost}` : '';
+    const mKey = battle ? `${battle.monsters.map((m) => m.defId).join(',')}#${state.stats.battlesWon + state.stats.battlesLost}` : '';
     if (mKey !== this.monsterKey) {
-      if (this.monster) this.removeFigure(this.monster);
-      this.monster = null;
+      for (const m of this.monsters) this.removeFigure(m);
+      this.monsters = [];
       this.monsterKey = mKey;
       if (battle) {
-        const def = getMonster(battle.monster.defId);
-        this.monster = buildMonster(def.look, !!def.boss);
-        this.monster.root.position.set(MONSTER_X, 0, 0.2);
-        this.monster.root.rotation.y = Math.PI + 0.4;
-        this.scene.add(this.monster.root);
+        const slots = SLOTS[battle.monsters.length]!;
+        this.monsters = battle.monsters.map((inst, i) => {
+          const def = getMonster(inst.defId);
+          const fig = buildMonster(def.look, !!def.boss);
+          const [x, z] = slots[i]!;
+          fig.root.position.set(x, 0, z);
+          // Face the hero, turned slightly toward the camera.
+          fig.root.rotation.y = Math.atan2(-(HERO_POS.z - z), HERO_POS.x - x) + 0.3;
+          fig.root.userData.slot = i;
+          this.scene.add(fig.root);
+          return fig;
+        });
       }
     }
+    if (battle) {
+      battle.monsters.forEach((inst, i) => {
+        const fig = this.monsters[i];
+        if (fig) fig.root.visible = inst.hp > 0;
+      });
+      this.targetIdx = battle.target;
+    }
+  }
+
+  // ─── Targeting ─────────────────────────────────────────────────────────────
+
+  private updateTargetMarker() {
+    const fig = this.monsters[this.targetIdx];
+    const show = this.monsters.length > 1 && !!fig?.root.visible;
+    this.targetMarker.visible = show;
+    if (!show || !fig) return;
+    const { ring, arrow } = this.targetMarker.userData as { ring: THREE.Object3D; arrow: THREE.Object3D };
+    this.targetMarker.position.lerp(fig.root.position, 0.35);
+    ring.rotation.z = this.time * 1.5;
+    ring.scale.setScalar(fig.height * 0.45 + Math.sin(this.time * 4) * 0.04);
+    arrow.position.y = fig.height + 0.55 + Math.sin(this.time * 4) * 0.12;
+  }
+
+  /** Screen (client) coordinates of a hostile's body centre — used by tests to click it. */
+  hostileScreenPoint(slot: number): { x: number; y: number } | null {
+    const fig = this.monsters[slot];
+    if (!fig || !fig.root.visible) return null;
+    const p = this.center(fig).project(this.camera);
+    const rect = this.canvas.getBoundingClientRect();
+    return { x: rect.left + ((p.x + 1) / 2) * rect.width, y: rect.top + ((1 - p.y) / 2) * rect.height };
+  }
+
+  /** Lineup slot of the hostile under a screen point, or null. */
+  pickHostile(clientX: number, clientY: number): number | null {
+    const rect = this.canvas.getBoundingClientRect();
+    const ndc = new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
+    this.raycaster.setFromCamera(ndc, this.camera);
+    const roots = this.monsters.filter((m) => m.root.visible).map((m) => m.root);
+    const hit = this.raycaster.intersectObjects(roots, true)[0];
+    let o: THREE.Object3D | null = hit?.object ?? null;
+    while (o && o.userData.slot === undefined) o = o.parent;
+    return o ? (o.userData.slot as number) : null;
   }
 
   private setEnvironment(key: string) {
@@ -196,8 +257,8 @@ export class Stage {
     return f.root.position.clone().add(new THREE.Vector3(0, f.height * 0.55, 0));
   }
 
-  private figureFor(actor: 'player' | 'monster') {
-    return actor === 'player' ? this.hero : this.monster;
+  private figureFor(actor: 'player' | 'monster', foe?: number) {
+    return actor === 'player' ? this.hero : this.monsters[foe ?? this.targetIdx] ?? null;
   }
 
   private async lunge(f: Figure, dir: number, distance = 1.3) {
@@ -247,20 +308,38 @@ export class Stage {
     switch (e.type) {
       case 'battleStart': {
         this.sync(after);
-        const m = this.monster;
-        if (!m) return;
-        const target = m.root.scale.clone();
-        void this.fx.burst(m.root.position.clone().setY(0.2), 0xd8c8a8, 30, 2.5, 0.7, -2);
-        await this.tweens.run(0.5, (t) => m.root.scale.copy(target).multiplyScalar(Math.max(0.01, t)), easeOutBack);
+        // Hostiles materialise one after another.
+        await Promise.all(this.monsters.map(async (m, i) => {
+          const scale = m.root.scale.clone();
+          m.root.scale.setScalar(0.01);
+          await this.tweens.wait(i * 0.15);
+          void this.fx.burst(m.root.position.clone().setY(0.2), 0xd8c8a8, 30, 2.5, 0.7, -2);
+          await this.tweens.run(0.5, (t) => m.root.scale.copy(scale).multiplyScalar(Math.max(0.01, t)), easeOutBack);
+        }));
         if (e.boss) {
+          const boss = this.monsters[e.monsterIds.findIndex((id) => getMonster(id).boss)];
           this.shake = 1;
-          this.fx.popText(this.head(m), '⚠ WARNING', 'pop-boss');
+          if (boss) this.fx.popText(this.head(boss), '⚠ WARNING', 'pop-boss');
         }
         return;
       }
+      case 'targeted':
+        this.targetIdx = e.foe;
+        return;
+      case 'hostileDown': {
+        const m = this.monsters[e.foe];
+        if (!m) return;
+        void this.fx.burst(this.center(m), 0xfff1c2, 40, 3, 0.8, -1);
+        await this.tweens.run(0.6, (t) => {
+          m.root.position.y = -t * 1.2;
+          m.root.rotation.z = t * 0.4;
+        });
+        m.root.visible = false;
+        return;
+      }
       case 'attack': {
-        const attacker = this.figureFor(e.actor);
-        const target = this.figureFor(e.actor === 'player' ? 'monster' : 'player');
+        const attacker = this.figureFor(e.actor, e.foe);
+        const target = e.actor === 'player' ? this.figureFor('monster', e.foe) : this.hero;
         if (!attacker || !target) return;
         const dir = e.actor === 'player' ? 1 : -1;
         const color = ELEMENT_COLORS[e.element];
@@ -305,19 +384,19 @@ export class Stage {
         if (!f || (e.amount <= 0 && e.mana <= 0)) return;
         void this.fx.burst(f.root.position.clone().setY(0.3), e.amount > 0 ? 0x7dff8a : 0x7ab8ff, 30, 1.2, 0.8, 3);
         if (e.amount > 0) this.fx.popText(this.head(f), `+${e.amount}`, 'pop-heal');
-        if (e.mana > 0) this.fx.popText(this.head(f, 0.7), `+${e.mana} MP`, 'pop-mana');
+        if (e.mana > 0) this.fx.popText(this.head(f, 0.7), `+${e.mana} EN`, 'pop-mana');
         await this.tweens.wait(0.35);
         return;
       }
       case 'statusApplied': {
-        const f = this.figureFor(e.target);
+        const f = this.figureFor(e.target, e.foe);
         if (!f) return;
         this.fx.popText(this.head(f, 0.5), `${STATUS_ICONS[e.status]} ${e.status}`, 'pop-status');
         await this.fx.ring(f.root.position, STATUS_COLORS[e.status] ?? 0xffffff, 1, 0.4);
         return;
       }
       case 'statusTick': {
-        const f = this.figureFor(e.target);
+        const f = this.figureFor(e.target, e.foe);
         if (!f) return;
         this.flash(f, STATUS_COLORS[e.status]);
         this.fx.popText(this.head(f), `${e.damage}`, `pop-tick el-${e.status === 'burn' ? 'plasma' : 'corrosive'}`);
@@ -325,7 +404,7 @@ export class Stage {
         return;
       }
       case 'stunned': {
-        const f = this.figureFor(e.actor);
+        const f = this.figureFor(e.actor, e.foe);
         if (!f) return;
         this.fx.popText(this.head(f, 0.4), '💫 Stunned', 'pop-status');
         void this.fx.burst(this.head(f, 0), 0xffe14d, 12, 1, 0.6, 0);
@@ -333,16 +412,7 @@ export class Stage {
         return;
       }
       case 'victory': {
-        const m = this.monster;
-        if (m) {
-          void this.fx.burst(this.center(m), 0xfff1c2, 40, 3, 0.8, -1);
-          await this.tweens.run(0.6, (t) => {
-            m.root.position.y = -t * 1.2;
-            m.root.rotation.z = t * 0.4;
-          });
-          m.root.visible = false;
-        }
-        if (this.hero) this.fx.popText(this.head(this.hero), `+${e.gold} gold`, 'pop-gold');
+        if (this.hero) this.fx.popText(this.head(this.hero), `+${e.gold} credits`, 'pop-gold');
         await this.tweens.wait(0.3);
         return;
       }
@@ -377,7 +447,7 @@ export class Stage {
       }
       case 'questComplete': {
         if (!this.hero) return;
-        this.fx.popText(this.head(this.hero, 1), 'QUEST COMPLETE', 'pop-level');
+        this.fx.popText(this.head(this.hero, 1), 'MISSION COMPLETE', 'pop-level');
         const colors = [0xff6a2b, 0x6cc6ff, 0xffe14d, 0x72e05a, 0xa36bff];
         await Promise.all(colors.map((c, i) => this.fx.burst(this.head(this.hero, i * 0.1), c, 20, 4, 1.2, -3)));
         return;
@@ -386,4 +456,23 @@ export class Stage {
         return;
     }
   }
+}
+
+/** Cyan ground ring plus a bobbing arrow, shown over the targeted hostile. */
+function buildTargetMarker(): THREE.Group {
+  const g = new THREE.Group();
+  const color = 0x5fd6ff;
+  const ringGeo = new THREE.RingGeometry(1.15, 1.32, 6, 1);
+  const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({
+    color, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending,
+  }));
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = 0.04;
+  const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.42, 4), new THREE.MeshBasicMaterial({ color, depthTest: false }));
+  arrow.renderOrder = 10; // always visible, even behind another hostile
+  arrow.rotation.x = Math.PI;
+  g.add(ring, arrow);
+  g.userData = { ring, arrow };
+  g.visible = false;
+  return g;
 }

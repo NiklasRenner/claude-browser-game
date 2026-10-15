@@ -26,9 +26,15 @@ function checkInvariants(s: GameState, ctx: string): void {
   if (!(p.inventory[p.weapon]! >= 1) || !(p.inventory[p.armor]! >= 1)) fail('equipped item not owned');
   for (const [id, n] of Object.entries(p.inventory)) if (!(n >= 1) || !ITEMS[id]) fail(`bad inventory ${id}=${n}`);
   if (s.battle) {
-    const m = s.battle.monster;
-    if (m.hp <= 0 || m.hp > m.maxHp) fail(`bad monster hp ${m.hp}`);
-    for (const st of [...m.statuses, ...s.battle.playerStatuses]) if (st.turns <= 0) fail('expired status lingering');
+    const b = s.battle;
+    if (b.monsters.length < 1 || b.monsters.length > 3) fail(`bad lineup size ${b.monsters.length}`);
+    if (!b.monsters.some((m) => m.hp > 0)) fail('battle continues with every hostile down');
+    if (!(b.monsters[b.target]!.hp > 0)) fail(`target ${b.target} is not a living hostile`);
+    for (const m of b.monsters) {
+      if (!Number.isInteger(m.hp) || m.hp < 0 || m.hp > m.maxHp) fail(`bad monster hp ${m.hp}`);
+      for (const st of m.statuses) if (st.turns <= 0) fail('expired status lingering');
+    }
+    for (const st of b.playerStatuses) if (st.turns <= 0) fail('expired status lingering');
   }
 }
 
@@ -43,6 +49,8 @@ function randomAction(s: GameState, rng: Rng): Action {
       { type: 'cast', spellId: rng.pick(spellsFor('science', 30).map((x) => x.id)) },
       { type: 'startQuest', areaId: rng.pick([...AREA_ORDER, 'void']) },
       { type: 'allocateStat', stat: rng.pick(STATS) },
+      { type: 'target', index: rng.int(-1, 4) },
+      { type: 'attack', target: rng.int(-1, 4) },
       { type: rng.pick(['attack', 'flee', 'rest', 'continue', 'retreat', 'returnToTown'] as const) },
     ];
     return rng.pick(junk);

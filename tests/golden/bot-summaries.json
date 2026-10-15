@@ -2,97 +2,103 @@
   {
     "classId": "security",
     "seed": 1,
-    "steps": 351,
+    "steps": 428,
     "completed": true,
-    "level": 13,
-    "gold": 2863,
+    "level": 17,
+    "gold": 3642,
     "cleared": [
       "veridia",
       "kethra",
       "glacies",
-      "void_rift"
+      "void_rift",
+      "xenith"
     ],
-    "battlesWon": 39,
+    "battlesWon": 49,
     "battlesLost": 1
   },
   {
     "classId": "security",
     "seed": 2,
-    "steps": 488,
+    "steps": 562,
     "completed": true,
-    "level": 13,
-    "gold": 2774,
+    "level": 17,
+    "gold": 3541,
     "cleared": [
       "veridia",
       "kethra",
       "glacies",
-      "void_rift"
+      "void_rift",
+      "xenith"
     ],
-    "battlesWon": 47,
+    "battlesWon": 57,
     "battlesLost": 5
   },
   {
     "classId": "science",
     "seed": 1,
-    "steps": 361,
+    "steps": 455,
     "completed": true,
-    "level": 13,
-    "gold": 2286,
+    "level": 17,
+    "gold": 4207,
     "cleared": [
       "veridia",
       "kethra",
       "glacies",
-      "void_rift"
+      "void_rift",
+      "xenith"
     ],
-    "battlesWon": 39,
+    "battlesWon": 49,
     "battlesLost": 1
   },
   {
     "classId": "science",
     "seed": 2,
-    "steps": 368,
+    "steps": 455,
     "completed": true,
-    "level": 13,
-    "gold": 2083,
+    "level": 17,
+    "gold": 3944,
     "cleared": [
       "veridia",
       "kethra",
       "glacies",
-      "void_rift"
+      "void_rift",
+      "xenith"
     ],
-    "battlesWon": 39,
+    "battlesWon": 49,
     "battlesLost": 1
   },
   {
     "classId": "engineer",
     "seed": 1,
-    "steps": 308,
+    "steps": 364,
     "completed": true,
-    "level": 14,
-    "gold": 2520,
+    "level": 16,
+    "gold": 4443,
     "cleared": [
       "veridia",
       "kethra",
       "glacies",
-      "void_rift"
+      "void_rift",
+      "xenith"
     ],
-    "battlesWon": 40,
+    "battlesWon": 46,
     "battlesLost": 0
   },
   {
     "classId": "engineer",
     "seed": 2,
-    "steps": 419,
+    "steps": 486,
     "completed": true,
-    "level": 13,
-    "gold": 2159,
+    "level": 17,
+    "gold": 4494,
     "cleared": [
       "veridia",
       "kethra",
       "glacies",
-      "void_rift"
+      "void_rift",
+      "xenith"
     ],
-    "battlesWon": 42,
+    "battlesWon": 52,
     "battlesLost": 2
   }
 ]

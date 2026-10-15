@@ -73,7 +73,26 @@ describe('town', () => {
     s = act(s, { type: 'equip', itemId: 'gauss_pistol' }).state;
     assert.equal(s.player!.weapon, 'gauss_pistol');
     assert.equal(step(s, { type: 'sell', itemId: 'gauss_pistol' }).events[0]!.type, 'error');
-    assert.equal(step(s, { type: 'sell', itemId: 'sidearm_mk1' }).events[0]!.type, 'error', 'starter gear is worthless');
+    // The unequipped starter sidearm can now be sold, for 1 credit.
+    const gold = s.player!.gold;
+    s = act(s, { type: 'sell', itemId: 'sidearm_mk1' }).state;
+    assert.equal(s.player!.gold, gold + 1);
+    assert.equal(s.player!.inventory.sidearm_mk1, undefined);
+  });
+
+  it('sells starter kit for 1 credit but never what is equipped (so you always keep a weapon and armor)', () => {
+    let s = newGame('engineer');
+    assert.equal(sellPrice('mag_wrench'), 1);
+    assert.equal(sellPrice('duty_uniform'), 1);
+    assert.match((step(s, { type: 'sell', itemId: 'mag_wrench' }).events[0] as { reason: string }).reason, /Unequip/);
+    assert.match((step(s, { type: 'sell', itemId: 'duty_uniform' }).events[0] as { reason: string }).reason, /Unequip/);
+    s.player!.level = 2;
+    s.player!.gold = 200;
+    s = act(s, { type: 'buy', itemId: 'field_jacket' }).state;
+    s = act(s, { type: 'equip', itemId: 'field_jacket' }).state;
+    s = act(s, { type: 'sell', itemId: 'duty_uniform' }).state;
+    assert.equal(s.player!.inventory.duty_uniform, undefined);
+    assert.equal(s.player!.armor, 'field_jacket');
   });
 
   it('rests to full for a small fee, and only when needed', () => {
@@ -108,7 +127,7 @@ describe('quest flow', () => {
     let s = act(newGame('security', 12), { type: 'startQuest', areaId: 'veridia' }).state;
     assert.equal(s.mode, 'battle');
     assert.equal(s.quest!.areaId, 'veridia');
-    s.battle!.monster.hp = 1;
+    s.battle!.monsters[0]!.hp = 1;
     s.player!.stats.dex = 300;
     s = act(s, { type: 'attack' }).state;
     assert.equal(s.mode, 'quest');
@@ -120,13 +139,13 @@ describe('quest flow', () => {
   it('sends the boss after the regular encounters', () => {
     let s = act(newGame('security', 12), { type: 'startQuest', areaId: 'veridia' }).state;
     for (let i = 0; i < 3; i++) {
-      s.battle!.monster.hp = 1;
+      s.battle!.monsters[0]!.hp = 1;
       s.player!.stats.dex = 300;
       s.player!.hp = 999;
       s = act(s, { type: 'attack' }).state;
       const r = act(s, { type: 'continue' });
       s = r.state;
-      if (i === 2) assert.ok(r.events.some((e) => e.type === 'battleStart' && e.boss && e.monsterId === 'thornhide_behemoth'));
+      if (i === 2) assert.ok(r.events.some((e) => e.type === 'battleStart' && e.boss && e.monsterIds[0] === 'thornhide_behemoth'));
     }
   });
 

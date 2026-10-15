@@ -10,7 +10,7 @@ import { act, inBattle, newGame } from './helpers';
 function sturdyBattle(monsterId = 'protoplasm'): GameState {
   const s = inBattle(newGame('security', 3), monsterId);
   s.player!.hp = 1_000_000;
-  s.battle!.monster.hp = s.battle!.monster.maxHp = 1_000_000;
+  s.battle!.monsters[0]!.hp = s.battle!.monsters[0]!.maxHp = 1_000_000;
   return s;
 }
 
@@ -58,7 +58,7 @@ describe('status effects', () => {
     const events: GameEvent[] = [];
     const rng = new Rng(2);
     runRound(s.player!, s.battle!, rng, events, (ctx) =>
-      applyStatus(ctx.battle.monster.statuses, 'monster', 'corrode', 3, 5, ctx.events));
+      applyStatus(ctx.battle.monsters[0]!.statuses, 'monster', 'corrode', 3, 5, ctx.events));
     for (let i = 0; i < 5; i++) runRound(s.player!, s.battle!, rng, events, () => {});
     const ticks = events.filter((e) => e.type === 'statusTick' && e.target === 'monster');
     assert.equal(ticks.length, 3);
@@ -69,10 +69,10 @@ describe('status effects', () => {
     const s = sturdyBattle();
     const events: GameEvent[] = [];
     runRound(s.player!, s.battle!, new Rng(3), events, (ctx) =>
-      applyStatus(ctx.battle.monster.statuses, 'monster', 'stun', 1, 0, ctx.events));
+      applyStatus(ctx.battle.monsters[0]!.statuses, 'monster', 'stun', 1, 0, ctx.events));
     assert.ok(events.some((e) => e.type === 'stunned' && e.actor === 'monster'));
     assert.ok(!events.some((e) => e.type === 'attack' && e.actor === 'monster'));
-    assert.equal(s.battle!.monster.statuses.length, 0, 'stun expires after the skipped turn');
+    assert.equal(s.battle!.monsters[0]!.statuses.length, 0, 'stun expires after the skipped turn');
   });
 
   it('a stunned player has their turn skipped automatically', () => {
@@ -98,7 +98,7 @@ describe('status effects', () => {
 describe('battle outcomes', () => {
   it('awards XP and gold on victory and returns to the quest', () => {
     const s = inBattle(newGame('security', 5), 'protoplasm');
-    s.battle!.monster.hp = 1;
+    s.battle!.monsters[0]!.hp = 1;
     s.player!.stats.dex = 200; // guarantee the hit
     const { state, events } = act(s, { type: 'attack' });
     const victory = events.find((e) => e.type === 'victory');
@@ -112,7 +112,7 @@ describe('battle outcomes', () => {
 
   it('completes the quest and unlocks the next area when the boss falls', () => {
     const s = inBattle(newGame('security', 5), 'thornhide_behemoth');
-    s.battle!.monster.hp = 1;
+    s.battle!.monsters[0]!.hp = 1;
     s.player!.stats.dex = 200;
     const { state, events } = act(s, { type: 'attack' });
     assert.ok(events.some((e) => e.type === 'questComplete' && e.firstClear));
@@ -159,7 +159,7 @@ describe('battle outcomes', () => {
       let sum = 0;
       for (let seed = 1; seed <= 30; seed++) {
         const s = inBattle(newGame('science', seed), monsterId);
-        s.battle!.monster.hp = s.battle!.monster.maxHp = 10_000;
+        s.battle!.monsters[0]!.hp = s.battle!.monsters[0]!.maxHp = 10_000;
         const ev = act(s, { type: 'cast', spellId: 'plasma_burst' }).events;
         for (const e of ev) if (e.type === 'attack' && e.actor === 'player') sum += e.damage;
       }

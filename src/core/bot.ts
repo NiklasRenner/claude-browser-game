@@ -3,7 +3,7 @@
  * so it doubles as an integration test of the whole game loop and as a
  * balance probe (`npm run sim`).
  */
-import { averageEffectDamage, hitChance, monsterDamageTaken, monsterEvasion, resolveElement, statusPower } from './combat';
+import { aliveIndices, averageEffectDamage, hitChance, monsterDamageTaken, monsterEvasion, resolveElement, statusPower } from './combat';
 import { AREA_ORDER, CLASSES, ITEMS, getArea, getClass, getMonster } from './data';
 import { checkAction, initialState, legalActions, step } from './game';
 import { countItem, derive, knownSpells, statMultiplier } from './player';
@@ -134,8 +134,17 @@ function questAction(state: GameState, p: Player): Action {
 function battleAction(state: GameState, p: Player): Action {
   const d = derive(p);
   const battle = state.battle!;
-  const monster = getMonster(battle.monster.defId);
+  const alive = aliveIndices(battle);
   const spells = knownSpells(p);
+
+  // Focus fire: target the hostile closest to going down (fewer attackers sooner).
+  if (alive.length > 1) {
+    const weakest = alive.reduce((a, b) => (battle.monsters[b]!.hp < battle.monsters[a]!.hp ? b : a));
+    if (weakest !== battle.target) return { type: 'target', index: weakest };
+  }
+  const target = battle.monsters[battle.target]!;
+  const monster = getMonster(target.defId);
+  const others = alive.map((i) => getMonster(battle.monsters[i]!.defId));
 
   // Emergency healing.
   if (p.hp < d.maxHp * 0.35) {
@@ -146,7 +155,7 @@ function battleAction(state: GameState, p: Player): Action {
   }
 
   // Bosses: keep a defensive buff up.
-  if (monster.boss && p.hp < d.maxHp * 0.85 && !hasBuff(battle.playerStatuses)) {
+  if (others.some((m) => m.boss) && p.hp < d.maxHp * 0.85 && !hasBuff(battle.playerStatuses)) {
     const buff = spells.find((s) => s.effects.some((e) => e.type === 'status' && e.target === 'self') && p.mp >= s.mp);
     if (buff) return { type: 'cast', spellId: buff.id };
   }
@@ -171,13 +180,15 @@ function battleAction(state: GameState, p: Player): Action {
   const healReserve = spells.find((s) => s.effects.some((e) => e.type === 'heal'))?.mp ?? 0;
   for (const spell of spells) {
     if (!ok(state, { type: 'cast', spellId: spell.id })) continue;
-    if (p.mp - spell.mp < healReserve && battle.monster.hp > attackScore * 1.5) continue;
+    if (p.mp - spell.mp < healReserve && target.hp > attackScore * 1.5) continue;
     let score = 0;
     for (const e of spell.effects) {
       if (e.type === 'damage') {
-        score += averageEffectDamage(p, e) * (monsterDamageTaken(monster, resolveElement(p, e.element)) / 100) * (e.useWeapon ? hit : 1);
+        const element = resolveElement(p, e.element);
+        const hitList = e.aoe ? others : [monster];
+        for (const m of hitList) score += averageEffectDamage(p, e) * (monsterDamageTaken(m, element) / 100) * (e.useWeapon ? hit : 1);
       } else if (e.type === 'status' && e.target === 'enemy' && (e.status === 'corrode' || e.status === 'burn')) {
-        if (!battle.monster.statuses.some((s) => s.id === e.status)) score += e.power * e.turns * ((e.chance ?? 100) / 100);
+        if (!target.statuses.some((s) => s.id === e.status)) score += e.power * e.turns * ((e.chance ?? 100) / 100);
       }
     }
     if (score > bestScore * 1.1) {

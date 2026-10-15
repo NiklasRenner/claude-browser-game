@@ -89,6 +89,8 @@ export type SpellEffect =
       mult?: number;
       /** If true, rolls the equipped weapon's damage instead of `dice`. */
       useWeapon?: boolean;
+      /** Hits every living hostile (each rolls separately). */
+      aoe?: boolean;
       extraCrit?: number;
     }
   | { type: 'heal'; dice: [number, number]; scaling: Stat }
@@ -162,8 +164,16 @@ export interface AreaDef {
   name: string;
   description: string;
   minLevel: number;
+  /** Pool for regular single-hostile encounters (used when `groups` is not set). */
   monsters: string[];
+  /**
+   * Optional group encounters: each regular encounter picks one of these lineups
+   * (1–3 hostile ids). Lets an area mix solo fights and packs.
+   */
+  groups?: string[][];
   boss: string;
+  /** Hostiles that fight alongside the boss (max 2, so the boss fight has up to 3). */
+  bossAdds?: string[];
   /** Regular encounters before the boss. */
   encounters: number;
   reward: { xp: number; gold: number };
@@ -197,8 +207,13 @@ export interface MonsterInstance {
   statuses: StatusEffect[];
 }
 
+export const MAX_HOSTILES = 3;
+
 export interface BattleState {
-  monster: MonsterInstance;
+  /** 1–3 hostiles. Defeated ones stay in the list with hp 0 so indices are stable. */
+  monsters: MonsterInstance[];
+  /** Index of the hostile the player is targeting (always a living one while the battle lasts). */
+  target: number;
   playerStatuses: StatusEffect[];
   round: number;
 }
@@ -237,26 +252,35 @@ export type Action =
   | { type: 'startQuest'; areaId: string }
   | { type: 'continue' }
   | { type: 'retreat' }
-  | { type: 'attack' }
-  | { type: 'cast'; spellId: string }
+  /** `target` (optional) retargets first; otherwise the current target is used. */
+  | { type: 'attack'; target?: number }
+  | { type: 'cast'; spellId: string; target?: number }
+  /** Change target without spending a turn. */
+  | { type: 'target'; index: number }
   | { type: 'useItem'; itemId: string }
   | { type: 'flee' }
   | { type: 'returnToTown' };
 
 export type Actor = 'player' | 'monster';
 
-/** Events describe what happened; UI and renderer animate them. */
+/**
+ * Events describe what happened; UI and renderer animate them.
+ * `foe` is the index of the hostile involved (the attacker for monster attacks,
+ * the target for player attacks, the owner for status events on hostiles).
+ */
 export type GameEvent =
   | { type: 'error'; reason: string }
   | { type: 'message'; text: string }
-  | { type: 'battleStart'; monsterId: string; boss: boolean }
-  | { type: 'attack'; actor: Actor; name: string; element: Element; hit: boolean; crit: boolean; damage: number }
+  | { type: 'battleStart'; monsterIds: string[]; boss: boolean }
+  | { type: 'attack'; actor: Actor; foe: number; name: string; element: Element; hit: boolean; crit: boolean; damage: number }
   | { type: 'cast'; actor: Actor; spellId: string; name: string }
   | { type: 'heal'; actor: Actor; amount: number; mana: number }
-  | { type: 'statusApplied'; target: Actor; status: StatusId; turns: number }
-  | { type: 'statusTick'; target: Actor; status: StatusId; damage: number }
-  | { type: 'statusExpired'; target: Actor; status: StatusId }
-  | { type: 'stunned'; actor: Actor }
+  | { type: 'statusApplied'; target: Actor; foe?: number; status: StatusId; turns: number }
+  | { type: 'statusTick'; target: Actor; foe?: number; status: StatusId; damage: number }
+  | { type: 'statusExpired'; target: Actor; foe?: number; status: StatusId }
+  | { type: 'stunned'; actor: Actor; foe?: number }
+  | { type: 'targeted'; foe: number }
+  | { type: 'hostileDown'; foe: number }
   | { type: 'equip'; itemId: string }
   | { type: 'fled'; success: boolean }
   | { type: 'victory'; xp: number; gold: number; drops: string[] }

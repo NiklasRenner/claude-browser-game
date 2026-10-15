@@ -222,3 +222,23 @@ h3 { font-size: 13px; margin-top: 10px; text-transform: uppercase; letter-spacin
 .actions.grid .btn.skill { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; text-align: left; white-space: normal; }
 .actions.grid .btn.skill .tags { margin-left: 0; flex-basis: 100%; }
 .actions.grid .btn.skill .mp-cost { margin-left: auto; }
+
+/* ─── Target roster (multi-hostile fights) ───────────────────────────────── */
+.roster { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(95, 214, 255, 0.2); }
+.roster-item {
+  display: grid; grid-template-columns: 1fr 70px; align-items: center; gap: 8px; padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.04); border: 1px solid transparent; border-radius: 2px; cursor: pointer; text-align: left; font-size: 12px;
+}
+.roster-item:hover:not(:disabled) { border-color: rgba(95, 214, 255, 0.5); }
+.roster-item.current { border-color: var(--accent); background: rgba(95, 214, 255, 0.12); color: #e6f6ff; cursor: default; }
+.roster-item.down { opacity: 0.35; text-decoration: line-through; cursor: default; }
+.roster-item:disabled:not(.current):not(.down) { cursor: wait; }
+.roster-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.roster-hp { height: 5px; background: rgba(0, 0, 0, 0.5); border-radius: 1px; overflow: hidden; }
+.roster-hp span { display: block; height: 100%; background: linear-gradient(90deg, #6e1f8e, #d8435f); transition: width 0.35s ease-out; }
+.roster-hint { font-size: 10px; text-align: right; letter-spacing: 0.06em; }
+.tag-aoe { color: #ffd27a; }
+@media (max-width: 760px) {
+  .roster-hint { display: none; }
+  .roster-item { grid-template-columns: 1fr 40px; font-size: 11px; }
+}

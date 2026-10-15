@@ -144,10 +144,14 @@ try {
       withTag: buttons.filter((b) => b.querySelector('.chip')).length,
       elementChips: document.querySelectorAll('.btn.skill .chip.el').length,
       effectiveness: document.querySelectorAll('.btn.skill .eff').length,
+      // Expected markers: damage chips whose type this hostile doesn't take at 100%.
+      expected: [...document.querySelectorAll('.btn.skill .chip.el')].filter((c) => /vulnerable|resists|immune/.test(c.getAttribute('title') ?? '')).length,
+      foeHasModifiers: document.querySelectorAll('.monster-card .res').length > 0,
     };
   });
   check(chips.buttons > 0 && chips.withTag === chips.buttons, `every ability shows effect chips (${chips.withTag}/${chips.buttons})`);
-  check(chips.elementChips > 0 && chips.effectiveness > 0, `damage types shown with effectiveness markers (${chips.elementChips} types, ${chips.effectiveness} markers)`);
+  check(chips.elementChips > 0 && chips.effectiveness === chips.expected,
+    `damage types shown with matching effectiveness markers (${chips.elementChips} types, ${chips.effectiveness} markers, foe has modifiers: ${chips.foeHasModifiers})`);
   await page.waitForTimeout(200);
   await page.screenshot({ path: `${OUT}/07-abilities.png` });
   await page.click('[data-ui="menu:main"]');
@@ -160,8 +164,69 @@ try {
   await page.waitForTimeout(300);
   await page.screenshot({ path: `${OUT}/04-later-battle.png` });
 
+  // Multi-hostile fight in the hive: let the bot unlock it, then target with Tab, Shift+Tab,
+  // the roster list and by clicking a hostile in the 3D scene.
+  await page.evaluate(() => window.__qf.speed(0));
+  const reachedHive = await page.evaluate(async () => {
+    const qf = window.__qf;
+    for (let i = 0; i < 4000 && !qf.state.clearedAreas.includes('void_rift'); i++) await qf.botStep();
+    if (!qf.state.clearedAreas.includes('void_rift')) return false;
+    // Find a fight that opens with 3 hostiles.
+    for (let tries = 0; tries < 400; tries++) {
+      while (qf.state.mode !== 'town') await qf.botStep();
+      while (qf.state.player.level < 14) { await qf.dispatch({ type: 'startQuest', areaId: 'void_rift' }); while (qf.state.mode !== 'town') await qf.botStep(); }
+      if (qf.state.player.hp < qf.state.player.level * 20) await qf.dispatch({ type: 'rest' });
+      await qf.dispatch({ type: 'startQuest', areaId: 'xenith' });
+      for (let k = 0; k < 6 && qf.state.mode === 'battle' || qf.state.mode === 'quest'; k++) {
+        if (qf.state.mode === 'battle' && qf.state.battle.monsters.length === 3 && qf.state.battle.monsters.every((m) => m.hp === m.maxHp)) return true;
+        await qf.botStep();
+        if (k > 40) break;
+      }
+      if (qf.state.mode === 'battle') { const b = qf.state.battle; if (b.monsters.length === 3 && b.monsters.every((m) => m.hp === m.maxHp)) return true; }
+    }
+    return false;
+  });
+  check(reachedHive, 'reached a 3-hostile fight on the Xenith Hive World');
+  if (reachedHive) {
+    await page.evaluate(() => window.__qf.speed(1));
+    await waitIdle(page);
+    const target = () => page.evaluate(() => window.__qf.state.battle.target);
+    check((await page.locator('.roster-item').count()) === 3, 'target roster lists all 3 hostiles');
+    const t0 = await target();
+    await page.keyboard.press('Tab');
+    await waitIdle(page);
+    const t1 = await target();
+    await page.keyboard.press('Shift+Tab');
+    await waitIdle(page);
+    const t2 = await target();
+    check(t0 === 0 && t1 === 1 && t2 === 0, `Tab / Shift+Tab cycle targets (${t0} → ${t1} → ${t2})`);
+    await page.click('.roster-item >> nth=2');
+    await waitIdle(page);
+    check((await target()) === 2, 'clicking a hostile in the roster targets it');
+    const pt = await page.evaluate(() => window.__qf.hostileScreenPoint(1));
+    if (pt) await page.mouse.click(pt.x, pt.y);
+    await waitIdle(page);
+    check((await target()) === 1, 'clicking a hostile in the 3D scene targets it');
+    const cardName = await page.locator('.monster-card .hud-name strong').innerText();
+    const rosterCurrent = await page.locator('.roster-item.current .roster-name').innerText();
+    check(rosterCurrent.includes(cardName), `status card follows the target (${cardName})`);
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: `${OUT}/08-multi-target.png` });
+    // Fight it out by keyboard (abilities + attack) and confirm the roster marks the fallen.
+    let sawDown = false;
+    for (let i = 0; i < 40 && (await page.evaluate(() => window.__qf.state.mode)) === 'battle'; i++) {
+      await page.keyboard.press(i % 3 === 0 ? '1' : 'a');
+      await waitIdle(page);
+      if (!sawDown && (await page.locator('.roster-item.down').count()) > 0) {
+        sawDown = true;
+        await page.screenshot({ path: `${OUT}/09-multi-one-down.png` });
+      }
+    }
+    check(sawDown, 'defeated hostiles are marked in the roster while the fight continues');
+  }
+
   // One screenshot per mission backdrop (state is injected via the debug hook; purely visual).
-  for (const areaId of ['veridia', 'kethra', 'glacies', 'void_rift']) {
+  for (const areaId of ['veridia', 'kethra', 'glacies', 'void_rift', 'xenith']) {
     await page.evaluate(async (areaId) => {
       const qf = window.__qf;
       while (qf.state.mode !== 'town') await qf.botStep();

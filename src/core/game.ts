@@ -6,7 +6,9 @@
  * - `legalActions(state)` enumerates every action `step` would accept, which is
  *   what the UI, the bot and the fuzz tests all use.
  */
-import { playerAttack, playerCast, runRound, useConsumable, fleeChance } from './combat';
+import {
+  aliveIndices, fleeChance, isAlive, playerAttack, playerCast, runRound, toughestAlive, useConsumable,
+} from './combat';
 import {
   AREA_ORDER, CLASSES, FINAL_AREA, SHOP_STOCK, getArea, getItem, getMonster, getSpell,
 } from './data';
@@ -17,7 +19,7 @@ import { Rng } from './rng';
 import { STATS } from './types';
 import type { Action, ClassId, GameEvent, GameState, Player, StepResult } from './types';
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 export const DEFEAT_GOLD_PENALTY = 0.1;
 
 export function initialState(seed = 1): GameState {
@@ -39,8 +41,9 @@ export function restCost(player: Player): number {
   return Math.min(player.gold, player.level * 2);
 }
 
+/** Half the purchase price; anything (even starter kit) sells for at least 1 credit. */
 export function sellPrice(itemId: string): number {
-  return Math.floor(getItem(itemId).price / 2);
+  return Math.max(1, Math.floor(getItem(itemId).price / 2));
 }
 
 export function isAreaUnlocked(state: GameState, areaId: string): boolean {
@@ -86,7 +89,7 @@ export function checkAction(state: GameState, action: Action): string | null {
       if (mode !== 'town') return 'The quartermaster is aboard the ship';
       if (countItem(player, action.itemId) <= 0) return 'Not owned';
       if (isEquipped(player, action.itemId)) return 'Unequip it first';
-      return sellPrice(action.itemId) > 0 ? null : 'Worthless';
+      return null;
     }
     case 'equip': {
       if (!outOfBattle && !inBattle) return 'Cannot change equipment now';
@@ -109,12 +112,17 @@ export function checkAction(state: GameState, action: Action): string | null {
     case 'retreat':
       return mode === 'quest' ? null : 'Not on a mission';
     case 'attack':
-      return inBattle ? null : 'Not in battle';
+      if (!inBattle) return 'Not in battle';
+      return action.target === undefined ? null : checkTarget(state, action.target, true);
     case 'cast': {
       if (!inBattle) return 'Not in battle';
       if (!knownSpells(player).some((s) => s.id === action.spellId)) return 'Unknown ability';
-      return player.mp >= getSpell(action.spellId).mp ? null : 'Not enough energy';
+      if (player.mp < getSpell(action.spellId).mp) return 'Not enough energy';
+      return action.target === undefined ? null : checkTarget(state, action.target, true);
     }
+    case 'target':
+      if (!inBattle) return 'Not in battle';
+      return checkTarget(state, action.index, false);
     case 'useItem': {
       if (!outOfBattle && !inBattle) return 'Cannot use items now';
       if (countItem(player, action.itemId) <= 0) return 'Not owned';
@@ -122,10 +130,19 @@ export function checkAction(state: GameState, action: Action): string | null {
     }
     case 'flee':
       if (!inBattle) return 'Not in battle';
-      return getMonster(state.battle!.monster.defId).boss ? 'Too much interference to beam out!' : null;
+      return aliveIndices(state.battle!).some((i) => getMonster(state.battle!.monsters[i]!.defId).boss)
+        ? 'Too much interference to beam out!' : null;
     case 'returnToTown':
       return mode === 'defeated' ? null : 'Nothing to return from';
   }
+}
+
+function checkTarget(state: GameState, index: number, allowCurrent: boolean): string | null {
+  const battle = state.battle!;
+  if (!Number.isInteger(index) || index < 0 || index >= battle.monsters.length) return 'No such target';
+  if (!isAlive(battle.monsters[index]!)) return 'That hostile is already down';
+  if (!allowCurrent && index === battle.target) return 'Already targeted';
+  return null;
 }
 
 /** Every concrete action currently legal. Never empty for a reachable state. */
@@ -144,6 +161,7 @@ export function legalActions(state: GameState): Action[] {
     for (const stat of STATS) candidates.push({ type: 'allocateStat', stat });
     for (const areaId of AREA_ORDER) candidates.push({ type: 'startQuest', areaId });
     for (const spell of knownSpells(p)) candidates.push({ type: 'cast', spellId: spell.id });
+    if (state.battle) state.battle.monsters.forEach((_, index) => candidates.push({ type: 'target', index }));
   }
   return candidates.filter((a) => checkAction(state, a) === null);
 }
@@ -229,15 +247,20 @@ function apply(state: GameState, action: Action, rng: Rng, events: GameEvent[]):
       events.push({ type: 'message', text: 'Beaming back to the Meridian.' });
       leaveQuest(state);
       return;
+    case 'target':
+      state.battle!.target = action.index;
+      events.push({ type: 'targeted', foe: action.index });
+      return;
     case 'attack':
+      if (action.target !== undefined) state.battle!.target = action.target;
       resolveBattleRound(state, rng, events, (ctx) => playerAttack(ctx));
       return;
     case 'cast':
+      if (action.target !== undefined) state.battle!.target = action.target;
       resolveBattleRound(state, rng, events, (ctx) => playerCast(ctx, action.spellId));
       return;
     case 'flee': {
-      const monster = getMonster(state.battle!.monster.defId);
-      if (rng.chance(fleeChance(player, monster))) {
+      if (rng.chance(fleeChance(player, toughestAlive(state.battle!)))) {
         events.push({ type: 'fled', success: true });
         leaveQuest(state);
       } else {
@@ -263,15 +286,25 @@ function startNextBattle(state: GameState, rng: Rng, events: GameEvent[]) {
   const quest = state.quest!;
   const area = getArea(quest.areaId);
   const isBoss = quest.cleared >= area.encounters;
-  const monsterId = isBoss ? area.boss : rng.pick(area.monsters);
-  const def = getMonster(monsterId);
+  let lineup: string[];
+  if (isBoss) {
+    // Escorts flank the boss: [add, boss, add].
+    const adds = area.bossAdds ?? [];
+    lineup = adds.length ? [adds[0]!, area.boss, ...adds.slice(1)] : [area.boss];
+  } else {
+    lineup = area.groups ? [...rng.pick(area.groups)] : [rng.pick(area.monsters)];
+  }
   state.battle = {
-    monster: { defId: monsterId, hp: def.hp, maxHp: def.hp, statuses: [] },
+    monsters: lineup.map((defId) => {
+      const def = getMonster(defId);
+      return { defId, hp: def.hp, maxHp: def.hp, statuses: [] };
+    }),
+    target: 0,
     playerStatuses: [],
     round: 1,
   };
   state.mode = 'battle';
-  events.push({ type: 'battleStart', monsterId, boss: isBoss });
+  events.push({ type: 'battleStart', monsterIds: lineup, boss: isBoss });
 }
 
 /** `act` = the player's action for this round, or null if the turn was lost (failed flee). */
@@ -279,32 +312,38 @@ function resolveBattleRound(
   state: GameState, rng: Rng, events: GameEvent[], act: Parameters<typeof runRound>[4],
 ) {
   const outcome = runRound(state.player!, state.battle!, rng, events, act);
-  if (outcome === 'monsterDied') onVictory(state, rng, events);
+  if (outcome === 'allDown') onVictory(state, rng, events);
   else if (outcome === 'playerDied') onDefeat(state, events);
 }
 
 function onVictory(state: GameState, rng: Rng, events: GameEvent[]) {
   const player = state.player!;
   const quest = state.quest!;
-  const monster = getMonster(state.battle!.monster.defId);
-  const gold = Math.round(rng.int(...monster.gold) * (1 + player.stats.luk * 0.01));
+  // Rewards from every hostile in the fight (rolled in lineup order).
+  const defs = state.battle!.monsters.map((m) => getMonster(m.defId));
+  let gold = 0;
+  let xp = 0;
   const drops: string[] = [];
-  for (const drop of monster.drops ?? []) {
-    if (rng.chance(drop.chance)) {
-      addItem(player, drop.itemId);
-      drops.push(drop.itemId);
+  for (const monster of defs) {
+    gold += Math.round(rng.int(...monster.gold) * (1 + player.stats.luk * 0.01));
+    xp += monster.xp;
+    for (const drop of monster.drops ?? []) {
+      if (rng.chance(drop.chance)) {
+        addItem(player, drop.itemId);
+        drops.push(drop.itemId);
+      }
     }
   }
   player.gold += gold;
   quest.cleared += 1;
-  quest.earnedXp += monster.xp;
+  quest.earnedXp += xp;
   quest.earnedGold += gold;
   state.stats.battlesWon += 1;
   state.battle = null;
-  events.push({ type: 'victory', xp: monster.xp, gold, drops });
-  grantXp(player, monster.xp, events);
+  events.push({ type: 'victory', xp, gold, drops });
+  grantXp(player, xp, events);
 
-  if (!monster.boss) {
+  if (!defs.some((m) => m.boss)) {
     state.mode = 'quest';
     return;
   }

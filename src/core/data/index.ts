@@ -1,3 +1,4 @@
+import { MAX_HOSTILES } from '../types';
 import type { AreaDef, ArmorDef, ClassDef, ClassId, ConsumableDef, ItemDef, MonsterDef, SpellDef, WeaponDef } from '../types';
 import { AREAS, AREA_ORDER } from './areas';
 import { CLASSES } from './classes';
@@ -75,6 +76,16 @@ export function validateContent(): string[] {
     for (const mid of [...area.monsters, area.boss]) if (!MONSTERS[mid]) problems.push(`${id}: unknown monster ${mid}`);
     if (!MONSTERS[area.boss]?.boss) problems.push(`${id}: boss ${area.boss} is not flagged boss`);
     if (area.requires && !AREAS[area.requires]) problems.push(`${id}: unknown requirement ${area.requires}`);
+    for (const group of area.groups ?? []) {
+      if (group.length < 1 || group.length > MAX_HOSTILES) problems.push(`${id}: group size ${group.length}`);
+      for (const mid of group) {
+        if (!MONSTERS[mid]) problems.push(`${id}: unknown monster ${mid} in group`);
+        else if (MONSTERS[mid]!.boss) problems.push(`${id}: boss ${mid} in a regular group`);
+      }
+    }
+    const adds = area.bossAdds ?? [];
+    if (adds.length > MAX_HOSTILES - 1) problems.push(`${id}: too many boss adds`);
+    for (const mid of adds) if (!MONSTERS[mid] || MONSTERS[mid]!.boss) problems.push(`${id}: bad boss add ${mid}`);
   }
   for (const id of SHOP_STOCK) if (!ITEMS[id]) problems.push(`shop: unknown item ${id}`);
   return problems;

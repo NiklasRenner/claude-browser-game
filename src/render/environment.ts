@@ -367,6 +367,51 @@ function buildArea(key: string, group: THREE.Group, rng: Rng, updaters: Updater[
       addParticles({ count: 220, color: 0xffffff, size: 0.09, velocity: [0.4, -0.9, 0], jitter: 0.5 });
       break;
     }
+    case 'xenith': {
+      // Organic hive: curved resin spires, glowing egg clusters and hive mounds.
+      const resin = mat(0x7a5a24, { roughness: 0.35, metalness: 0.1 });
+      const chitin = mat(0x2e2a1c, { roughness: 0.5 });
+      for (let i = 0; i < 18; i++) {
+        const [x, z] = scatter(rng, 5, 14);
+        const h = 2 + rng.next() * 5;
+        const g = new THREE.Group();
+        g.position.set(x, 0, z);
+        const segs = 4;
+        let px = 0, py = 0;
+        const bend = (rng.next() - 0.5) * 0.6;
+        for (let k = 0; k < segs; k++) {
+          const seg = mesh(new THREE.CylinderGeometry(0.15 * (segs - k), 0.2 * (segs - k + 0.6), h / segs, 6), k % 2 ? resin : chitin, px, py + h / segs / 2, 0, g);
+          seg.rotation.z = bend * k * 0.5;
+          px += Math.sin(-seg.rotation.z) * (h / segs);
+          py += Math.cos(seg.rotation.z) * (h / segs);
+        }
+        g.rotation.y = rng.next() * Math.PI * 2;
+        group.add(g);
+      }
+      const eggs: THREE.Mesh[] = [];
+      for (let i = 0; i < 7; i++) {
+        const [x, z] = scatter(rng, 4, 10);
+        for (let k = 0; k < 3 + rng.int(0, 3); k++) {
+          const egg = mesh(new THREE.SphereGeometry(0.25 + rng.next() * 0.15, 10, 8), glowMat(0xffb040, 0.6, { transparent: true, opacity: 0.85, roughness: 0.2 }),
+            x + (rng.next() - 0.5) * 0.9, 0.25, z + (rng.next() - 0.5) * 0.9, group);
+          egg.scale.y = 1.35;
+          egg.userData.phase = rng.next() * Math.PI * 2;
+          eggs.push(egg);
+        }
+      }
+      for (let i = 0; i < 5; i++) {
+        const [x, z] = scatter(rng, 7, 12);
+        const mound = mesh(new THREE.SphereGeometry(1.5 + rng.next(), 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), chitin, x, 0, z, group);
+        mound.scale.y = 0.8 + rng.next() * 0.6;
+        mesh(new THREE.CircleGeometry(0.35, 8), glowMat(0xffb040, 1.2), x, 0.6 * mound.scale.y, z + 1.2, group);
+      }
+      updaters.push((_dt, t) => {
+        for (const e of eggs) (e.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.45 + Math.sin(t * 1.6 + (e.userData.phase as number)) * 0.3;
+      });
+      celestial(group, { pos: [-20, 26, -70], radius: 9, color: 0xfff0c0, shade: 0x6a6a30 });
+      addParticles({ count: 120, color: 0xffd27a, size: 0.08, velocity: [0.1, 0.25, 0], jitter: 0.6, additive: true });
+      break;
+    }
     case 'void_rift': {
       // Derelict hull fragments.
       const hull = mat(0x4a4458, { metalness: 0.6, roughness: 0.5 });
@@ -423,6 +468,7 @@ const LIGHTING: Record<string, Lighting> = {
   veridia: { hemiSky: 0xe8fff4, hemiGround: 0x2f7a5a, hemi: 1.4, sunColor: 0xfff4e0, sun: 2.2, rimColor: 0xd8a8ff, rim: 1.2 },
   kethra: { hemiSky: 0xffb38a, hemiGround: 0x4a2d22, hemi: 1.5, sunColor: 0xff9a5a, sun: 1.6, rimColor: 0xff7a3a, rim: 3 },
   glacies: { hemiSky: 0xffffff, hemiGround: 0xa8c0d8, hemi: 1.4, sunColor: 0xffffff, sun: 2.2, rimColor: 0xb8c8ff, rim: 1.2 },
+  xenith: { hemiSky: 0xfff0c0, hemiGround: 0x4a3a22, hemi: 1.4, sunColor: 0xffe0a0, sun: 2.0, rimColor: 0xffb040, rim: 2.2 },
   void_rift: { hemiSky: 0xc8a8ff, hemiGround: 0x2a2436, hemi: 1.5, sunColor: 0xc8a8ff, sun: 1.6, rimColor: 0xd0a8ff, rim: 3 },
 };
 

@@ -73,6 +73,15 @@ export class GameController {
     return null;
   }
 
+  /** Replaces the current state with a validated one (debugging / tests). Returns an error message on failure. */
+  loadState(state: GameState): string | null {
+    const result = deserialize(serialize(state));
+    if (!result.ok) return result.error;
+    this.state = result.state;
+    this.emit();
+    return null;
+  }
+
   /** Returns to the title screen (the save is kept). */
   toTitle() {
     this.state = initialState(randomSeed());

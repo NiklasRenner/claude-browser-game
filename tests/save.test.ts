@@ -98,8 +98,8 @@ describe('save / load', () => {
     });
     assert.deepEqual(s.clearedAreas, ['veridia', 'kethra', 'glacies']);
     assert.equal(s.quest!.areaId, 'void_rift');
-    assert.equal(s.battle!.monster.defId, 'void_leech');
-    assert.equal(s.battle!.monster.statuses[0]!.id, 'corrode');
+    assert.equal(s.battle!.monsters[0]!.defId, 'void_leech');
+    assert.equal(s.battle!.monsters[0]!.statuses[0]!.id, 'corrode');
     assert.equal(s.battle!.playerStatuses[0]!.id, 'shield');
     assert.equal(s.player!.level, 12);
     assert.equal(s.player!.gold, 1913);

@@ -29,7 +29,7 @@ export function inBattle(state: GameState, monsterId: string): GameState {
   const def = getMonster(monsterId);
   s.mode = 'battle';
   s.quest = { areaId: 'veridia', cleared: def.boss ? 3 : 0, earnedXp: 0, earnedGold: 0 };
-  s.battle = { monster: { defId: monsterId, hp: def.hp, maxHp: def.hp, statuses: [] }, playerStatuses: [], round: 1 };
+  s.battle = { monsters: [{ defId: monsterId, hp: def.hp, maxHp: def.hp, statuses: [] }], target: 0, playerStatuses: [], round: 1 };
   return s;
 }
 

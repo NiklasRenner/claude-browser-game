@@ -7,7 +7,7 @@ import { act, inBattle, newGame } from './helpers';
 describe('keyboard shortcuts', () => {
   it('advance to the next fight with Enter, Space or C, and return to ship with R', () => {
     let s = act(newGame('security', 4), { type: 'startQuest', areaId: 'veridia' }).state;
-    s.battle!.monster.hp = 1;
+    s.battle!.monsters[0]!.hp = 1;
     s.player!.stats.dex = 300;
     s = act(s, { type: 'attack' }).state;
     assert.equal(s.mode, 'quest');
@@ -44,5 +44,17 @@ describe('keyboard shortcuts', () => {
       const action = keyAction(s, key);
       if (action) assert.equal(checkAction(s, action), null, key);
     }
+  });
+
+  it('Tab / Shift+Tab cycle through living hostiles only, wrapping around', () => {
+    const s = inBattle(newGame('security', 4), 'hive_drone');
+    s.battle!.monsters = ['hive_drone', 'hive_spitter', 'hive_drone'].map((defId) => ({ defId, hp: 50, maxHp: 50, statuses: [] }));
+    s.battle!.target = 0;
+    assert.deepEqual(keyAction(s, 'Tab'), { type: 'target', index: 1 });
+    assert.deepEqual(keyAction(s, 'Tab', true), { type: 'target', index: 2 });
+    s.battle!.monsters[1]!.hp = 0;
+    assert.deepEqual(keyAction(s, 'Tab'), { type: 'target', index: 2 }, 'skips the downed hostile');
+    s.battle!.monsters[2]!.hp = 0;
+    assert.equal(keyAction(s, 'Tab'), null, 'nothing to switch to');
   });
 });

@@ -140,6 +140,41 @@ const monsters: MonsterDef[] = [
     ],
     xp: 1000, gold: [900, 1200],
     look: { body: 'humanoid', color: 0x101018, accent: 0xffd34d, scale: 1.7 } },
+
+  // ── Xenith Hive World (packs) ──
+  { id: 'hive_drone', name: 'Hive Drone', level: 14, hp: 85, stats: { dex: 12, luk: 4 }, evasion: 6,
+    resist: { plasma: 150, corrosive: 50 },
+    attacks: [
+      { name: 'Mandibles', element: 'kinetic', damage: [16, 21], weight: 3 },
+      { name: 'Pounce', element: 'kinetic', damage: [21, 27], weight: 1 },
+    ],
+    xp: 60, gold: [10, 16], drops: [{ itemId: 'medkit', chance: 10 }],
+    look: { body: 'beast', color: 0x2e2a1c, accent: 0xffb000, scale: 0.72 } },
+  { id: 'hive_spitter', name: 'Hive Spitter', level: 15, hp: 90, stats: { dex: 10, luk: 4 }, evasion: 4,
+    resist: { corrosive: 0, cryo: 150, kinetic: 90 },
+    attacks: [
+      { name: 'Acid Spray', element: 'corrosive', damage: [17, 22], weight: 3, effect: { status: 'corrode', chance: 30, turns: 3, power: 8 } },
+      { name: 'Spine Volley', element: 'kinetic', damage: [12, 17], weight: 2 },
+    ],
+    xp: 75, gold: [12, 20], drops: [{ itemId: 'energy_cell', chance: 15 }],
+    look: { body: 'flyer', color: 0x5a6b2a, accent: 0xc8ff3a, scale: 0.9 } },
+  { id: 'hive_guardian', name: 'Hive Guardian', level: 16, hp: 280, stats: { dex: 6, luk: 3 }, evasion: 0,
+    resist: { kinetic: 60, ion: 150, plasma: 125, corrosive: 50 },
+    attacks: [
+      { name: 'Crushing Claw', element: 'kinetic', damage: [26, 34], weight: 3 },
+      { name: 'Carapace Slam', element: 'kinetic', damage: [20, 26], weight: 1, effect: { status: 'stun', chance: 20, turns: 1, power: 0 } },
+    ],
+    xp: 170, gold: [30, 45], drops: [{ itemId: 'trauma_kit', chance: 25 }],
+    look: { body: 'golem', color: 0x3a3020, accent: 0xffb000, scale: 1.25 } },
+  { id: 'brood_matriarch', name: 'The Brood Matriarch', level: 18, hp: 1250, stats: { dex: 10, luk: 8 }, evasion: 3, boss: true,
+    resist: { corrosive: 25, kinetic: 80, plasma: 140, cryo: 125 },
+    attacks: [
+      { name: 'Brood Lash', element: 'kinetic', damage: [28, 38], weight: 3 },
+      { name: 'Acid Deluge', element: 'corrosive', damage: [26, 34], weight: 2, effect: { status: 'corrode', chance: 40, turns: 3, power: 12 } },
+      { name: 'Hive Shriek', element: 'ion', damage: [20, 26], weight: 1, effect: { status: 'stun', chance: 20, turns: 1, power: 0 } },
+    ],
+    xp: 1400, gold: [800, 1000], drops: [{ itemId: 'nano_restorer', chance: 100 }],
+    look: { body: 'dragon', color: 0x4a2a4a, accent: 0xffc040, scale: 1.55 } },
 ];
 
 export const MONSTERS: Record<string, MonsterDef> = Object.fromEntries(monsters.map((m) => [m.id, m]));

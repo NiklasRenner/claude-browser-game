@@ -6,7 +6,7 @@
 import { AREAS, CLASSES, ITEMS, MONSTERS } from './data';
 import { SAVE_VERSION } from './game';
 import { clampVitals } from './player';
-import { STATS } from './types';
+import { MAX_HOSTILES, STATS } from './types';
 import type { GameState } from './types';
 
 const FORMAT = 'questforge-save';
@@ -38,6 +38,14 @@ const MIGRATIONS: Record<number, (state: any) => void> = {
       p.weapon = id(p.weapon);
       p.armor = id(p.armor);
       p.inventory = Object.fromEntries(Object.entries(p.inventory).map(([k, n]) => [id(k), n]));
+    }
+  },
+  // 2 → 3: battles hold 1–3 hostiles plus a target index.
+  2: (s) => {
+    if (s.battle?.monster) {
+      s.battle.monsters = [s.battle.monster];
+      s.battle.target = 0;
+      delete s.battle.monster;
     }
   },
 };
@@ -101,6 +109,13 @@ function validateState(s: any): string | null {
     if (ITEMS[p.armor]?.kind !== 'armor' || !p.inventory[p.armor]) return 'bad armor';
   }
   if ((s.mode === 'quest' || s.mode === 'battle') && !(s.quest?.areaId in AREAS)) return 'bad quest';
-  if (s.mode === 'battle' && !(s.battle?.monster?.defId in MONSTERS)) return 'bad battle';
+  if (s.mode === 'battle') {
+    const b = s.battle;
+    if (!Array.isArray(b?.monsters) || b.monsters.length < 1 || b.monsters.length > MAX_HOSTILES) return 'bad battle';
+    for (const m of b.monsters) {
+      if (!(m?.defId in MONSTERS) || !isInt(m.hp) || !isInt(m.maxHp, 1) || m.hp > m.maxHp || !Array.isArray(m.statuses)) return 'bad hostile';
+    }
+    if (!isInt(b.target) || b.target >= b.monsters.length || b.monsters[b.target].hp <= 0) return 'bad target';
+  }
   return null;
 }

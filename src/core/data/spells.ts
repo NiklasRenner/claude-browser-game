@@ -10,9 +10,9 @@ const spells: SpellDef[] = [
     effects: [{ type: 'heal', dice: [26, 36], scaling: 'str' }] },
   { id: 'photon_grenade', name: 'Photon Grenade', classId: 'security', level: 8, mp: 16, description: 'A blinding burst of photon energy.',
     effects: [{ type: 'damage', element: 'photon', dice: [24, 34], scaling: 'str' }] },
-  { id: 'suppressive_fire', name: 'Suppressive Fire', classId: 'security', level: 11, mp: 22, description: '240% weapon damage with a chance to stun.',
+  { id: 'suppressive_fire', name: 'Suppressive Fire', classId: 'security', level: 11, mp: 22, description: 'Sweep every hostile for 240% weapon damage, with a chance to stun.',
     effects: [
-      { type: 'damage', element: 'weapon', dice: [0, 0], scaling: 'str', useWeapon: true, mult: 2.4 },
+      { type: 'damage', element: 'weapon', dice: [0, 0], scaling: 'str', useWeapon: true, mult: 2.4, aoe: true },
       { type: 'status', target: 'enemy', status: 'stun', turns: 1, power: 0, chance: 25 },
     ] },
 
@@ -26,9 +26,9 @@ const spells: SpellDef[] = [
     ] },
   { id: 'regen_field', name: 'Regen Field', classId: 'science', level: 3, mp: 10, description: 'Accelerate cellular repair.',
     effects: [{ type: 'heal', dice: [28, 38], scaling: 'int' }] },
-  { id: 'ion_storm', name: 'Ion Storm', classId: 'science', level: 5, mp: 14, description: 'Ionised discharge that may stun.',
+  { id: 'ion_storm', name: 'Ion Storm', classId: 'science', level: 5, mp: 14, description: 'Ionised discharge that arcs through every hostile and may stun.',
     effects: [
-      { type: 'damage', element: 'ion', dice: [16, 24], scaling: 'int' },
+      { type: 'damage', element: 'ion', dice: [16, 24], scaling: 'int', aoe: true },
       { type: 'status', target: 'enemy', status: 'stun', turns: 1, power: 0, chance: 20 },
     ] },
   { id: 'deflector_field', name: 'Deflector Field', classId: 'science', level: 7, mp: 14, description: 'Take 50% less damage for 3 enemy turns.',
@@ -53,9 +53,9 @@ const spells: SpellDef[] = [
     effects: [{ type: 'heal', dice: [22, 30], scaling: 'dex' }] },
   { id: 'exploit_weakness', name: 'Exploit Weakness', classId: 'engineer', level: 5, mp: 12, description: '160% weapon damage, +30% crit chance.',
     effects: [{ type: 'damage', element: 'weapon', dice: [0, 0], scaling: 'dex', useWeapon: true, mult: 1.6, extraCrit: 30 }] },
-  { id: 'cryo_grenade', name: 'Cryo Grenade', classId: 'engineer', level: 7, mp: 10, description: 'A thrown canister of liquid coolant.',
+  { id: 'cryo_grenade', name: 'Cryo Grenade', classId: 'engineer', level: 7, mp: 10, description: 'A canister of liquid coolant that bursts over every hostile.',
     effects: [
-      { type: 'damage', element: 'cryo', dice: [16, 24], scaling: 'dex' },
+      { type: 'damage', element: 'cryo', dice: [16, 24], scaling: 'dex', aoe: true },
       { type: 'status', target: 'enemy', status: 'chill', turns: 2, power: 20, chance: 50 },
     ] },
   { id: 'overload', name: 'Precision Overload', classId: 'engineer', level: 10, mp: 24, description: '260% weapon damage, +25% crit chance.',

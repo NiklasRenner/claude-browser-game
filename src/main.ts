@@ -2,7 +2,7 @@ import { GameController, localStorageAdapter } from './game/controller';
 import { Stage } from './render/stage';
 import { UI } from './ui/ui';
 import { chooseAction } from './core';
-import type { Action } from './core';
+import type { Action, GameState } from './core';
 
 declare const __DEV__: boolean;
 
@@ -19,6 +19,17 @@ try {
   const s = stage;
   game.setAnimator((events, before, after) => s.animate(events, before, after));
   game.subscribe(() => { if (!game.busy) s.sync(game.state); });
+  // Click a hostile in the scene to target it.
+  canvas.addEventListener('click', (e) => {
+    const b = game.state.battle;
+    const slot = s.pickHostile(e.clientX, e.clientY);
+    if (!b || slot === null || slot === b.target) return;
+    void game.dispatch({ type: 'target', index: slot });
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    const b = game.state.battle;
+    canvas.style.cursor = b && b.monsters.length > 1 && s.pickHostile(e.clientX, e.clientY) !== null ? 'crosshair' : '';
+  });
 } catch (err) {
   console.warn('3D view disabled:', err);
   document.body.classList.add('no-webgl');
@@ -40,6 +51,9 @@ const api = {
   botStep: () => game.dispatch(chooseAction(game.state)),
   speed: (n: number) => { if (stage) stage.tweens.speed = n; },
   webgl: stage !== null,
+  hostileScreenPoint: (slot: number) => stage?.hostileScreenPoint(slot) ?? null,
+  /** Jump to any (validated) game state — handy for testing a specific fight. */
+  load: (state: GameState) => game.loadState(state),
 };
 (window as unknown as { __qf: typeof api }).__qf = api;
 if (__DEV__) console.info('Starward dev build — window.__qf is available.');
