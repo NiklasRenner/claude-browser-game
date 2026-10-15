@@ -2,7 +2,7 @@
 
 Read README.md for architecture. The short version:
 
-- Game rules live only in `src/core` (pure, deterministic, no DOM). Rendering (`src/render`) and UI (`src/ui`) only react to state and events.
+- Game rules live only in `src/core` (pure, deterministic, no DOM). Rendering (`src/render`, a 2D canvas) and UI (`src/ui`) only react to state and events.
 - Never add game logic to the UI or renderer. If the UI needs to know whether something is allowed, use `checkAction` / `legalActions`.
 - Every random roll must go through the `Rng` seeded from `state.rng`. Never use `Math.random()` in `src/core`.
 - Keep modules small and single-purpose (see the architecture tree in README.md): new rules go in the matching `src/core` file, new screens in `src/ui/views/`. Don't re-add exports nothing uses.
@@ -19,4 +19,6 @@ When adding a mechanic, add a unit test for its exact semantics and make sure th
 
 ## Setting
 
-Original sci-fi setting inspired by Star Trek (exploration starship, away missions, divisions). Keep it original: no names, terms, logos or ship designs from Star Trek or other franchises (e.g. no "Starfleet", "phaser", "tricorder", delta insignia, LCARS-style UI).
+Original setting: a Star Trek-like premise (exploration starship, away missions, divisions) in a dark, dystopian, gothic and slightly magical look, in the mood of Warhammer 40k. Keep it original: no names, terms, logos, iconography or designs from Star Trek, Warhammer or other franchises (e.g. no "Starfleet", "phaser", "tricorder", delta insignia, LCARS-style UI, "Space Marine", "Imperium", aquila, servo-skulls, purity seals).
+
+Art is 2D pixel art drawn in code (see "Art" in README.md). After changing sprites run `npm run gallery` and look at `test-results/gallery*.png`; after changing backdrops or the stage, run `npm run test:e2e` and look at the `mission-*.png` screenshots.

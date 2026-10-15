@@ -50,7 +50,7 @@ try {
   const page = await newPage({ width: 1280, height: 800 });
   await page.goto('http://127.0.0.1:4199/');
   await page.waitForSelector('#start-game');
-  check(await page.evaluate(() => window.__qf.webgl), 'WebGL stage initialised');
+  check(await page.evaluate(() => window.__qf.stage), 'stage initialised');
   await page.waitForTimeout(500);
   check((await canvasVariety(page)) > 20, 'title scene renders (canvas not blank)');
   await page.screenshot({ path: `${OUT}/01-title.png` });
@@ -174,7 +174,7 @@ try {
   await page.screenshot({ path: `${OUT}/04-later-battle.png` });
 
   // Multi-hostile fight in the hive: let the bot unlock it, then target with Tab, Shift+Tab,
-  // the roster list and by clicking a hostile in the 3D scene.
+  // the roster list and by clicking a hostile in the scene.
   await page.evaluate(() => window.__qf.speed(0));
   const reachedHive = await page.evaluate(async () => {
     const qf = window.__qf;
@@ -215,7 +215,7 @@ try {
     const pt = await page.evaluate(() => window.__qf.hostileScreenPoint(1));
     if (pt) await page.mouse.click(pt.x, pt.y);
     await waitIdle(page);
-    check((await target()) === 1, 'clicking a hostile in the 3D scene targets it');
+    check((await target()) === 1, 'clicking a hostile in the scene targets it');
     const cardName = await page.locator('.hostile-card .hud-name strong').innerText();
     const rosterCurrent = await page.locator('.roster-item.current .roster-name').innerText();
     check(rosterCurrent.includes(cardName), `status card follows the target (${cardName})`);

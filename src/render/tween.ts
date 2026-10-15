@@ -3,7 +3,7 @@
 export type Ease = (t: number) => number;
 export const easeOutCubic: Ease = (t) => 1 - Math.pow(1 - t, 3);
 export const easeInOutSine: Ease = (t) => -(Math.cos(Math.PI * t) - 1) / 2;
-export const easeOutBack: Ease = (t) => 1 + 2.70158 * Math.pow(t - 1, 3) + 1.70158 * Math.pow(t - 1, 2);
+
 
 interface Task {
   elapsed: number;

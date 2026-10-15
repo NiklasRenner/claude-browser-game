@@ -157,7 +157,7 @@ export type LookFeature =
   | 'spikes' | 'tusks' | 'horns' | 'tail' | 'wings' | 'sac' | 'armor' | 'crown' | 'ice'
   | 'helmet' | 'baton' | 'blade' | 'shield' | 'staff' | 'coat' | 'tendrils';
 
-/** Purely visual description; the renderer builds the figure from this (see src/render/models). */
+/** Purely visual description; the renderer builds the figure from this (see src/render/sprites). */
 export interface HostileLook {
   body: 'blob' | 'beast' | 'brute' | 'humanoid' | 'husk' | 'elemental' | 'flyer' | 'golem' | 'serpent' | 'dragon' | 'insect' | 'wraith' | 'wisp';
   color: number;

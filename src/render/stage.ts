@@ -1,151 +1,120 @@
 /**
- * The 3D stage. It never decides anything about the game: `sync(state)` makes
- * the scene match a state, and `animate(events, ...)` plays a step's events.
+ * The 2D pixel-art stage. It never decides anything about the game:
+ * `sync(state)` makes the scene match a state, and `animate(events, ...)`
+ * plays a step's events.
+ *
+ * The scene is drawn at a low resolution (about 200 px tall) and scaled up by
+ * a whole number, so every art pixel is the same size. Glowing pixels are
+ * also drawn into a glow canvas that is blurred and added on top (bloom).
  */
-import * as THREE from 'three';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { getHostile, getAbility, getWeapon, resolveElement } from '../core';
-import type { GameEvent, GameState } from '../core';
+import { getAbility, getHostile, getWeapon, resolveElement } from '../core';
+import type { Element, GameEvent, GameState } from '../core';
 import { ELEMENT_COLORS, STATUS_COLORS, STATUS_ICONS } from '../game/elements';
-import { buildEnvironment } from './environment';
-import type { Environment } from './environment';
 import { Effects } from './fx';
-import { buildHero, buildHostile, disposeObject } from './models';
-import type { Figure } from './models';
-import { Tweens, easeOutBack, easeOutCubic } from './tween';
+import { Painter, makeCanvas } from './pixel/painter';
+import { bayer } from './pixel/noise';
+import { fromInt, glowOf } from './pixel/palette';
+import type { RGB } from './pixel/palette';
+import { buildBackdrop } from './scenes/backdrop';
+import type { Backdrop } from './scenes/backdrop';
+import { heroFigure, hostileFigure, paintFigure } from './sprites';
+import type { Figure } from './sprites';
+import { Tweens, easeOutCubic } from './tween';
 
-const HERO_BATTLE_X = -2.5;
-const HERO_POS = new THREE.Vector3(HERO_BATTLE_X, 0, 0.6);
-/**
- * Where hostiles stand, by lineup size: a rank facing the hero, front (nearest
- * the camera) to back. The raised field camera spreads the rank out on screen.
- */
+/** Art pixels per screen height we aim for. */
+const TARGET_HEIGHT = 200;
+/** Narrowest scene (in art pixels) we accept before shrinking the scale. */
+const MIN_WIDTH = 260;
+
+/** Where hostiles stand, by lineup size: [x, y] as fractions of the screen. Back rows are higher. */
 const SLOTS: Record<number, [number, number][]> = {
-  1: [[2.6, 0.2]],
-  2: [[2.4, 2.3], [3.4, -1.8]],
-  3: [[2.4, 3.0], [3.4, 0.2], [2.9, -2.6]],
+  1: [[0.68, 0.72]],
+  2: [[0.62, 0.69], [0.79, 0.75]],
+  3: [[0.6, 0.67], [0.73, 0.75], [0.86, 0.69]],
 };
-/** Camera presets: the ship's deck is framed at eye level, away missions from a raised 3/4 view. */
-const CAMERA = {
-  ship: { y: 2.7, z: 9, look: new THREE.Vector3(0, 1.2, 0), yPerExtraZ: 0.12 },
-  field: { y: 6.2, z: 9.5, look: new THREE.Vector3(0.4, 1.0, 0), yPerExtraZ: 0.25 },
-};
-/** Half-width of the action that must stay on screen (fighters + some margin). */
-const ACTION_HALF_WIDTH = 5.2;
+const HERO_X = { battle: 0.3, ship: 0.42, field: 0.44 };
+const HERO_Y = 0.73;
+/** On tall (phone) screens the panels cover more of the bottom, so the action moves up. */
+const PORTRAIT_LIFT = 0.11;
+
+interface Actor {
+  figure: Figure;
+  painter: Painter;
+  x: number;
+  y: number;
+  /** Animated offsets and pose. */
+  ox: number;
+  oy: number;
+  attack: number;
+  flash: number;
+  /** 0 = whole, 1 = gone (crumbled to ash). */
+  dissolve: number;
+  /** Lying down (defeat), radians. */
+  fall: number;
+  visible: boolean;
+}
+
+const elementColor = (el: Element): RGB => glowOf(ELEMENT_COLORS[el]);
 
 export class Stage {
   readonly tweens = new Tweens();
-  private renderer: THREE.WebGLRenderer;
-  /** Render → soft bloom on glowing parts (eyes, energy, lava) → tone mapping. */
-  private composer: EffectComposer;
-  /** Bloom is dropped automatically on devices that can't keep up (see frame()). */
-  private bloomOn = true;
-  private slowFrames = 0;
-  private scene = new THREE.Scene();
-  private camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
+  private ctx: CanvasRenderingContext2D;
+  private glowCan = makeCanvas(1, 1);
+  private glow: CanvasRenderingContext2D;
+  private blur = [makeCanvas(1, 1), makeCanvas(1, 1), makeCanvas(1, 1)];
+  private W = 1;
+  private H = 1;
+  private scale = 1;
+  /** Figures are drawn smaller on narrow screens. */
+  private zoom = 1;
+  private lift = 0;
   private fx: Effects;
-  private clock = new THREE.Clock();
   private time = 0;
-  private env: Environment | null = null;
-  private envKey = '';
-  private hero: Figure | null = null;
+  private last = performance.now();
+  private backdrop: Backdrop | null = null;
+  private backdropKey = '';
+  private location = 'ship';
+  private view: keyof typeof HERO_X = 'ship';
+  private hero: Actor | null = null;
   private heroKey = '';
-  /** One figure per lineup slot (same indices as battle.hostiles). */
-  private hostiles: Figure[] = [];
+  /** One actor per lineup slot (same indices as battle.hostiles). */
+  private hostiles: Actor[] = [];
   private hostileKey = '';
-  /** Lineup slot the player is targeting; the marker follows it. */
   private targetIdx = 0;
-  private targetMarker = buildTargetMarker();
-  private raycaster = new THREE.Raycaster();
-  private hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1.4);
-  private sun = new THREE.DirectionalLight(0xffffff, 2.2);
-  /** Back light that outlines figures against dark backdrops. */
-  private rim = new THREE.DirectionalLight(0xb8c8ff, 1.4);
   private shake = 0;
-  private cameraView: keyof typeof CAMERA = 'ship';
-  /** Where the camera is heading (per view, adjusted for screen shape) and where it currently is. */
-  private cameraBase = new THREE.Vector3(0, 2.7, 9);
-  private cameraPos = new THREE.Vector3(0, 2.7, 9);
-  private cameraLook = CAMERA.ship.look.clone();
 
   constructor(private canvas: HTMLCanvasElement, overlay: HTMLElement) {
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFShadowMap;
-    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.sun.position.set(-6, 10, 6);
-    this.sun.castShadow = true;
-    this.sun.shadow.mapSize.set(1024, 1024);
-    Object.assign(this.sun.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10 });
-    this.rim.position.set(3, 6, -8);
-    this.scene.add(this.hemi, this.sun, this.rim, this.targetMarker);
-    this.scene.fog = new THREE.Fog(0xffffff, 14, 45);
-    this.fx = new Effects(this.scene, this.camera, overlay, this.tweens);
-    this.composer = new EffectComposer(this.renderer);
-    this.composer.addPass(new RenderPass(this.scene, this.camera));
-    // Only HDR-bright pixels (emissive materials, effects) bloom; lit surfaces stay crisp.
-    this.composer.addPass(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.55, 0.45, 1.05));
-    this.composer.addPass(new OutputPass());
+    this.ctx = canvas.getContext('2d')!;
+    this.glow = this.glowCan.getContext('2d')!;
+    this.fx = new Effects(overlay, this.tweens, () => this.scale);
     this.resize();
     window.addEventListener('resize', () => this.resize());
-    this.renderer.setAnimationLoop(() => this.frame());
+    // Schedule first, so one bad frame can't stop the animation (and with it, every pending tween).
+    const loop = () => { requestAnimationFrame(loop); this.frame(); };
+    requestAnimationFrame(loop);
   }
 
   private resize() {
-    const { clientWidth: w, clientHeight: h } = this.canvas.parentElement ?? this.canvas;
-    this.renderer.setSize(w, h, false);
-    this.composer?.setPixelRatio(this.renderer.getPixelRatio());
-    this.composer?.setSize(w, h);
-    this.camera.aspect = w / Math.max(1, h);
-    // Pull the camera back on narrow (portrait) screens so both fighters stay in frame.
-    this.updateCameraBase();
-    this.camera.updateProjectionMatrix();
-  }
-
-  private updateCameraBase() {
-    const view = CAMERA[this.cameraView];
-    const halfFov = THREE.MathUtils.degToRad(this.camera.fov / 2);
-    const needed = ACTION_HALF_WIDTH / (Math.tan(halfFov) * this.camera.aspect);
-    this.cameraBase.set(0, view.y + Math.max(0, needed - view.z) * view.yPerExtraZ, Math.max(view.z, needed));
-  }
-
-  private frame() {
-    const raw = this.clock.getDelta();
-    const dt = Math.min(0.1, raw);
-    // Adaptive quality: after ~2 s of sub-20 fps frames, render without bloom.
-    if (this.bloomOn) {
-      this.slowFrames = raw > 0.05 ? this.slowFrames + 1 : Math.max(0, this.slowFrames - 2);
-      if (this.slowFrames > 40) {
-        this.bloomOn = false;
-        console.info('Starward: slow frames, bloom disabled.');
-      }
-    }
-    this.time += dt;
-    this.tweens.tick(dt);
-    this.env?.update(dt, this.time);
-    this.hero?.idle(this.time);
-    this.hostiles.forEach((m, i) => m.idle(this.time + 1.3 + i * 0.7));
-    this.updateTargetMarker();
-    // Gentle camera sway plus impact shake.
-    this.shake = Math.max(0, this.shake - dt * 3);
-    const s = this.shake * 0.15;
-    // Glide between camera views (instantly when animations are skipped).
-    const k = this.tweens.speed === 0 ? 1 : 1 - Math.exp(-dt * 3);
-    this.cameraPos.lerp(this.cameraBase, k);
-    this.cameraLook.lerp(CAMERA[this.cameraView].look, k);
-    this.camera.position.set(
-      this.cameraPos.x + Math.sin(this.time * 0.3) * 0.3 + (Math.random() - 0.5) * s,
-      this.cameraPos.y + (Math.random() - 0.5) * s,
-      this.cameraPos.z,
-    );
-    this.camera.lookAt(this.cameraLook);
-    if (this.bloomOn) this.composer.render(dt);
-    else this.renderer.render(this.scene, this.camera);
+    const host = this.canvas.parentElement ?? this.canvas;
+    const cw = Math.max(1, host.clientWidth), ch = Math.max(1, host.clientHeight);
+    const portrait = ch > cw * 1.2;
+    this.scale = portrait
+      ? Math.max(1, Math.round(cw / 195))
+      : Math.max(1, Math.min(Math.round(ch / TARGET_HEIGHT), Math.floor(cw / MIN_WIDTH)));
+    this.lift = portrait ? PORTRAIT_LIFT : 0;
+    this.W = Math.ceil(cw / this.scale);
+    this.H = Math.ceil(ch / this.scale);
+    this.zoom = Math.min(1, this.W / 300, this.H / 170);
+    this.canvas.width = this.W;
+    this.canvas.height = this.H;
+    this.canvas.style.width = `${this.W * this.scale}px`;
+    this.canvas.style.height = `${this.H * this.scale}px`;
+    this.glowCan.width = this.W;
+    this.glowCan.height = this.H;
+    const sizes = [2, 4, 8];
+    this.blur.forEach((c, i) => { c.width = Math.ceil(this.W / sizes[i]!); c.height = Math.ceil(this.H / sizes[i]!); });
+    this.backdropKey = '';
+    this.layout();
   }
 
   // ─── Scene sync ──────────────────────────────────────────────────────────
@@ -153,144 +122,246 @@ export class Stage {
   /** Makes the scene match `state` immediately (no animation). */
   sync(state: GameState) {
     const missionId = state.mission?.missionId;
-    const onMission = missionId && (state.mode === 'battle' || state.mode === 'mission');
-    this.setEnvironment(onMission ? missionId : 'ship');
-    const view = onMission ? 'field' : 'ship';
-    if (view !== this.cameraView) {
-      this.cameraView = view;
-      this.updateCameraBase();
-    }
+    const onMission = !!missionId && (state.mode === 'battle' || state.mode === 'mission');
+    this.location = onMission ? missionId : 'ship';
+    this.view = state.mode === 'battle' ? 'battle' : onMission ? 'field' : 'ship';
 
     const p = state.player;
     if (p) {
-      const heroKey = `${p.divisionId}|${p.weapon}|${p.armor}`;
-      if (heroKey !== this.heroKey) {
-        const old = this.hero;
-        this.hero = buildHero(p.divisionId, p.weapon, p.armor);
-        this.heroKey = heroKey;
-        if (old) {
-          this.hero.root.position.copy(old.root.position);
-          this.hero.root.rotation.copy(old.root.rotation);
-          this.removeFigure(old);
-        }
-        this.scene.add(this.hero.root);
+      const key = `${p.divisionId}|${p.weapon}|${p.armor}`;
+      if (key !== this.heroKey) {
+        const figure = heroFigure(p.divisionId, p.weapon, p.armor);
+        this.hero = this.hero ? { ...this.hero, figure } : makeActor(figure);
+        this.heroKey = key;
       }
-      const hero = this.hero!;
-      const hx = state.mode === 'battle' ? HERO_BATTLE_X : state.mode === 'ship' ? -1.2 : -0.6;
-      hero.root.position.set(hx, 0, 0.6);
-      hero.root.rotation.set(0, state.mode === 'battle' ? -0.35 : -0.9, state.mode === 'defeated' ? Math.PI / 2 : 0);
-      hero.body.position.x = 0;
-      hero.root.visible = true;
-    } else if (this.hero) {
-      this.removeFigure(this.hero);
+      const h = this.hero!;
+      h.visible = true;
+      h.ox = 0; h.oy = 0; h.attack = 0; h.dissolve = 0;
+      h.fall = state.mode === 'defeated' ? -Math.PI / 2 : 0;
+    } else {
       this.hero = null;
       this.heroKey = '';
     }
 
     const battle = state.battle;
-    const mKey = battle ? `${battle.hostiles.map((m) => m.defId).join(',')}#${state.stats.battlesWon + state.stats.battlesLost}` : '';
-    if (mKey !== this.hostileKey) {
-      for (const m of this.hostiles) this.removeFigure(m);
-      this.hostiles = [];
-      this.hostileKey = mKey;
-      if (battle) {
-        const slots = SLOTS[battle.hostiles.length]!;
-        this.hostiles = battle.hostiles.map((inst, i) => {
-          const def = getHostile(inst.defId);
-          const fig = buildHostile(def.look, !!def.boss);
-          const [x, z] = slots[i]!;
-          fig.root.position.set(x, 0, z);
-          // Face the hero, turned slightly toward the camera.
-          fig.root.rotation.y = Math.atan2(-(HERO_POS.z - z), HERO_POS.x - x) + 0.3;
-          fig.root.userData.slot = i;
-          this.scene.add(fig.root);
-          return fig;
-        });
-      }
+    const key = battle ? `${battle.hostiles.map((m) => m.defId).join(',')}#${state.stats.battlesWon + state.stats.battlesLost}` : '';
+    if (key !== this.hostileKey) {
+      this.hostileKey = key;
+      this.hostiles = (battle?.hostiles ?? []).map((inst) => {
+        const def = getHostile(inst.defId);
+        return makeActor(hostileFigure(def.look, !!def.boss));
+      });
     }
     if (battle) {
       battle.hostiles.forEach((inst, i) => {
-        const fig = this.hostiles[i];
-        if (fig) fig.root.visible = inst.hp > 0;
+        const a = this.hostiles[i];
+        if (a) { a.visible = inst.hp > 0; a.ox = 0; a.oy = 0; a.attack = 0; a.dissolve = 0; }
       });
       this.targetIdx = battle.target;
     }
+    this.layout();
+  }
+
+  private layout() {
+    if (this.hero) { this.hero.x = Math.round(this.W * HERO_X[this.view]); this.hero.y = Math.round(this.H * (HERO_Y - this.lift)); }
+    const slots = SLOTS[this.hostiles.length] ?? [];
+    this.hostiles.forEach((a, i) => {
+      const [x, y] = slots[i] ?? [0.7, 0.72];
+      a.x = Math.round(this.W * x);
+      a.y = Math.round(this.H * (y - this.lift));
+    });
+  }
+
+  // ─── Drawing ─────────────────────────────────────────────────────────────
+
+  private frame() {
+    const now = performance.now();
+    const dt = Math.min(0.1, (now - this.last) / 1000);
+    this.last = now;
+    this.time += dt;
+    this.tweens.tick(dt);
+    const key = `${this.location}@${this.W}x${this.H}`;
+    if (key !== this.backdropKey) {
+      this.backdrop = buildBackdrop(this.location, this.W, this.H, this.lift);
+      this.backdropKey = key;
+    }
+    const { ctx, glow, W, H } = this;
+    const bd = this.backdrop!;
+    glow.clearRect(0, 0, W, H);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    this.shake = Math.max(0, this.shake - dt * 18);
+    const sx = Math.round((Math.random() - 0.5) * this.shake), sy = Math.round((Math.random() - 0.5) * this.shake);
+    ctx.setTransform(1, 0, 0, 1, sx, sy);
+    glow.setTransform(1, 0, 0, 1, sx, sy);
+
+    bd.drawBack(ctx, glow, this.time, dt);
+    const actors = [...(this.hero ? [this.hero] : []), ...this.hostiles].filter((a) => a.visible);
+    for (const a of actors) this.shadow(a);
+    this.targetRing();
+    actors.sort((a, b) => a.y - b.y);
+    actors.forEach((a, i) => this.drawActor(a, a === this.hero, i));
+    this.targetArrow();
+    this.fx.draw(ctx, glow, dt);
+    bd.drawFront(ctx, glow, this.time, dt);
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    glow.setTransform(1, 0, 0, 1, 0, 0);
+    this.bloom();
+  }
+
+  private drawActor(a: Actor, isHero: boolean, i: number) {
+    const f = a.figure, z = this.zoom;
+    const fig = z === 1 ? f : { ...f, scale: f.scale * z };
+    const { ax, ay } = paintFigure(a.painter, fig, { t: this.time + (isHero ? 0 : 1.3 + i * 0.7), attack: a.attack }, {
+      rimDir: isHero ? [1, 0] : [0, -1], rimCol: this.backdrop!.rim, rimAmt: 0.3, flash: a.flash, dissolve: a.dissolve,
+    });
+    const x = Math.round(a.x + a.ox - ax), y = Math.round(a.y + a.oy - ay - f.hover * fig.scale);
+    if (a.fall) {
+      this.ctx.save();
+      this.ctx.translate(a.x + a.ox, a.y);
+      this.ctx.rotate(a.fall);
+      this.ctx.drawImage(a.painter.canvas, -ax, -ay);
+      this.ctx.restore();
+      return;
+    }
+    this.ctx.drawImage(a.painter.canvas, x, y);
+    this.glow.drawImage(a.painter.glowCanvas, x, y);
+  }
+
+  private shadow(a: Actor) {
+    const f = a.figure, rx = Math.round(((f.left + f.right) / 2) * f.scale * this.zoom * 0.55), ry = 2;
+    const cx = Math.round(a.x + a.ox), cy = a.y + 1, alpha = f.hover ? 0.35 : 0.55;
+    this.ctx.fillStyle = `rgba(0,0,0,${alpha})`;
+    for (let y = -ry; y <= ry; y++) {
+      for (let x = -rx; x <= rx; x++) {
+        const d = (x * x) / (rx * rx) + (y * y) / (ry * ry);
+        if (d <= 1 && (d < 0.6 || bayer(x, y) < 0.1)) this.ctx.fillRect(cx + x, cy + y, 1, 1);
+      }
+    }
+  }
+
+  private showTarget(): Actor | null {
+    const a = this.hostiles[this.targetIdx];
+    return this.hostiles.length > 1 && a?.visible && a.dissolve < 0.5 ? a : null;
+  }
+
+  private targetRing() {
+    const a = this.showTarget();
+    if (!a) return;
+    const rx = Math.round(((a.figure.left + a.figure.right) / 2) * a.figure.scale * this.zoom * 0.7);
+    for (let t = 0; t < Math.PI * 2; t += 1 / rx) {
+      const px = Math.round(a.x + a.ox + Math.cos(t) * rx), py = Math.round(a.y + 1 + Math.sin(t) * 3);
+      if (Math.sin(t * 6 + this.time * 3) < -0.3) continue;
+      this.ctx.fillStyle = '#fff2c8'; this.ctx.fillRect(px, py, 1, 1);
+      this.glow.fillStyle = '#e2b25e'; this.glow.fillRect(px, py, 1, 1);
+    }
+  }
+
+  private targetArrow() {
+    const a = this.showTarget();
+    if (!a) return;
+    const [, hy] = this.head(a, 10);
+    const top = Math.round(hy) + Math.round(Math.sin(this.time * 4) * 1.5);
+    const mx = Math.round(a.x + a.ox);
+    for (let r = 0; r < 5; r++) {
+      for (let x = -4 + r; x <= 4 - r; x++) {
+        const edge = Math.abs(x) === 4 - r || r === 0;
+        this.ctx.fillStyle = edge ? '#08060a' : r === 1 ? '#fff2c8' : '#e2b25e';
+        this.ctx.fillRect(mx + x, top + r, 1, 1);
+      }
+    }
+    this.glow.fillStyle = '#e2b25e';
+    this.glow.fillRect(mx - 2, top + 1, 5, 2);
+  }
+
+  private bloom() {
+    const [b1, b2, b3] = this.blur as [HTMLCanvasElement, HTMLCanvasElement, HTMLCanvasElement];
+    let src: HTMLCanvasElement = this.glowCan;
+    for (const c of [b1, b2, b3]) {
+      const g = c.getContext('2d')!;
+      g.imageSmoothingEnabled = true;
+      g.clearRect(0, 0, c.width, c.height);
+      g.drawImage(src, 0, 0, c.width, c.height);
+      src = c;
+    }
+    const ctx = this.ctx;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.imageSmoothingEnabled = true;
+    ctx.globalAlpha = 0.55; ctx.drawImage(b2, 0, 0, this.W, this.H);
+    ctx.globalAlpha = 0.45; ctx.drawImage(b3, 0, 0, this.W, this.H);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.imageSmoothingEnabled = false;
   }
 
   // ─── Targeting ─────────────────────────────────────────────────────────────
 
-  private updateTargetMarker() {
-    const fig = this.hostiles[this.targetIdx];
-    const show = this.hostiles.length > 1 && !!fig?.root.visible;
-    this.targetMarker.visible = show;
-    if (!show || !fig) return;
-    const { ring, arrow } = this.targetMarker.userData as { ring: THREE.Object3D; arrow: THREE.Object3D };
-    this.targetMarker.position.lerp(fig.root.position, 0.35);
-    ring.rotation.z = this.time * 1.5;
-    ring.scale.setScalar(fig.height * 0.45 + Math.sin(this.time * 4) * 0.04);
-    arrow.position.y = fig.height + 0.55 + Math.sin(this.time * 4) * 0.12;
+  private toScene(clientX: number, clientY: number): [number, number] {
+    const r = this.canvas.getBoundingClientRect();
+    return [((clientX - r.left) / r.width) * this.W, ((clientY - r.top) / r.height) * this.H];
   }
 
   /** Screen (client) coordinates of a hostile's body centre — used by tests to click it. */
   hostileScreenPoint(slot: number): { x: number; y: number } | null {
-    const fig = this.hostiles[slot];
-    if (!fig || !fig.root.visible) return null;
-    const p = this.center(fig).project(this.camera);
-    const rect = this.canvas.getBoundingClientRect();
-    return { x: rect.left + ((p.x + 1) / 2) * rect.width, y: rect.top + ((1 - p.y) / 2) * rect.height };
+    const a = this.hostiles[slot];
+    if (!a || !a.visible) return null;
+    const [cx, cy] = this.center(a);
+    const r = this.canvas.getBoundingClientRect();
+    return { x: r.left + (cx / this.W) * r.width, y: r.top + (cy / this.H) * r.height };
   }
 
-  /** Lineup slot of the hostile under a screen point, or null. */
+  /** Lineup slot of the hostile under a screen point, or null. Nearest body centre wins. */
   pickHostile(clientX: number, clientY: number): number | null {
-    const rect = this.canvas.getBoundingClientRect();
-    const ndc = new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
-    this.raycaster.setFromCamera(ndc, this.camera);
-    const roots = this.hostiles.filter((m) => m.root.visible).map((m) => m.root);
-    const hit = this.raycaster.intersectObjects(roots, true)[0];
-    let o: THREE.Object3D | null = hit?.object ?? null;
-    while (o && o.userData.slot === undefined) o = o.parent;
-    return o ? (o.userData.slot as number) : null;
-  }
-
-  private setEnvironment(key: string) {
-    if (key === this.envKey) return;
-    if (this.env) {
-      this.scene.remove(this.env.group);
-      disposeObject(this.env.group);
-    }
-    const env = buildEnvironment(key);
-    this.env = env;
-    this.envKey = key;
-    this.scene.add(env.group);
-    const fog = this.scene.fog as THREE.Fog;
-    fog.color.setHex(env.fog);
-    fog.near = env.fogNear;
-    fog.far = env.fogFar;
-    this.scene.background = new THREE.Color(env.sky);
-    const l = env.lighting;
-    this.hemi.color.setHex(l.hemiSky);
-    this.hemi.groundColor.setHex(l.hemiGround);
-    this.hemi.intensity = l.hemi;
-    this.sun.color.setHex(l.sunColor);
-    this.sun.intensity = l.sun;
-    this.rim.color.setHex(l.rimColor);
-    this.rim.intensity = l.rim;
-  }
-
-  private removeFigure(f: Figure) {
-    this.scene.remove(f.root);
-    disposeObject(f.root);
+    const [x, y] = this.toScene(clientX, clientY);
+    let best: number | null = null, bestD = Infinity;
+    this.hostiles.forEach((a, i) => {
+      if (!a.visible) return;
+      const f = a.figure, s = f.scale * this.zoom;
+      const left = a.x - f.left * s * 0.7, right = a.x + f.right * s * 0.7, top = a.y - (f.height + f.hover) * s;
+      if (x < left || x > right || y < top || y > a.y + 3) return;
+      const [cx, cy] = this.center(a), d = Math.hypot(x - cx, y - cy);
+      if (d < bestD) { bestD = d; best = i; }
+    });
+    return best;
   }
 
   // ─── Event animation ─────────────────────────────────────────────────────
 
+  private center(a: Actor | null): [number, number] {
+    if (!a) return [0, 0];
+    const s = a.figure.scale * this.zoom;
+    return [a.x + a.ox + (a.figure.right - a.figure.left) * s * 0.15, a.y - (a.figure.height * 0.5 + a.figure.hover) * s];
+  }
+
+  private head(a: Actor | null, extra = 4): [number, number] {
+    if (!a) return [0, 0];
+    const s = a.figure.scale * this.zoom;
+    return [a.x + a.ox, a.y - (a.figure.height * 0.85 + a.figure.hover) * s - extra];
+  }
+
+  private actorFor(actor: 'player' | 'hostile', foe?: number) {
+    return actor === 'player' ? this.hero : this.hostiles[foe ?? this.targetIdx] ?? null;
+  }
+
+  private flash(a: Actor, strength = 0.85) {
+    a.flash = strength;
+    void this.tweens.run(0.25, (t) => { a.flash = strength * (1 - t); });
+  }
+
+  /** How an attack looks: non-weapon abilities fly as an orb, ranged weapons fire a bolt, the rest is melee. */
+  private attackStyle(actor: 'player' | 'hostile', element: Element, abilityId: string | null, state: GameState): 'orb' | 'bolt' | 'melee' {
+    if (actor === 'hostile') return element === 'kinetic' ? 'melee' : 'orb';
+    const ability = abilityId ? getAbility(abilityId) : null;
+    if (ability && !ability.effects.some((x) => x.type === 'damage' && x.useWeapon)) return 'orb';
+    return state.player && getWeapon(state.player.weapon).style === 'ranged' ? 'bolt' : 'melee';
+  }
+
   async animate(events: GameEvent[], before: GameState, after: GameState): Promise<void> {
-    // Make sure the "before" scene is present (e.g. after loading a save).
     if (before.mode !== 'title') this.sync({ ...before });
     let pendingAbility: string | null = null;
     let prev: GameEvent | null = null;
     for (const e of events) {
-      // Follow-up strikes of a multi-hit attack play as a quick burst.
       const followUp = e.type === 'attack' && prev?.type === 'attack' && prev.actor === e.actor && prev.foe === e.foe && prev.name === e.name;
       await this.play(e, before, after, pendingAbility, followUp);
       prev = e;
@@ -300,79 +371,21 @@ export class Stage {
     this.sync(after);
   }
 
-  private head(f: Figure | null, extra = 0.3): THREE.Vector3 {
-    if (!f) return new THREE.Vector3();
-    return f.root.position.clone().add(new THREE.Vector3(0, f.height + extra, 0));
-  }
-
-  private center(f: Figure | null): THREE.Vector3 {
-    if (!f) return new THREE.Vector3();
-    return f.root.position.clone().add(new THREE.Vector3(0, f.height * 0.55, 0));
-  }
-
-  private figureFor(actor: 'player' | 'hostile', foe?: number) {
-    return actor === 'player' ? this.hero : this.hostiles[foe ?? this.targetIdx] ?? null;
-  }
-
-  private async lunge(f: Figure, dir: number, distance = 1.3) {
-    await this.tweens.run(0.16, (t) => { f.body.position.x = t * distance * dir; f.attack(t); }, easeOutCubic);
-  }
-
-  private async recover(f: Figure) {
-    const start = f.body.position.x;
-    await this.tweens.run(0.22, (t) => { f.body.position.x = start * (1 - t); f.attack(1 - t); });
-  }
-
-  /** Briefly tints a figure. Original emissive values are remembered once, so overlapping flashes are safe. */
-  private flash(f: Figure, color = 0xffffff) {
-    const from = new THREE.Color(color);
-    for (const m of f.materials) {
-      m.userData.baseEmissive ??= m.emissive.getHex();
-      m.userData.baseIntensity ??= m.emissiveIntensity;
-    }
-    void this.tweens.run(0.25, (t) => {
-      for (const m of f.materials) {
-        m.emissive.copy(from).lerp(new THREE.Color(m.userData.baseEmissive as number), t);
-        m.emissiveIntensity = THREE.MathUtils.lerp(1.2, m.userData.baseIntensity as number, t);
-      }
-    });
-  }
-
-  /**
-   * How an attack looks: abilities that aren't weapon-based fly as an orb, ranged weapons fire a bolt,
-   * hostiles' elemental attacks are projectiles, everything else is a melee lunge.
-   */
-  private attackStyle(actor: 'player' | 'hostile', element: string, abilityId: string | null, state: GameState): 'orb' | 'bolt' | 'melee' {
-    if (actor === 'hostile') return element === 'kinetic' ? 'melee' : 'orb';
-    const ability = abilityId ? getAbility(abilityId) : null;
-    if (ability && !ability.effects.some((x) => x.type === 'damage' && x.useWeapon)) return 'orb';
-    return state.player && getWeapon(state.player.weapon).style === 'ranged' ? 'bolt' : 'melee';
-  }
-
-  private async recoil(f: Figure, dir: number) {
-    await this.tweens.run(0.18, (t) => { f.body.position.x = -Math.sin(t * Math.PI) * 0.12 * dir; f.attack(Math.sin(t * Math.PI)); });
-  }
-
-  private async knockback(f: Figure, dir: number) {
-    await this.tweens.run(0.2, (t) => { f.body.position.x = Math.sin(t * Math.PI) * 0.35 * dir; });
-  }
-
-  private async play(e: GameEvent, before: GameState, after: GameState, pendingAbility: string | null, followUp = false) {
+  private async play(e: GameEvent, before: GameState, after: GameState, pendingAbility: string | null, followUp: boolean) {
     switch (e.type) {
       case 'battleStart': {
         this.sync(after);
-        // Hostiles materialise one after another.
-        await Promise.all(this.hostiles.map(async (m, i) => {
-          const scale = m.root.scale.clone();
-          m.root.scale.setScalar(0.01);
+        // Hostiles condense out of the dark one after another.
+        await Promise.all(this.hostiles.map(async (a, i) => {
+          a.dissolve = 1;
           await this.tweens.wait(i * 0.15);
-          void this.fx.burst(m.root.position.clone().setY(0.2), 0xd8c8a8, 30, 2.5, 0.7, -2);
-          await this.tweens.run(0.5, (t) => m.root.scale.copy(scale).multiplyScalar(Math.max(0.01, t)), easeOutBack);
+          this.fx.burst(...this.center(a), [216, 200, 168], 20, 30, 0.6, -20);
+          await this.tweens.run(0.5, (t) => { a.dissolve = 1 - t; });
         }));
         if (e.boss) {
           const boss = this.hostiles[e.hostileIds.findIndex((id) => getHostile(id).boss)];
-          this.shake = 1;
-          if (boss) this.fx.popText(this.head(boss), '⚠ WARNING', 'pop-boss');
+          this.shake = 5;
+          if (boss) this.fx.popText(...this.head(boss, 8), '⚠ WARNING', 'pop-boss');
         }
         return;
       }
@@ -380,131 +393,140 @@ export class Stage {
         this.targetIdx = e.foe;
         return;
       case 'hostileDown': {
-        const m = this.hostiles[e.foe];
-        if (!m) return;
-        void this.fx.burst(this.center(m), 0xfff1c2, 40, 3, 0.8, -1);
-        await this.tweens.run(0.6, (t) => {
-          m.root.position.y = -t * 1.2;
-          m.root.rotation.z = t * 0.4;
-        });
-        m.root.visible = false;
+        const a = this.hostiles[e.foe];
+        if (!a) return;
+        this.fx.ash(a.x, a.y, 24 * a.figure.scale, a.figure.height * a.figure.scale);
+        await this.tweens.run(0.6, (t) => { a.dissolve = t; });
+        a.visible = false;
         return;
       }
       case 'attack': {
-        const attacker = this.figureFor(e.actor, e.foe);
-        const target = e.actor === 'player' ? this.figureFor('hostile', e.foe) : this.hero;
+        const attacker = this.actorFor(e.actor, e.foe);
+        const target = e.actor === 'player' ? this.actorFor('hostile', e.foe) : this.hero;
         if (!attacker || !target) return;
         const dir = e.actor === 'player' ? 1 : -1;
-        const color = ELEMENT_COLORS[e.element];
+        const col = elementColor(e.element);
         const style = this.attackStyle(e.actor, e.element, pendingAbility, after);
-        const from = this.center(attacker).add(new THREE.Vector3(0.6 * dir, 0.25, 0.3 * (e.actor === 'player' ? 1 : 0)));
+        const [cx, cy] = this.center(attacker);
+        const from: [number, number] = [cx + 12 * dir, cy - 4];
         if (followUp) {
-          // Burst: no wind-up, just a fast shot (or nothing extra for melee).
-          if (style !== 'melee') await this.fx.bolt(from, this.center(target), color, 0.07);
+          if (style !== 'melee') await this.fx.bolt(from, this.center(target), col, 0.07);
         } else if (style === 'orb') {
-          void this.tweens.run(0.45, (t) => attacker.attack(Math.sin(t * Math.PI)));
-          await this.fx.projectile(from, this.center(target), color);
+          void this.tweens.run(0.45, (t) => { attacker.attack = Math.sin(t * Math.PI) * 0.4; });
+          await this.fx.projectile(from, this.center(target), col);
         } else if (style === 'bolt') {
-          void this.recoil(attacker, dir);
-          await this.fx.bolt(from, this.center(target), color);
+          void this.tweens.run(0.18, (t) => { attacker.attack = t >= 1 ? 0 : t; });
+          await this.fx.bolt(from, this.center(target), col);
         } else {
-          await this.lunge(attacker, dir, e.actor === 'hostile' ? 1.6 : 1.3);
+          const gap = ((target.figure.left + attacker.figure.right) * 0.45) * this.zoom;
+          const dist = Math.max(0, Math.abs(target.x - attacker.x) - gap - 10) * dir;
+          await this.tweens.run(0.16, (t) => { attacker.ox = t * dist; attacker.attack = t * (e.actor === 'player' ? 0.3 : 0.4); }, easeOutCubic);
+          if (e.actor === 'player') await this.tweens.run(0.08, (t) => { attacker.attack = 0.3 + t * 0.7; }, (t) => t);
+          if (e.hit) void this.fx.slash(...this.center(target), e.crit ? [255, 220, 140] : col, e.crit ? 18 : 14);
         }
         if (e.hit) {
           this.flash(target);
-          this.shake = e.crit ? 1 : 0.4;
-          void this.fx.burst(this.center(target), color, e.crit ? 40 : 18, e.crit ? 4 : 2.5);
-          this.fx.popText(this.head(target), `${e.damage}${e.crit ? '!' : ''}`,
+          this.shake = e.crit ? 5 : 2;
+          this.fx.burst(...this.center(target), col, e.crit ? 30 : 14, e.crit ? 70 : 45, 0.45);
+          this.fx.popText(...this.head(target), `${e.damage}${e.crit ? '!' : ''}`,
             `${e.actor === 'player' ? 'pop-dmg' : 'pop-hurt'}${e.crit ? ' pop-crit' : ''} el-${e.element}`);
-          void this.knockback(target, dir);
+          void this.tweens.run(0.2, (t) => { target.ox = Math.sin(t * Math.PI) * 4 * dir; });
         } else {
-          this.fx.popText(this.head(target), 'MISS', 'pop-miss');
+          this.fx.popText(...this.head(target), 'MISS', 'pop-miss');
         }
-        if (style === 'melee' && !followUp) await this.recover(attacker);
+        if (style === 'melee' && !followUp) {
+          const start = attacker.ox, a0 = attacker.attack;
+          await this.tweens.run(0.22, (t) => { attacker.ox = start * (1 - t); attacker.attack = e.actor === 'player' ? a0 * (1 - t) : a0 + (1 - a0) * t; });
+          attacker.attack = 0;
+        }
         await this.tweens.wait(followUp ? 0.08 : 0.12);
         return;
       }
       case 'abilityUsed': {
-        const f = this.figureFor(e.actor);
-        if (!f) return;
+        const a = this.actorFor(e.actor);
+        if (!a) return;
         const ability = getAbility(e.abilityId);
         const dmg = ability.effects.find((x) => x.type === 'damage');
-        const element = dmg?.type === 'damage' ? resolveElement(after.player!, dmg.element) : 'photon';
-        this.fx.popText(this.head(f, 0.6), ability.name, 'pop-ability');
-        await this.fx.ring(f.root.position, ELEMENT_COLORS[element]);
+        const el = dmg?.type === 'damage' ? resolveElement(after.player!, dmg.element) : 'photon';
+        this.fx.popText(...this.head(a, 10), ability.name, 'pop-ability');
+        await this.fx.ring(a.x, a.y, elementColor(el));
         return;
       }
       case 'heal': {
-        const f = this.figureFor(e.actor);
-        if (!f || (e.amount <= 0 && e.energy <= 0)) return;
-        void this.fx.burst(f.root.position.clone().setY(0.3), e.amount > 0 ? 0x7dff8a : 0x7ab8ff, 30, 1.2, 0.8, 3);
-        if (e.amount > 0) this.fx.popText(this.head(f), `+${e.amount}`, 'pop-heal');
-        if (e.energy > 0) this.fx.popText(this.head(f, 0.7), `+${e.energy} EN`, 'pop-energy');
+        const a = this.actorFor(e.actor);
+        if (!a || (e.amount <= 0 && e.energy <= 0)) return;
+        this.fx.burst(a.x, a.y - 4, e.amount > 0 ? [125, 255, 138] : [122, 184, 255], 24, 25, 0.8, -50);
+        if (e.amount > 0) this.fx.popText(...this.head(a), `+${e.amount}`, 'pop-heal');
+        if (e.energy > 0) this.fx.popText(...this.head(a, 14), `+${e.energy} EN`, 'pop-energy');
         await this.tweens.wait(0.35);
         return;
       }
       case 'statusApplied': {
-        const f = this.figureFor(e.target, e.foe);
-        if (!f) return;
-        this.fx.popText(this.head(f, 0.5), `${STATUS_ICONS[e.status]} ${e.status}`, 'pop-status');
-        await this.fx.ring(f.root.position, STATUS_COLORS[e.status], 1, 0.4);
+        const a = this.actorFor(e.target, e.foe);
+        if (!a) return;
+        this.fx.popText(...this.head(a, 10), `${STATUS_ICONS[e.status]} ${e.status}`, 'pop-status');
+        await this.fx.ring(a.x, a.y, glowOf(STATUS_COLORS[e.status]), 16, 0.4);
         return;
       }
       case 'statusTick': {
-        const f = this.figureFor(e.target, e.foe);
-        if (!f) return;
-        this.flash(f, STATUS_COLORS[e.status]);
-        this.fx.popText(this.head(f), `${e.damage}`, `pop-tick el-${e.status === 'burn' ? 'plasma' : 'corrosive'}`);
+        const a = this.actorFor(e.target, e.foe);
+        if (!a) return;
+        this.flash(a, 0.5);
+        this.fx.burst(...this.center(a), fromInt(STATUS_COLORS[e.status]), 10, 25, 0.5, -30);
+        this.fx.popText(...this.head(a), `${e.damage}`, `pop-tick el-${e.status === 'burn' ? 'plasma' : 'corrosive'}`);
         await this.tweens.wait(0.3);
         return;
       }
       case 'stunned': {
-        const f = this.figureFor(e.actor, e.foe);
-        if (!f) return;
-        this.fx.popText(this.head(f, 0.4), '💫 Stunned', 'pop-status');
-        void this.fx.burst(this.head(f, 0), 0xffe14d, 12, 1, 0.6, 0);
+        const a = this.actorFor(e.actor, e.foe);
+        if (!a) return;
+        this.fx.popText(...this.head(a, 8), '💫 Stunned', 'pop-status');
+        this.fx.burst(...this.head(a, 0), [255, 225, 77], 12, 20, 0.6, 0);
         await this.tweens.wait(0.45);
         return;
       }
       case 'victory': {
-        if (this.hero) this.fx.popText(this.head(this.hero), `+${e.credits} credits`, 'pop-credits');
+        if (this.hero) this.fx.popText(...this.head(this.hero), `+${e.credits} credits`, 'pop-credits');
         await this.tweens.wait(0.3);
         return;
       }
       case 'defeat': {
         const h = this.hero;
         if (!h) return;
-        await this.tweens.run(0.7, (t) => { h.root.rotation.z = t * Math.PI / 2; h.root.position.y = t * 0.2; });
+        await this.tweens.run(0.7, (t) => { h.fall = -t * Math.PI / 2; });
         return;
       }
       case 'levelUp': {
         if (!this.hero) return;
-        this.fx.popText(this.head(this.hero, 0.8), `LEVEL ${e.level}!`, 'pop-level');
-        void this.fx.ring(this.hero.root.position, 0xffd34d, 2.2, 0.9);
-        await this.fx.burst(this.hero.root.position.clone().setY(0.2), 0xffd34d, 50, 2, 1, 4);
+        this.fx.popText(...this.head(this.hero, 16), `LEVEL ${e.level}!`, 'pop-level');
+        void this.fx.ring(this.hero.x, this.hero.y, [255, 211, 77], 34, 0.9);
+        this.fx.burst(this.hero.x, this.hero.y - 4, [255, 211, 77], 40, 40, 1, -40);
+        await this.tweens.wait(0.6);
         return;
       }
       case 'fled': {
         const h = this.hero;
         if (!h) return;
-        if (e.success) {
-          await this.tweens.run(0.5, (t) => { h.body.position.x = -t * 4; });
-        } else {
-          this.fx.popText(this.head(h), "Can't escape!", 'pop-miss');
+        if (e.success) await this.tweens.run(0.5, (t) => { h.ox = -t * this.W * 0.45; });
+        else {
+          this.fx.popText(...this.head(h), "Can't escape!", 'pop-miss');
           await this.tweens.wait(0.3);
         }
         return;
       }
       case 'equip': {
         this.sync({ ...before, player: after.player });
-        if (this.hero) await this.fx.burst(this.center(this.hero), 0xfff1c2, 20, 1.5, 0.5, 0);
+        if (this.hero) this.fx.burst(...this.center(this.hero), [255, 241, 194], 20, 30, 0.5, 0);
+        await this.tweens.wait(0.3);
         return;
       }
       case 'missionComplete': {
         if (!this.hero) return;
-        this.fx.popText(this.head(this.hero, 1), 'MISSION COMPLETE', 'pop-level');
-        const colors = [0xff6a2b, 0x6cc6ff, 0xffe14d, 0x72e05a, 0xa36bff];
-        await Promise.all(colors.map((c, i) => this.fx.burst(this.head(this.hero, i * 0.1), c, 20, 4, 1.2, -3)));
+        this.fx.popText(...this.head(this.hero, 22), 'MISSION COMPLETE', 'pop-level');
+        for (const c of [[255, 106, 43], [108, 198, 255], [255, 225, 77], [114, 224, 90], [163, 107, 255]] as RGB[]) {
+          this.fx.burst(this.hero.x, this.hero.y - 40, c, 16, 60, 1.2, 40);
+        }
+        await this.tweens.wait(1);
         return;
       }
       default:
@@ -513,21 +535,6 @@ export class Stage {
   }
 }
 
-/** Cyan ground ring plus a bobbing arrow, shown over the targeted hostile. */
-function buildTargetMarker(): THREE.Group {
-  const g = new THREE.Group();
-  const color = 0x5fd6ff;
-  const ringGeo = new THREE.RingGeometry(1.15, 1.32, 6, 1);
-  const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({
-    color, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending,
-  }));
-  ring.rotation.x = -Math.PI / 2;
-  ring.position.y = 0.04;
-  const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.42, 4), new THREE.MeshBasicMaterial({ color, depthTest: false }));
-  arrow.renderOrder = 10; // always visible, even behind another hostile
-  arrow.rotation.x = Math.PI;
-  g.add(ring, arrow);
-  g.userData = { ring, arrow };
-  g.visible = false;
-  return g;
+function makeActor(figure: Figure): Actor {
+  return { figure, painter: new Painter(1, 1), x: 0, y: 0, ox: 0, oy: 0, attack: 0, flash: 0, dissolve: 0, fall: 0, visible: true };
 }

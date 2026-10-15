@@ -12,7 +12,7 @@ const uiRoot = document.querySelector<HTMLElement>('#ui')!;
 
 const game = new GameController(localStorageAdapter());
 
-// The 3D stage is optional: if WebGL is unavailable the game is still fully playable.
+// The stage is optional: if it fails to start, the game is still fully playable.
 let stage: Stage | null = null;
 try {
   stage = new Stage(canvas, overlay);
@@ -31,8 +31,8 @@ try {
     canvas.style.cursor = b && b.hostiles.length > 1 && s.pickHostile(e.clientX, e.clientY) !== null ? 'crosshair' : '';
   });
 } catch (err) {
-  console.warn('3D view disabled:', err);
-  document.body.classList.add('no-webgl');
+  console.warn('Scene disabled:', err);
+  document.body.classList.add('no-scene');
 }
 
 new UI(uiRoot, game);
@@ -50,7 +50,7 @@ const api = {
   /** Lets the built-in bot take one action (handy for testing and demos). */
   botStep: () => game.dispatch(chooseAction(game.state)),
   speed: (n: number) => { if (stage) stage.tweens.speed = n; },
-  webgl: stage !== null,
+  stage: stage !== null,
   hostileScreenPoint: (slot: number) => stage?.hostileScreenPoint(slot) ?? null,
   /** Jump to any (validated) game state — handy for testing a specific fight. */
   load: (state: GameState) => game.loadState(state),

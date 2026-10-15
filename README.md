@@ -1,6 +1,6 @@
 # Starward (working title)
 
-A turn-based sci-fi RPG in the spirit of classic browser RPGs like AdventureQuest, rendered with three.js. The setting is an original, Star Trek-inspired one: you serve aboard the exploration vessel *Meridian*.
+A turn-based sci-fi RPG in the spirit of classic browser RPGs like AdventureQuest, in dark 2D pixel art. The setting is an original one: a Star Trek-like premise (you serve aboard the exploration vessel *Meridian*) in a grim, gothic, slightly magical universe.
 
 Pick a division, take missions from the ship's board, beam down and fight through five worlds, each ending in a priority target. Exploit damage-type vulnerabilities, manage HP/energy between fights, level up, spend stat points, and requisition better gear.
 
@@ -23,7 +23,7 @@ npm run dev        # http://localhost:5173 with live reload
 | `npm test` | Unit, property/fuzz, playthrough and golden tests (~4 s) |
 | `npm run test:e2e` | Builds, then drives the real UI in headless Chromium; screenshots in `test-results/` |
 | `npm run test:update-golden` | Re-record golden files after an *intentional* gameplay change |
-| `npm run gallery` | Renders every officer kit and hostile side by side to `test-results/gallery.png` (`npm run gallery -- heroes` / `hostiles` for one group). Use it after changing models |
+| `npm run gallery` | Paints every officer kit and hostile side by side to `test-results/gallery.png` (`npm run gallery -- heroes` / `hostiles` for one group, `npm run gallery -- all 1.3 0.4` for everyone mid-attack). Use it after changing sprites |
 | `npm run sim` | Balance report: full bot playthroughs per class, patrols at several levels and post-game, and **stat weights** (`npm run sim -- 100` for more seeds) |
 | `npm run check` | lint + tests + e2e (run before committing) |
 
@@ -68,7 +68,7 @@ Naming: code uses the same words as the game (divisions, credits, energy, abilit
 
 ```
 src/
-  core/            Pure, deterministic game rules. No DOM, no three.js.
+  core/            Pure, deterministic game rules. No DOM, no rendering.
     types.ts       All state / action / event types (plain JSON data)
     data/          Content tables: divisions, items, abilities, hostiles, missions (+ validateContent)
     stats.ts       Stat formulas and every balance knob
@@ -86,8 +86,10 @@ src/
     rng.ts         Seeded PRNG; its state lives inside GameState
   game/            controller.ts (live state, dispatch, autosave, animator hook);
                    elements.ts (colours/icons shared by UI and stage)
-  render/          three.js stage (bloom post-processing), environments, effects, tweens;
-                   models/ (procedural figures: builder, hero, weapons, creatures, beings)
+  render/          2D canvas stage (low-res, integer-scaled, with bloom), effects, tweens;
+                   pixel/ (painter: shaded parts → outlined sprites; palette; noise);
+                   sprites/ (hero, weapons, creatures, beings, hostiles);
+                   scenes/ (per-location backdrops: sky, skyline, ground, frames, props, ambient)
   ui/              ui.ts (input + UI-only state) · views/ (title, ship, mission: state → HTML) ·
                    widgets.ts (chips) · html.ts (helpers) · keys.ts (keyboard bindings)
 tests/             node:test suites (run via tsx) + golden files
@@ -98,7 +100,7 @@ Key design rules:
 
 1. **All game logic lives in `src/core` and is pure.** `step()` never mutates its input; every random roll comes from `state.rng`. The same seed and actions always give the same result, and a save/load continues identically.
 2. **One source of truth for legality.** `checkAction()` and `legalActions()` are used by the reducer, the UI, the bot and the fuzz tests. Illegal actions return the unchanged state plus an `error` event, never an exception.
-3. **Rendering only reacts.** The reducer emits events (`attack`, `statusApplied`, `levelUp`, …). The stage animates them and the UI re-renders from state. If WebGL is unavailable the game still works. The UI and the stage never import each other (`npm run lint` checks this).
+3. **Rendering only reacts.** The reducer emits events (`attack`, `statusApplied`, `levelUp`, …). The stage animates them and the UI re-renders from state. If the stage fails to start the game still works. The UI and the stage never import each other (`npm run lint` checks this).
 4. **Views are functions.** Each view takes state (plus the UI-only bits it needs, like the open tab) and returns HTML; the `UI` class only handles input and decides what to render. Log text and its tone (good/bad/loot) come from core events, never from matching strings.
 
 ## Testing strategy
@@ -119,11 +121,17 @@ The browser build exposes `window.__qf` (`state`, `legal()`, `dispatch(action)`,
 
 Aim for every stat in roughly the same band (currently about 1–4% per point). Speed is the deliberate exception late on (≈0.5–1% at level 15): its curve is steep on purpose so double turns stay rare. If one stat dominates or one is near zero, adjust its knob in `src/core/stats.ts` and re-run. The campaign and patrol tables above it show the overall difficulty (deaths per playthrough / per patrol).
 
+## Art
+
+Everything is drawn in code, no image files. The scene is rendered at about 200 px tall and scaled up by a whole number, so all art pixels are the same size. Figures are painted from shaded parts (ellipses, tubes, polygons) lit from the upper left, with ordered dithering between shades, a dark outline, thin lines where parts overlap, a rim light from the location, and glowing pixels that feed a bloom pass. Colours for hostiles come from their `look` colours via `rampOf()`, which darkens and hue-shifts them into the palette (cold, purple shadows; warm highlights).
+
+Style rules: dark and desaturated overall, colour concentrated in glows (eyes, fire, runes, windows); brass and crimson for the human side; one light direction; outlines on figures and set pieces, flat two-tone silhouettes for distant skylines.
+
 ## Adding content
 
 - **New hostile:** add it to `src/core/data/hostiles.ts` and list it in a mission. `look` picks a procedural body plan (`blob`, `beast`, `brute`, `humanoid`, `husk`, `elemental`, `flyer`, `golem`, `serpent`, `dragon`, `insect`, `wraith`, `wisp`), colours, a scale and optional `features` (e.g. `helmet`, `shield`, `blade`, `spikes`, `wings`, `crown`). Check it with `npm run gallery`.
-- **New item or ability:** add it to `items.ts` / `abilities.ts`. Weapons have a visual `style` (`melee` or `ranged`); the held model comes from `SHAPES` in `src/render/models/weapons.ts`. Quartermaster stock is everything with a price above 0.
-- **New mission:** add it to `missions.ts` with `requires` pointing at the previous one (the last one sets `FINAL_MISSION` and a `finale`), then add a backdrop case and lighting entry in `src/render/environment.ts`. For pack fights, list lineups (1–3 hostile ids) in `groups`, and escorts for the priority target in `bossAdds` (max 2; the boss stands between them).
+- **New item or ability:** add it to `items.ts` / `abilities.ts`. Weapons have a visual `style` (`melee` or `ranged`); the held sprite comes from `SHAPES` in `src/render/sprites/weapons.ts`. Quartermaster stock is everything with a price above 0.
+- **New mission:** add it to `missions.ts` with `requires` pointing at the previous one (the last one sets `FINAL_MISSION` and a `finale`), then add its backdrop recipe (sky, skyline, ground, frames, props, weather) to `src/render/scenes/locations.ts`. For pack fights, list lineups (1–3 hostile ids) in `groups`, and escorts for the priority target in `bossAdds` (max 2; the boss stands between them).
 - **Renaming content ids** breaks existing saves: bump `SAVE_VERSION` and add a migration to `MIGRATIONS` in `src/core/save.ts`.
 
 `validateContent()` (run by the test suite) catches broken references. Then run `npm run sim` to check balance and `npm run test:update-golden` to accept the new behaviour.
