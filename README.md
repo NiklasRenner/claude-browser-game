@@ -125,6 +125,8 @@ Aim for every stat in roughly the same band (currently about 1–4% per point). 
 
 Everything is drawn in code, no image files. The scene is rendered at about 200 px tall and scaled up by a whole number, so all art pixels are the same size. Figures are painted from shaded parts (ellipses, tubes, polygons) lit from the upper left, with ordered dithering between shades, a dark outline, thin lines where parts overlap, a rim light from the location, and glowing pixels that feed a bloom pass. Colours for hostiles come from their `look` colours via `rampOf()`, which darkens and hue-shifts them into the palette (cold, purple shadows; warm highlights).
 
+The UI matches: panels sit in a riveted brass frame and buttons are bevelled plates, both small pixel-art images (SVG data URIs in `public/styles.css`) drawn at 2×. Headings, names, buttons, bars and combat numbers use the game's own pixel font, `public/fonts/starward-pixel.woff`, built from the bitmaps in `scripts/pixel-font.py` (`python3 scripts/pixel-font.py`, needs fontTools). It is sharp only at multiples of 10px; longer text stays in the regular font for readability.
+
 Style rules: dark and desaturated overall, colour concentrated in glows (eyes, fire, runes, windows); brass and crimson for the human side; one light direction; outlines on figures and set pieces, flat two-tone silhouettes for distant skylines.
 
 ## Adding content
