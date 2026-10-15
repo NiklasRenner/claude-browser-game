@@ -18,6 +18,9 @@ import { titleScreen, victoryModal } from './views/title';
 import { shipView } from './views/ship';
 import type { ShipTab } from './views/ship';
 
+/** Containers whose scroll position survives a re-render. */
+const SCROLLERS = '.tab-body, .main-panel.mode-title';
+
 export class UI {
   private tab: ShipTab = 'missions';
   private battleMenu: BattleMenu = 'main';
@@ -31,6 +34,8 @@ export class UI {
    */
   private keyQueue: { key: string; shift: boolean }[] = [];
   private showVictoryModal = false;
+  /** Mode + tab of the last render, to tell a refresh from a screen change. */
+  private lastView = '';
 
   constructor(private root: HTMLElement, private game: GameController) {
     game.subscribe(() => {
@@ -139,6 +144,11 @@ export class UI {
       case 'defeated': main = defeatedPanel(btn); break;
     }
 
+    // Re-rendering replaces the DOM; keep scrolled lists where they were (same screen only).
+    const view = `${s.mode}:${this.tab}`;
+    const scroll = view === this.lastView
+      ? [...this.root.querySelectorAll<HTMLElement>(SCROLLERS)].map((el) => el.scrollTop) : [];
+    this.lastView = view;
     this.root.innerHTML = `
       ${s.player ? hud(s.player, s.battle?.playerStatuses ?? []) : ''}
       ${s.battle ? hostileCard(s, this.game.busy) : ''}
@@ -147,6 +157,7 @@ export class UI {
       ${s.mode !== 'title' ? this.logPanel() : ''}
       ${this.showVictoryModal ? victoryModal(s) : ''}
     `;
+    this.root.querySelectorAll<HTMLElement>(SCROLLERS).forEach((el, i) => { el.scrollTop = scroll[i] ?? 0; });
     const input = this.root.querySelector<HTMLInputElement>('#hero-name');
     if (input) input.value = this.titleName;
   }

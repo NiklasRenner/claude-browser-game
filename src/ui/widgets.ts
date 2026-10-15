@@ -7,6 +7,12 @@ import type { BattleState, DamageEffect, Element, ItemDef, HostileDef, Player, A
 import { ELEMENT_ICONS, STATUS_ICONS } from '../game/elements';
 import { esc } from './html';
 
+/** Speed as a difference from the base of 100: "+15%", "−10%", "±0%". */
+export function speedText(speed: number): string {
+  const d = Math.round((speed - 100) * 10) / 10;
+  return d > 0 ? `+${d}%` : d < 0 ? `−${-d}%` : '±0%';
+}
+
 /** What a stat value currently gives, in plain numbers. */
 export function statEffect(stat: Stat, v: number): string {
   switch (stat) {

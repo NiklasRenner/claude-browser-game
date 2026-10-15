@@ -6,7 +6,7 @@ import {
 import type { GameState, ItemDef, Player } from '../../core';
 import { ELEMENT_ICONS } from '../../game/elements';
 import type { BtnFn } from '../html';
-import { abilityTags, itemStats, statEffect, weaponHitText } from '../widgets';
+import { abilityTags, itemStats, speedText, statEffect, weaponHitText } from '../widgets';
 
 export type ShipTab = 'missions' | 'quartermaster' | 'locker' | 'personnel' | 'sickbay';
 
@@ -88,7 +88,7 @@ function personnel(p: Player, btn: BtnFn) {
     <div class="two-col">
       <div><h3>Attributes ${p.statPoints ? `<span class="badge">${p.statPoints} to spend</span>` : ''}</h3><div class="list">${stats}</div></div>
       <div><h3>Combat</h3>
-        <div class="kv"><span>Weapon hit chance</span><b>${weaponHitText(p)}</b><span>Speed</span><b>${Math.round(d.speed * 10) / 10}</b>
+        <div class="kv"><span>Weapon hit chance</span><b>${weaponHitText(p)}</b><span>Speed</span><b>${speedText(d.speed)}</b>
         <span>Evasion (armor)</span><b title="Armor and abilities; never above ${PLAYER_EVASION_CAP}">${d.evasion.toFixed(0)}</b>
         <span>Critical chance</span><b>${d.critChance.toFixed(0)}%</b><span>Resistances</span><b>${resist || '—'}</b></div>
         <h3>Abilities</h3><div class="list">${abilities}</div>

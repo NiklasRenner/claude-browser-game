@@ -128,6 +128,9 @@ function ground(color: number, rng: Rng, roughness = 0.6): THREE.Mesh {
     colors.push(c.r, c.g, c.b);
     if (Math.hypot(pos.getX(i), pos.getZ(i)) > 8) pos.setY(i, rng.next() * roughness);
   }
+  // The rim's first and last vertices sit at the same spot (angle 0 and 2π). Give them the
+  // same height, or the ground splits open along +X (a dotted crack running behind the hostiles).
+  pos.setY(pos.count - 1, pos.getY(1));
   geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   geo.computeVertexNormals();
   const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 1 }));

@@ -77,6 +77,15 @@ try {
   }
   check(squashed.length === 0, `ship tab bar stays visible on every tab${squashed.length ? ` (broken on: ${squashed.join(', ')})` : ''}`);
 
+  // Acting inside a scrolled list (buying from the bottom of the stock) must not jump back to the top.
+  await page.click('[data-ui="tab:quartermaster"]');
+  const scrolledTo = await page.evaluate(() => { const el = document.querySelector('.tab-body'); el.scrollTop = el.scrollHeight; return el.scrollTop; });
+  await page.click('[data-action*="medkit"]');
+  await waitIdle(page);
+  const scrolledNow = await page.evaluate(() => document.querySelector('.tab-body').scrollTop);
+  check(scrolledTo > 0 && Math.abs(scrolledNow - scrolledTo) < 2, `list keeps its scroll position after an action (${scrolledTo} → ${scrolledNow})`);
+  await page.click('[data-ui="tab:missions"]');
+
   // Start a run through the real button and fight with real clicks at normal animation speed.
   await page.click('[data-action*="veridia"]');
   await page.waitForSelector('.hostile-card');

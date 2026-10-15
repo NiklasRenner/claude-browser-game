@@ -7,7 +7,7 @@ import type { GameState, Player, StatusEffect } from '../../core';
 import { ELEMENT_ICONS } from '../../game/elements';
 import { actionAttr, bar, esc, pct } from '../html';
 import type { BtnFn } from '../html';
-import { abilityTags, elementChip, hitChip, itemStats, statusChips } from '../widgets';
+import { abilityTags, elementChip, hitChip, itemStats, speedText, statusChips } from '../widgets';
 
 /** Which battle sub-menu is open. */
 export type BattleMenu = 'main' | 'abilities' | 'items' | 'gear';
@@ -68,7 +68,7 @@ export function hostileCard(s: GameState, busy: boolean) {
       <div class="hud-name"><strong>${esc(labels[b.target]!)}</strong> <span class="muted">Lv ${hostileLevel(target)}${def.boss ? ' · PRIORITY TARGET' : ''}</span></div>
       ${bar('hp enemy', target.hp, target.maxHp, 'HP')}
       <div class="hud-row">${statusChips(target.statuses)}</div>
-      <div class="res profile">Speed <b>${def.speed}</b> · Evasion <b>${Math.round(hostileEvasion(target))}</b> · Hits you <b>${Math.round(hostileHitChance(s.player!, b, b.target))}%</b></div>
+      <div class="res profile" title="Speed vs. the normal 100 · its evasion against your attacks · its chance to hit you">Speed <b>${speedText(def.speed)}</b> · Evasion <b>${Math.round(hostileEvasion(target))}%</b> · Hit <b>${Math.round(hostileHitChance(s.player!, b, b.target))}%</b></div>
       ${weak.length ? `<div class="res">Vulnerable: ${chips(weak)}</div>` : ''}
       ${strong.length ? `<div class="res">Resists: ${chips(strong)}</div>` : ''}
     </div>`;
