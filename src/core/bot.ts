@@ -4,8 +4,10 @@
  * balance probe (`npm run sim`).
  */
 import { aliveIndices, averageEffectDamage, hitChance, monsterDamageTaken, playerHitChance, resolveElement, strikeProfile } from './combat';
-import { AREA_ORDER, CLASSES, ITEMS, getArea, getClass, getMonster } from './data';
-import { checkAction, initialState, legalActions, questEncounters, step } from './game';
+import { AREA_ORDER, CLASSES, ITEMS, getArea, getMonster } from './data';
+import { initialState, step } from './game';
+import { questEncounters } from './missions';
+import { checkAction, legalActions } from './rules';
 import { countItem, derive, knownSpells } from './player';
 import { BASE_STAT } from './stats';
 import type { Action, ArmorDef, ClassId, GameState, MonsterDef, Player, StatusEffect, WeaponDef } from './types';
@@ -222,7 +224,7 @@ function hasBuff(statuses: StatusEffect[]) {
 
 // ─── Whole-game runner ─────────────────────────────────────────────────────
 
-export interface BotRunSummary {
+interface BotRunSummary {
   classId: ClassId;
   seed: number;
   steps: number;

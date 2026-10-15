@@ -91,7 +91,7 @@ export function grantXp(player: Player, amount: number, events: GameEvent[]): vo
     fullRestore(player);
     events.push({ type: 'levelUp', level: player.level });
     for (const spell of spellsFor(player.classId, player.level)) {
-      if (spell.level === player.level) events.push({ type: 'message', text: `Learned ${spell.name}!` });
+      if (spell.level === player.level) events.push({ type: 'learned', spellId: spell.id });
     }
   }
   if (player.level >= MAX_LEVEL) player.xp = 0;

@@ -201,6 +201,8 @@ export interface AreaDef {
   boss: string;
   /** Hostiles that fight alongside the boss (max 2, so the boss fight has up to 3). */
   bossAdds?: string[];
+  /** Ending text, for the final mission (FINAL_AREA): shown in the log and the victory screen. */
+  finale?: { title: string; text: string };
   /** Regular encounters before the boss. */
   encounters: number;
   reward: { xp: number; gold: number };
@@ -329,7 +331,9 @@ export type GameEvent =
   | { type: 'questComplete'; areaId: string; xp: number; gold: number; firstClear: boolean }
   | { type: 'patrolComplete'; areaId: string; level: number; xp: number; gold: number }
   | { type: 'gameComplete' }
-  | { type: 'gold'; amount: number }
+  | { type: 'bought'; itemId: string; price: number }
+  | { type: 'sold'; itemId: string; credits: number }
+  | { type: 'learned'; spellId: string }
   | { type: 'rested'; cost: number };
 
 export interface StepResult {

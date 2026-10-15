@@ -5,21 +5,14 @@ import {
   HOSTILE_ACCURACY_PER_LEVEL, ITEMS, MONSTERS, SPELLS, getMonster, getWeapon, hostileHit, hostileHitChance, playerHitChance,
   scaledHostile, strikeProfile,
 } from '../src/core';
-import type { GameEvent, GameState, WeaponDef } from '../src/core';
-import { act, inBattle, newGame } from './helpers';
+import type { ClassId, GameEvent, WeaponDef } from '../src/core';
+import { act, endlessFight } from './helpers';
 
 const strikes = (events: GameEvent[], actor: 'player' | 'monster') => events.filter((e) => e.type === 'attack' && e.actor === actor);
 
-/** A fight where nobody dies, with `weapon` equipped. */
-function fight(monsterId: string, weapon = 'sidearm_mk1', classId: 'security' | 'science' | 'engineer' = 'security'): GameState {
-  const s = inBattle(newGame(classId, 4), monsterId);
-  s.player!.inventory[weapon] = 1;
-  s.player!.weapon = weapon;
-  s.player!.hp = 1_000_000;
-  s.player!.level = 20;
-  s.battle!.monsters[0]!.hp = s.battle!.monsters[0]!.maxHp = 1_000_000;
-  return s;
-}
+/** A level-20 fight where nobody dies, with `weapon` equipped. */
+const fight = (monsterId: string, weapon = 'sidearm_mk1', classId: ClassId = 'security') =>
+  endlessFight(monsterId, { classId, seed: 4, weapon, level: 20 });
 
 describe('hit chance', () => {
   it('is the weapon\'s hit minus the hostile\'s evasion', () => {

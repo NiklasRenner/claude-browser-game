@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { checkAction, initialState } from '../src/core';
-import { keyAction } from '../src/ui/ui';
+import { keyAction } from '../src/ui/keys';
 import { act, inBattle, newGame, sureHit } from './helpers';
 
 describe('keyboard shortcuts', () => {

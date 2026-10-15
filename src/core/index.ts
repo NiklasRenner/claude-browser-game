@@ -2,12 +2,14 @@
 export * from './types';
 export * from './data';
 export * from './game';
+export * from './rules';
+export { questEncounters } from './missions';
 export * from './player';
 export * from './combat';
 export * from './save';
 export * from './bot';
-export { Rng, hashSeed } from './rng';
+export { Rng } from './rng';
 export * from './patrol';
-export { describeEvent, describeStep, hostileLabels } from './describe';
-export type { DescribeContext } from './describe';
+export { describeLog, describeStep, hostileLabels } from './describe';
+export type { LogEntry, Tone } from './describe';
 export * from './stats';

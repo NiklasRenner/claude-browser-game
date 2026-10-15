@@ -1,12 +1,12 @@
 /** Human-readable text for events — used by the in-game log and golden test transcripts. */
-import { getArea, getItem, getMonster } from './data';
-import type { GameEvent, GameState, StepResult } from './types';
+import { FINAL_AREA, getArea, getItem, getMonster, getSpell } from './data';
+import type { GameEvent, GameState, StatusId, StepResult } from './types';
 
-const STATUS_TEXT: Record<string, string> = {
+const STATUS_TEXT: Record<StatusId, string> = {
   burn: 'burning', corrode: 'corroding', stun: 'stunned', shield: 'shielded', evasive: 'evasive', chill: 'chilled', marked: 'marked',
 };
 
-export interface DescribeContext {
+interface DescribeContext {
   you: string;
   /** Display label per hostile index (see hostileLabels). */
   foes: string[];
@@ -31,17 +31,45 @@ export function hostileLabels(defIds: string[]): string[] {
 
 const listJoin = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}`);
 
-/** Log lines for one reducer step. `before` is the state the action was applied to. */
-export function describeStep(before: GameState, result: StepResult): string[] {
+/** How a log line should read: good news, bad news, loot, or plain information. */
+export type Tone = 'info' | 'good' | 'bad' | 'loot';
+
+export interface LogEntry {
+  text: string;
+  tone: Tone;
+}
+
+/** Log entries for one reducer step. `before` is the state the action was applied to. */
+export function describeLog(before: GameState, result: StepResult): LogEntry[] {
   const battle = result.state.battle ?? before.battle;
   const ctx: DescribeContext = {
     you: result.state.player?.name ?? 'You',
     foes: battle ? hostileLabels(battle.monsters.map((m) => m.defId)) : [],
   };
-  return result.events.map((e) => describeEvent(e, ctx)).filter((line): line is string => line !== null);
+  const out: LogEntry[] = [];
+  for (const e of result.events) {
+    const text = describeEvent(e, ctx);
+    if (text !== null) out.push({ text, tone: toneOf(e) });
+  }
+  return out;
 }
 
-export function describeEvent(event: GameEvent, { you, foes }: DescribeContext): string | null {
+/** Just the text of describeLog (golden transcripts). */
+export function describeStep(before: GameState, result: StepResult): string[] {
+  return describeLog(before, result).map((l) => l.text);
+}
+
+function toneOf(e: GameEvent): Tone {
+  switch (e.type) {
+    case 'error': case 'defeat': return 'bad';
+    case 'fled': return e.success ? 'info' : 'bad';
+    case 'victory': case 'levelUp': case 'learned': case 'questComplete': case 'patrolComplete': case 'gameComplete': return 'good';
+    case 'bought': case 'sold': case 'equip': return 'loot';
+    default: return 'info';
+  }
+}
+
+function describeEvent(event: GameEvent, { you, foes }: DescribeContext): string | null {
   const foeName = (i: number | undefined) => foes[i ?? 0] ?? 'The hostile';
   const who = (actor: 'player' | 'monster', foe?: number) => (actor === 'player' ? you : foeName(foe));
   switch (event.type) {
@@ -89,8 +117,10 @@ export function describeEvent(event: GameEvent, { you, foes }: DescribeContext):
       return `Mission complete: ${getArea(event.areaId).name}! +${event.xp} XP, +${event.gold} credits${event.firstClear ? ' (first clear!)' : ''}.`;
     case 'patrolComplete':
       return `Patrol complete: ${getArea(event.areaId).name} sector (level ${event.level})! +${event.xp} XP, +${event.gold} credits.`;
-    case 'gameComplete': return 'The Brood Matriarch is dead and the hive falls silent. The Meridian\'s tour is complete!';
-    case 'gold': return null;
+    case 'gameComplete': return getArea(FINAL_AREA).finale?.text ?? 'The tour is complete!';
+    case 'bought': return `Bought ${getItem(event.itemId).name}.`;
+    case 'sold': return `Sold ${getItem(event.itemId).name}.`;
+    case 'learned': return `Learned ${getSpell(event.spellId).name}!`;
     case 'rested': return `Treated in sickbay${event.cost ? ` (${event.cost} credits)` : ''}. Fully restored.`;
   }
 }

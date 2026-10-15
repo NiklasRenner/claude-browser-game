@@ -37,7 +37,7 @@ export const baseStats = (): Stats => ({ pow: BASE_STAT, spd: BASE_STAT, int: BA
 // ─── Knobs ─────────────────────────────────────────────────────────────────
 
 /** Power: +3% damage per point (additive, so each point is worth a little less, relatively). */
-export const POW_PER_POINT = 0.03;
+const POW_PER_POINT = 0.03;
 /** Default hit chance of field abilities that don't set their own. */
 export const ABILITY_HIT = 90;
 /** Final hit chance is clamped to this range, so nothing is ever completely unhittable. */
@@ -48,7 +48,7 @@ export const MAX_HIT = 100;
  * so every officer starts at exactly speed 100 and it never reaches +SPEED_MAX.
  */
 export const SPEED_MAX = 60;
-export const SPEED_K = 40;
+const SPEED_K = 40;
 /** The player's evasion (armor + abilities) never exceeds this. Hostiles are not capped. */
 export const PLAYER_EVASION_CAP = 40;
 /**
@@ -56,14 +56,14 @@ export const PLAYER_EVASION_CAP = 40;
  * units between turns. Whoever's next turn comes first acts (ties: player,
  * then hostiles in lineup order). No dice involved.
  */
-export const TURN_LENGTH = 100;
+const TURN_LENGTH = 100;
 /** Endurance: HP per point. */
-export const END_PER_POINT = 6;
+const END_PER_POINT = 6;
 /** Intellect: max energy per point. */
-export const INT_PER_POINT = 4;
+const INT_PER_POINT = 4;
 /** Luck: crit% = CRIT_MAX · luk / (luk + CRIT_K). */
-export const CRIT_MAX = 100;
-export const CRIT_K = 35;
+const CRIT_MAX = 100;
+const CRIT_K = 35;
 /** Critical hits multiply damage by this. */
 export const PLAYER_CRIT_MULT = 2;
 

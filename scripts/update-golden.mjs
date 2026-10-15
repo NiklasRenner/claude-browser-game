@@ -1,5 +1,9 @@
 // Regenerates tests/golden/*.json. Run after an intentional gameplay change, then review `git diff tests/golden`.
 import { spawnSync } from 'node:child_process';
+import { readdirSync, rmSync } from 'node:fs';
+
+// Start from an empty folder so goldens no test writes any more don't linger.
+for (const f of readdirSync('tests/golden')) if (f.endsWith('.json')) rmSync(`tests/golden/${f}`);
 
 const result = spawnSync('npx', ['tsx', '--test', 'tests/**/*.test.ts'], {
   stdio: 'inherit',

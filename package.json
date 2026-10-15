@@ -12,11 +12,12 @@
     "build": "node scripts/build.mjs",
     "preview": "node scripts/serve.mjs dist",
     "typecheck": "tsc --noEmit",
+    "lint": "tsx scripts/lint.ts",
     "test": "tsx --test \"tests/**/*.test.ts\"",
     "test:update-golden": "node scripts/update-golden.mjs",
     "test:e2e": "node scripts/build.mjs && node scripts/e2e.mjs",
     "sim": "tsx scripts/simulate.ts",
-    "check": "npm run typecheck && npm test && npm run test:e2e"
+    "check": "npm run lint && npm test && npm run test:e2e"
   },
   "dependencies": {
     "three": "^0.186.0"

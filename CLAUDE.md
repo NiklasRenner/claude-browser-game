@@ -5,10 +5,11 @@ Read README.md for architecture. The short version:
 - Game rules live only in `src/core` (pure, deterministic, no DOM). Rendering (`src/render`) and UI (`src/ui`) only react to state and events.
 - Never add game logic to the UI or renderer. If the UI needs to know whether something is allowed, use `checkAction` / `legalActions`.
 - Every random roll must go through the `Rng` seeded from `state.rng`. Never use `Math.random()` in `src/core`.
+- Keep modules small and single-purpose (see the architecture tree in README.md): new rules go in the matching `src/core` file, new screens in `src/ui/views/`. Don't re-add exports nothing uses.
 
 ## Feedback loop
 
-1. `npm run typecheck`
+1. `npm run lint`: typecheck (incl. unused code) + dead exports + layering rules. Fix everything it reports.
 2. `npm test`: fast (~4 s). Golden failures mean behaviour changed. If intended, run `npm run test:update-golden` and review the diff.
 3. `npm run sim`: after any balance or content change. Every class should still complete, with a sensible death count, and the stat-weights table should stay roughly even (no stat near 0 or far above the rest).
    All stat formulas and knobs are in `src/core/stats.ts`.

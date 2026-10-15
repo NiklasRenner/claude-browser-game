@@ -27,7 +27,7 @@ const PACK_HP = [1, 1, 0.8, 0.68];
 const PACK_POWER = [1, 1, 0.75, 0.6];
 
 /** Patrol bosses fight at your level early on, one above once you're seasoned (level 12+). */
-export const patrolBossLevel = (level: number) => (level >= 12 ? level + 1 : level);
+const patrolBossLevel = (level: number) => (level >= 12 ? level + 1 : level);
 
 /** Bonus on defeating the patrol's priority target (patrols are repeatable, so below story rewards). */
 export function patrolReward(level: number): { xp: number; gold: number } {

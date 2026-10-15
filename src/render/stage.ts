@@ -3,9 +3,9 @@
  * the scene match a state, and `animate(events, ...)` plays a step's events.
  */
 import * as THREE from 'three';
-import { getMonster, getSpell, getWeapon } from '../core';
+import { getMonster, getSpell, getWeapon, resolveElement } from '../core';
 import type { GameEvent, GameState } from '../core';
-import { ELEMENT_COLORS, STATUS_ICONS } from '../game/elements';
+import { ELEMENT_COLORS, STATUS_COLORS, STATUS_ICONS } from '../game/elements';
 import { buildEnvironment } from './environment';
 import type { Environment } from './environment';
 import { Effects } from './fx';
@@ -31,9 +31,6 @@ const CAMERA = {
 };
 /** Half-width of the action that must stay on screen (fighters + some margin). */
 const ACTION_HALF_WIDTH = 5.2;
-const STATUS_COLORS: Record<string, number> = {
-  burn: 0xff6a2b, corrode: 0x8ee84a, stun: 0xffe14d, shield: 0x6cc6ff, evasive: 0xc9d6ff, chill: 0x6cd6ff, marked: 0xff4d6d,
-};
 
 export class Stage {
   readonly tweens = new Tweens();
@@ -405,9 +402,7 @@ export class Stage {
         if (!f) return;
         const spell = getSpell(e.spellId);
         const dmg = spell.effects.find((x) => x.type === 'damage');
-        const element = dmg?.type === 'damage'
-          ? (dmg.element === 'weapon' ? getWeapon(after.player!.weapon).element : dmg.element)
-          : 'photon';
+        const element = dmg?.type === 'damage' ? resolveElement(after.player!, dmg.element) : 'photon';
         this.fx.popText(this.head(f, 0.6), spell.name, 'pop-spell');
         await this.fx.ring(f.root.position, ELEMENT_COLORS[element]);
         return;
@@ -425,7 +420,7 @@ export class Stage {
         const f = this.figureFor(e.target, e.foe);
         if (!f) return;
         this.fx.popText(this.head(f, 0.5), `${STATUS_ICONS[e.status]} ${e.status}`, 'pop-status');
-        await this.fx.ring(f.root.position, STATUS_COLORS[e.status] ?? 0xffffff, 1, 0.4);
+        await this.fx.ring(f.root.position, STATUS_COLORS[e.status], 1, 0.4);
         return;
       }
       case 'statusTick': {

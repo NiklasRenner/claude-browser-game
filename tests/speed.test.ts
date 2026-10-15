@@ -5,16 +5,9 @@ import {
   PLAYER_EVASION_CAP, Rng, SPEED_MAX, beginBattle, derive, getMonster, initTimeline, nextActor, playerEvasion, speedBonus, upcomingTurns,
 } from '../src/core';
 import type { GameEvent, GameState } from '../src/core';
-import { act, inBattle, newGame } from './helpers';
+import { act, endlessFight, newGame } from './helpers';
 
-/** A fight against `monsterId` where nobody dies. */
-function fight(monsterId: string, spd = 5): GameState {
-  const s = inBattle(newGame('security', 3), monsterId);
-  s.player!.stats.spd = spd;
-  s.player!.hp = 1_000_000;
-  s.battle!.monsters[0]!.hp = s.battle!.monsters[0]!.maxHp = 1_000_000;
-  return s;
-}
+const fight = (monsterId: string, spd = 5) => endlessFight(monsterId, { spd });
 
 /** Plays `n` player actions and returns the actor sequence seen in the log ('P' / 'M'). */
 function turnLog(s: GameState, n: number): string {

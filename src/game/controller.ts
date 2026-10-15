@@ -3,8 +3,8 @@
  * Dispatching runs the pure reducer, records the log, autosaves, and hands
  * the events to whoever animates them (the 3D renderer).
  */
-import { deserialize, describeStep, initialState, legalActions, serialize, step } from '../core';
-import type { Action, GameEvent, GameState } from '../core';
+import { deserialize, describeLog, initialState, legalActions, serialize, step } from '../core';
+import type { Action, GameEvent, GameState, Tone } from '../core';
 
 export interface Storage {
   load(): string | null;
@@ -29,7 +29,7 @@ export type Animator = (events: GameEvent[], before: GameState, after: GameState
 export interface LogLine {
   id: number;
   text: string;
-  kind: 'info' | 'good' | 'bad' | 'loot' | 'system';
+  kind: Tone | 'system';
 }
 
 const MAX_LOG = 60;
@@ -98,14 +98,13 @@ export class GameController {
     const before = this.state;
     const result = step(before, action);
     if (result.events.some((e) => e.type === 'error')) {
-      for (const line of describeStep(before, result)) this.addLog(line, 'bad');
+      for (const line of describeLog(before, result)) this.addLog(line.text, line.tone);
       this.emit();
       return result.events;
     }
     this.state = result.state;
     if (this.state.mode !== 'title') this.storage.save(serialize(this.state));
-    const lines = describeStep(before, result);
-    for (const line of lines) this.addLog(line, classify(line));
+    for (const line of describeLog(before, result)) this.addLog(line.text, line.tone);
     this.busy = this.animator !== null;
     this.emit();
     if (this.animator) {
@@ -129,14 +128,7 @@ export class GameController {
   }
 }
 
-function classify(line: string): LogLine['kind'] {
-  if (/^(LEVEL UP|Hostile neutralised|Mission complete|Learned|The Hollow Admiral falls)/.test(line)) return 'good';
-  if (/salvaged|Bought|Sold|Equipped/.test(line)) return 'loot';
-  if (/You're down|failed|⚠/.test(line)) return 'bad';
-  return 'info';
-}
-
-export function randomSeed(): number {
+function randomSeed(): number {
   try {
     return crypto.getRandomValues(new Uint32Array(1))[0]!;
   } catch {

@@ -34,6 +34,27 @@ export function inBattle(state: GameState, monsterId: string): GameState {
 }
 
 /**
+ * A fight against `monsterId` where nobody dies (both sides have a million HP),
+ * for observing many turns. Options tweak the officer.
+ */
+export function endlessFight(
+  monsterId: string,
+  opts: { classId?: ClassId; seed?: number; weapon?: string; level?: number; spd?: number } = {},
+): GameState {
+  const s = inBattle(newGame(opts.classId ?? 'security', opts.seed ?? 3), monsterId);
+  const p = s.player!;
+  if (opts.weapon) {
+    p.inventory[opts.weapon] = 1;
+    p.weapon = opts.weapon;
+  }
+  if (opts.level) p.level = opts.level;
+  if (opts.spd) p.stats.spd = opts.spd;
+  p.hp = 1_000_000;
+  s.battle!.monsters[0]!.hp = s.battle!.monsters[0]!.maxHp = 1_000_000;
+  return s;
+}
+
+/**
  * Makes the player's attacks land: marks every hostile with a huge evasion
  * penalty (still subject to the MAX_HIT cap, which is 100).
  */

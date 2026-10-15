@@ -2,9 +2,9 @@
 
 A turn-based sci-fi RPG in the spirit of classic browser RPGs like AdventureQuest, rendered with three.js. The setting is an original, Star Trek-inspired one: you serve aboard the exploration vessel *Meridian*.
 
-Pick a division, take missions from the ship's board, beam down and fight through four worlds, each ending in a priority target. Exploit damage-type vulnerabilities, manage HP/energy between fights, level up, spend stat points, and requisition better gear.
+Pick a division, take missions from the ship's board, beam down and fight through five worlds, each ending in a priority target. Exploit damage-type vulnerabilities, manage HP/energy between fights, level up, spend stat points, and requisition better gear.
 
-The repository is still called `questforge`; the in-game title is set in `src/ui/ui.ts` (`GAME_TITLE`) and `public/index.html`.
+The repository is still called `questforge`; the in-game title is set in `src/ui/views/title.ts` (`GAME_TITLE`) and `public/index.html`.
 
 ## Quick start
 
@@ -18,12 +18,13 @@ npm run dev        # http://localhost:5173 with live reload
 | `npm run dev` | Dev server (esbuild), rebuilds and reloads on change |
 | `npm run build` | Production build into `dist/` |
 | `npm run preview` | Serve `dist/` at http://localhost:4173 |
-| `npm run typecheck` | Strict TypeScript check of everything |
+| `npm run typecheck` | Strict TypeScript check of everything (incl. unused locals/parameters) |
+| `npm run lint` | Typecheck + dead exports + layering rules (`scripts/lint.ts`, built on the TypeScript compiler) |
 | `npm test` | Unit, property/fuzz, playthrough and golden tests (~4 s) |
 | `npm run test:e2e` | Builds, then drives the real UI in headless Chromium; screenshots in `test-results/` |
 | `npm run test:update-golden` | Re-record golden files after an *intentional* gameplay change |
 | `npm run sim` | Balance report: full bot playthroughs per class, patrols at several levels and post-game, and **stat weights** (`npm run sim -- 100` for more seeds) |
-| `npm run check` | typecheck + tests + e2e (run before committing) |
+| `npm run check` | lint + tests + e2e (run before committing) |
 
 The e2e test needs a Playwright Chromium (`npx playwright install chromium` once).
 
@@ -56,18 +57,25 @@ Naming note: internal identifiers are mechanical (`gold`, `mp`, `spells`, `areas
 src/
   core/            Pure, deterministic game rules. No DOM, no three.js.
     types.ts       All state / action / event types (plain JSON data)
-    data/          Content tables: classes, items, spells, monsters, areas
-    game.ts        Reducer: step(state, action) → { state, events } + legalActions()
-    combat.ts      Hit/crit/damage formulas, status effects, turn sequencing
+    data/          Content tables: classes, items, spells, monsters, areas (+ validateContent)
+    stats.ts       Stat formulas and every balance knob
+    game.ts        Reducer: step(state, action) → { state, events }
+    rules.ts       checkAction() / legalActions() and read-only queries (prices, unlocks)
+    missions.ts    Mission flow: starting fights, victory rewards, defeat, mission/patrol completion
+    combat/        battle.ts (helpers, statuses) · formulas.ts (hit, evasion, damage) ·
+                   timeline.ts (speed turn order) · actions.ts (attacks, abilities, items) ·
+                   round.ts (sequencing a round)
     player.ts      Derived stats, XP curve, level-ups, inventory
-    save.ts        Versioned save format with validation and migrations
     patrol.ts      Random level-scaled runs: lineups, scaling, rewards
+    save.ts        Versioned save format with validation and migrations
+    describe.ts    Events → log lines with a tone (UI log and golden transcripts)
     bot.ts         Autoplayer used by tests, the balance sim and __qf.botStep()
-    describe.ts    Events → readable log lines (UI log and golden transcripts)
     rng.ts         Seeded PRNG; its state lives inside GameState
-  game/controller.ts  Holds live state, dispatches, autosaves, feeds the animator
+  game/            controller.ts (live state, dispatch, autosave, animator hook);
+                   elements.ts (colours/icons shared by UI and stage)
   render/          three.js stage: procedural models, environments, effects, tweens
-  ui/ui.ts         DOM HUD and menus; buttons enabled exactly when legalActions allows
+  ui/              ui.ts (input + UI-only state) · views/ (title, town, mission: state → HTML) ·
+                   widgets.ts (chips) · html.ts (helpers) · keys.ts (keyboard bindings)
 tests/             node:test suites (run via tsx) + golden files
 scripts/           build, dev server, e2e, sim, golden updater
 ```
@@ -76,7 +84,8 @@ Key design rules:
 
 1. **All game logic lives in `src/core` and is pure.** `step()` never mutates its input; every random roll comes from `state.rng`. The same seed and actions always give the same result, and a save/load continues identically.
 2. **One source of truth for legality.** `checkAction()` and `legalActions()` are used by the reducer, the UI, the bot and the fuzz tests. Illegal actions return the unchanged state plus an `error` event, never an exception.
-3. **Rendering only reacts.** The reducer emits events (`attack`, `statusApplied`, `levelUp`, …). The stage animates them and the UI re-renders from state. If WebGL is unavailable the game still works.
+3. **Rendering only reacts.** The reducer emits events (`attack`, `statusApplied`, `levelUp`, …). The stage animates them and the UI re-renders from state. If WebGL is unavailable the game still works. The UI and the stage never import each other (`npm run lint` checks this).
+4. **Views are functions.** Each view takes state (plus the UI-only bits it needs, like the open tab) and returns HTML; the `UI` class only handles input and decides what to render. Log text and its tone (good/bad/loot) come from core events, never from matching strings.
 
 ## Testing strategy
 
@@ -100,7 +109,7 @@ Aim for every stat in roughly the same band (currently about 1–4% per point). 
 
 - **New hostile:** add it to `src/core/data/monsters.ts` and list it in an area. `look` picks a procedural body (`blob`, `beast`, `humanoid`, `flyer`, `golem`, `dragon`, `wraith`).
 - **New item or ability:** add it to `items.ts` / `spells.ts`. Weapons have a visual `style` (`melee` or `ranged`); the held model comes from `WEAPON_SHAPES` in `src/render/models.ts`. Quartermaster stock is everything with a price above 0.
-- **New mission:** add it to `areas.ts` with `requires` pointing at the previous one, then add a backdrop case and lighting entry in `src/render/environment.ts`. For pack fights, list lineups (1–3 hostile ids) in `groups`, and escorts for the priority target in `bossAdds` (max 2; the boss stands between them).
+- **New mission:** add it to `areas.ts` with `requires` pointing at the previous one (the last one sets `FINAL_AREA` and a `finale`), then add a backdrop case and lighting entry in `src/render/environment.ts`. For pack fights, list lineups (1–3 hostile ids) in `groups`, and escorts for the priority target in `bossAdds` (max 2; the boss stands between them).
 - **Renaming content ids** breaks existing saves: bump `SAVE_VERSION` and add a migration in `src/core/save.ts` (see the v1 → v2 sci-fi migration).
 
 `validateContent()` (run by the test suite) catches broken references. Then run `npm run sim` to check balance and `npm run test:update-golden` to accept the new behaviour.

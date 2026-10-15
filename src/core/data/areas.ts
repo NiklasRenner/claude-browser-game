@@ -42,6 +42,10 @@ const areas: AreaDef[] = [
       ['hive_drone', 'hive_drone', 'hive_spitter'],
     ],
     boss: 'brood_matriarch', bossAdds: ['hive_drone', 'hive_drone'],
+    finale: {
+      title: 'The hive falls silent!',
+      text: 'The Brood Matriarch is dead and the hive falls silent. The Meridian\'s tour is complete!',
+    },
     encounters: 5,
     reward: { xp: 900, gold: 700 },
     palette: { sky: 0x6a6a30, ground: 0x4a3a22, fog: 0x8a7a40 },

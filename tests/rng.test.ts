@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { Rng, hashSeed } from '../src/core';
+import { Rng } from '../src/core';
 
 describe('Rng', () => {
   it('is deterministic for a given seed', () => {
@@ -41,10 +41,5 @@ describe('Rng', () => {
     const counts = { a: 0, b: 0 };
     for (let i = 0; i < 10000; i++) counts[rng.weighted(['a', 'b'] as const, (x) => (x === 'a' ? 3 : 1))]++;
     assert.ok(counts.a / counts.b > 2.6 && counts.a / counts.b < 3.4);
-  });
-
-  it('hashes strings to stable seeds', () => {
-    assert.equal(hashSeed('questforge'), hashSeed('questforge'));
-    assert.notEqual(hashSeed('a'), hashSeed('b'));
   });
 });

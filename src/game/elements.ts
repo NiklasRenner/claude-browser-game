@@ -1,3 +1,4 @@
+/** Colours and icons for damage types and statuses, shared by the UI and the 3D stage. */
 import type { Element, StatusId } from '../core';
 
 export const ELEMENT_COLORS: Record<Element, number> = {
@@ -14,12 +15,10 @@ export const ELEMENT_ICONS: Record<Element, string> = {
   kinetic: '◆', plasma: '🔥', cryo: '❄', ion: '⚡', photon: '✦', void: '◐', corrosive: '☣',
 };
 
-export const ELEMENT_NAMES: Record<Element, string> = {
-  kinetic: 'kinetic', plasma: 'plasma', cryo: 'cryo', ion: 'ion', photon: 'photon', void: 'void', corrosive: 'corrosive',
+export const STATUS_COLORS: Record<StatusId, number> = {
+  burn: 0xff6a2b, corrode: 0x8ee84a, stun: 0xffe14d, shield: 0x6cc6ff, evasive: 0xc9d6ff, chill: 0x6cd6ff, marked: 0xff4d6d,
 };
 
 export const STATUS_ICONS: Record<StatusId, string> = {
   burn: '🔥', corrode: '☣', stun: '💫', shield: '🛡', evasive: '◌', chill: '❄', marked: '⌖',
 };
-
-export const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`;

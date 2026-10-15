@@ -3,16 +3,10 @@ import { describe, it } from 'node:test';
 import {
   MAX_HIT, MIN_HIT, Rng, applyStatus, beginBattle, fleeChance, getMonster, hitChance, mitigate, runRound, step,
 } from '../src/core';
-import type { GameEvent, GameState } from '../src/core';
-import { act, inBattle, newGame, sureHit } from './helpers';
+import type { GameEvent } from '../src/core';
+import { act, inBattle, newGame, sureHit, endlessFight } from './helpers';
 
-/** A battle where the player cannot die, for observing many monster turns. */
-function sturdyBattle(monsterId = 'protoplasm'): GameState {
-  const s = inBattle(newGame('security', 3), monsterId);
-  s.player!.hp = 1_000_000;
-  s.battle!.monsters[0]!.hp = s.battle!.monsters[0]!.maxHp = 1_000_000;
-  return s;
-}
+const sturdyBattle = (monsterId = 'protoplasm') => endlessFight(monsterId);
 
 describe('combat formulas', () => {
   it('clamps hit chance', () => {
