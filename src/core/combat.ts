@@ -129,11 +129,16 @@ function tickDots(
 
 // ─── Monster numbers ───────────────────────────────────────────────────────
 
-export function monsterAccuracy(m: MonsterDef): number {
-  return m.level * 1.5 + m.stats.dex * 0.5;
+/** Effective level of a hostile (patrols scale it; otherwise the definition's level). */
+export function hostileLevel(inst: MonsterInstance): number {
+  return inst.level ?? getMonster(inst.defId).level;
 }
-export function monsterEvasion(m: MonsterDef): number {
-  return m.evasion + m.stats.dex * 0.3 + m.level * 0.5;
+
+export function monsterAccuracy(m: MonsterDef, level = m.level): number {
+  return level * 1.5 + m.stats.dex * 0.5;
+}
+export function monsterEvasion(m: MonsterDef, level = m.level): number {
+  return m.evasion + m.stats.dex * 0.3 + level * 0.5;
 }
 export function monsterCrit(m: MonsterDef): number {
   return 3 + m.stats.luk * 0.4;
@@ -193,7 +198,7 @@ function playerStrike(
   let hit = true;
   if (opts.canMiss) {
     const acc = d.accuracy - statusPower(battle.playerStatuses, 'chill');
-    hit = rng.chance(hitChance(acc, monsterEvasion(monster)));
+    hit = rng.chance(hitChance(acc, monsterEvasion(monster, hostileLevel(battle.monsters[foe]!))));
   }
   if (!hit) {
     events.push({ type: 'attack', actor: 'player', foe, name, element, hit: false, crit: false, damage: 0 });
@@ -304,14 +309,14 @@ export function useConsumable(player: Player, itemId: string, statuses: StatusEf
   }
 }
 
-/** Escape chance against the toughest living hostile. */
-export function fleeChance(player: Player, monster: MonsterDef): number {
-  return clamp(50 + (player.level - monster.level) * 6 + player.stats.luk * 0.5 + player.stats.dex * 0.5, 20, 90);
+/** Escape chance against a hostile of the given level (use the toughest living one). */
+export function fleeChance(player: Player, hostileLvl: number): number {
+  return clamp(50 + (player.level - hostileLvl) * 6 + player.stats.luk * 0.5 + player.stats.dex * 0.5, 20, 90);
 }
 
-export function toughestAlive(battle: BattleState): MonsterDef {
-  return aliveIndices(battle).map((i) => getMonster(battle.monsters[i]!.defId))
-    .reduce((a, b) => (b.level > a.level ? b : a));
+/** Highest effective level among living hostiles. */
+export function toughestAliveLevel(battle: BattleState): number {
+  return Math.max(...aliveIndices(battle).map((i) => hostileLevel(battle.monsters[i]!)));
 }
 
 // ─── Monster turns & turn sequencing ───────────────────────────────────────
@@ -322,19 +327,22 @@ function monsterAct(ctx: Ctx, foe: number): void {
   const self = battle.monsters[foe]!;
   const attack = rng.weighted(monster.attacks, (a) => a.weight);
   const d = derive(player);
-  const acc = monsterAccuracy(monster) - statusPower(self.statuses, 'chill');
+  const acc = monsterAccuracy(monster, hostileLevel(self)) - statusPower(self.statuses, 'chill');
   const eva = d.evasion + statusPower(battle.playerStatuses, 'evasive');
   if (!rng.chance(hitChance(acc, eva))) {
     events.push({ type: 'attack', actor: 'monster', foe, name: attack.name, element: attack.element, hit: false, crit: false, damage: 0 });
     return;
   }
   const crit = rng.chance(monsterCrit(monster));
-  const raw = rng.int(...attack.damage) * (crit ? MONSTER_CRIT_MULT : 1);
+  // `power` only exists on patrol-scaled hostiles; missions keep the exact original arithmetic.
+  let raw = rng.int(...attack.damage) * (crit ? MONSTER_CRIT_MULT : 1);
+  if (self.power !== undefined) raw *= self.power;
   const dmg = mitigate(raw, d.damageTaken[attack.element], statusPower(battle.playerStatuses, 'shield'));
   player.hp = Math.max(0, player.hp - dmg);
   events.push({ type: 'attack', actor: 'monster', foe, name: attack.name, element: attack.element, hit: true, crit, damage: dmg });
   if (attack.effect && player.hp > 0 && rng.chance(attack.effect.chance)) {
-    applyStatus(battle.playerStatuses, 'player', attack.effect.status, attack.effect.turns, attack.effect.power, events);
+    const power = self.power !== undefined ? Math.round(attack.effect.power * self.power) : attack.effect.power;
+    applyStatus(battle.playerStatuses, 'player', attack.effect.status, attack.effect.turns, power, events);
   }
 }
 

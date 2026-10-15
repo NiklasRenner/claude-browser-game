@@ -225,6 +225,43 @@ try {
     check(sawDown, 'defeated hostiles are marked in the roster while the fight continues');
   }
 
+  // Patrol: launch from the Mission Board with a real click, then let the bot play it out.
+  await page.evaluate(async () => {
+    const qf = window.__qf;
+    qf.speed(0);
+    while (qf.state.mode !== 'town') await qf.botStep();
+  });
+  await page.click('[data-ui="tab:quests"]');
+  await page.waitForTimeout(200);
+  await page.screenshot({ path: `${OUT}/10-mission-board.png` });
+  await page.click('[data-action*="startPatrol"]');
+  await waitIdle(page);
+  const patrol = await page.evaluate(() => window.__qf.state.quest?.patrol ?? null);
+  check(patrol !== null && patrol.level === (await page.evaluate(() => window.__qf.state.player.level)), `patrol launched at the player's level (${JSON.stringify(patrol)})`);
+  const scaled = await page.evaluate(() => window.__qf.state.battle.monsters.every((m) => m.level === window.__qf.state.quest.patrol.level));
+  check(scaled, 'patrol hostiles are scaled to the patrol level');
+  const outcome = await page.evaluate(async () => {
+    const qf = window.__qf;
+    for (let i = 0; i < 400 && qf.state.mode !== 'town' && qf.state.mode !== 'defeated'; i++) {
+      if (qf.state.mode === 'quest' && qf.state.quest.cleared === 2) break;
+      await qf.botStep();
+    }
+    return qf.state.mode;
+  });
+  if (outcome === 'quest') {
+    await page.evaluate(() => window.__qf.speed(1));
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: `${OUT}/11-patrol-between-fights.png` });
+    check(await page.locator('.main-panel h2').innerText().then((t) => /^patrol/i.test(t)), 'between-fights panel shows the patrol');
+    await page.evaluate(() => window.__qf.speed(0));
+  }
+  const finished = await page.evaluate(async () => {
+    const qf = window.__qf;
+    for (let i = 0; i < 600 && qf.state.mode !== 'town'; i++) await qf.botStep();
+    return { mode: qf.state.mode, quest: qf.state.quest };
+  });
+  check(finished.mode === 'town' && finished.quest === null, 'patrol runs its course and returns to the ship');
+
   // One screenshot per mission backdrop (state is injected via the debug hook; purely visual).
   for (const areaId of ['veridia', 'kethra', 'glacies', 'void_rift', 'xenith']) {
     await page.evaluate(async (areaId) => {
@@ -260,6 +297,15 @@ try {
   const overflow = await mobile.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   check(!overflow, 'no horizontal overflow on a phone-sized screen');
   await mobile.screenshot({ path: `${OUT}/05-mobile-battle.png` });
+  await mobile.evaluate(() => {
+    const s = structuredClone(window.__qf.state);
+    s.player.level = 16; s.mode = 'battle';
+    s.quest = { areaId: 'xenith', cleared: 1, earnedXp: 0, earnedGold: 0 };
+    s.battle = { monsters: ['hive_drone', 'brood_matriarch', 'hive_drone'].map((defId) => ({ defId, hp: 80, maxHp: 100, statuses: [] })), target: 1, playerStatuses: [], round: 1 };
+    return window.__qf.load(s);
+  });
+  await mobile.waitForTimeout(1500);
+  await mobile.screenshot({ path: `${OUT}/12-mobile-multi.png` });
   await mobile.close();
 } catch (err) {
   console.error(err);

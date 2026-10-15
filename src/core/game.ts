@@ -7,7 +7,7 @@
  *   what the UI, the bot and the fuzz tests all use.
  */
 import {
-  aliveIndices, fleeChance, isAlive, playerAttack, playerCast, runRound, toughestAlive, useConsumable,
+  aliveIndices, fleeChance, isAlive, playerAttack, playerCast, runRound, toughestAliveLevel, useConsumable,
 } from './combat';
 import {
   AREA_ORDER, CLASSES, FINAL_AREA, SHOP_STOCK, getArea, getItem, getMonster, getSpell,
@@ -17,7 +17,8 @@ import {
 } from './player';
 import { Rng } from './rng';
 import { STATS } from './types';
-import type { Action, ClassId, GameEvent, GameState, Player, StepResult } from './types';
+import { PATROL_CONTACTS, patrolBoss, patrolContact, patrolReward, patrolWorlds } from './patrol';
+import type { Action, ClassId, GameEvent, GameState, Player, QuestState, StepResult } from './types';
 
 export const SAVE_VERSION = 3;
 export const DEFEAT_GOLD_PENALTY = 0.1;
@@ -108,6 +109,8 @@ export function checkAction(state: GameState, action: Action): string | null {
       if (mode !== 'town') return 'Missions launch from the ship';
       if (!AREA_ORDER.includes(action.areaId)) return 'Unknown area';
       return isAreaUnlocked(state, action.areaId) ? null : 'Area is locked';
+    case 'startPatrol':
+      return mode === 'town' ? null : 'Patrols launch from the ship';
     case 'continue':
     case 'retreat':
       return mode === 'quest' ? null : 'Not on a mission';
@@ -153,7 +156,7 @@ export function legalActions(state: GameState): Action[] {
     for (const classId of Object.keys(CLASSES) as ClassId[]) candidates.push({ type: 'newGame', name: 'Hero', classId });
   } else if (p) {
     candidates.push({ type: 'rest' }, { type: 'continue' }, { type: 'retreat' }, { type: 'attack' }, { type: 'flee' });
-    candidates.push({ type: 'returnToTown' });
+    candidates.push({ type: 'returnToTown' }, { type: 'startPatrol' });
     for (const itemId of SHOP_STOCK) candidates.push({ type: 'buy', itemId });
     for (const itemId of Object.keys(p.inventory)) {
       candidates.push({ type: 'sell', itemId }, { type: 'equip', itemId }, { type: 'useItem', itemId });
@@ -240,6 +243,13 @@ function apply(state: GameState, action: Action, rng: Rng, events: GameEvent[]):
       startNextBattle(state, rng, events);
       return;
     }
+    case 'startPatrol': {
+      const areaId = rng.pick(patrolWorlds(state));
+      state.quest = { areaId, patrol: { level: player.level }, cleared: 0, earnedXp: 0, earnedGold: 0 };
+      events.push({ type: 'message', text: `Patrol launched: ${getArea(areaId).name} sector. Hostiles at level ${player.level}.` });
+      startNextBattle(state, rng, events);
+      return;
+    }
     case 'continue':
       startNextBattle(state, rng, events);
       return;
@@ -260,7 +270,7 @@ function apply(state: GameState, action: Action, rng: Rng, events: GameEvent[]):
       resolveBattleRound(state, rng, events, (ctx) => playerCast(ctx, action.spellId));
       return;
     case 'flee': {
-      if (rng.chance(fleeChance(player, toughestAlive(state.battle!)))) {
+      if (rng.chance(fleeChance(player, toughestAliveLevel(state.battle!)))) {
         events.push({ type: 'fled', success: true });
         leaveQuest(state);
       } else {
@@ -276,6 +286,11 @@ function apply(state: GameState, action: Action, rng: Rng, events: GameEvent[]):
   }
 }
 
+/** Regular encounters before the boss on this quest. */
+export function questEncounters(quest: QuestState): number {
+  return quest.patrol ? PATROL_CONTACTS : getArea(quest.areaId).encounters;
+}
+
 function leaveQuest(state: GameState) {
   state.quest = null;
   state.battle = null;
@@ -285,7 +300,14 @@ function leaveQuest(state: GameState) {
 function startNextBattle(state: GameState, rng: Rng, events: GameEvent[]) {
   const quest = state.quest!;
   const area = getArea(quest.areaId);
-  const isBoss = quest.cleared >= area.encounters;
+  const isBoss = quest.cleared >= questEncounters(quest);
+  if (quest.patrol) {
+    const monsters = isBoss ? patrolBoss(area.id, quest.patrol.level, rng) : patrolContact(area.id, quest.patrol.level, rng);
+    state.battle = { monsters, target: 0, playerStatuses: [], round: 1 };
+    state.mode = 'battle';
+    events.push({ type: 'battleStart', monsterIds: monsters.map((m) => m.defId), boss: isBoss });
+    return;
+  }
   let lineup: string[];
   if (isBoss) {
     // Escorts flank the boss: [add, boss, add].
@@ -320,13 +342,16 @@ function onVictory(state: GameState, rng: Rng, events: GameEvent[]) {
   const player = state.player!;
   const quest = state.quest!;
   // Rewards from every hostile in the fight (rolled in lineup order).
-  const defs = state.battle!.monsters.map((m) => getMonster(m.defId));
+  const lineup = state.battle!.monsters;
+  const defs = lineup.map((m) => getMonster(m.defId));
   let gold = 0;
   let xp = 0;
   const drops: string[] = [];
-  for (const monster of defs) {
-    gold += Math.round(rng.int(...monster.gold) * (1 + player.stats.luk * 0.01));
-    xp += monster.xp;
+  for (const [i, monster] of defs.entries()) {
+    const scale = lineup[i]!.reward; // patrol hostiles only; missions use the plain numbers
+    const rolled = rng.int(...monster.gold) * (1 + player.stats.luk * 0.01);
+    gold += Math.round(scale === undefined ? rolled : rolled * scale);
+    xp += scale === undefined ? monster.xp : Math.round(monster.xp * scale);
     for (const drop of monster.drops ?? []) {
       if (rng.chance(drop.chance)) {
         addItem(player, drop.itemId);
@@ -348,6 +373,14 @@ function onVictory(state: GameState, rng: Rng, events: GameEvent[]) {
     return;
   }
   const area = getArea(quest.areaId);
+  if (quest.patrol) {
+    const reward = patrolReward(quest.patrol.level);
+    player.gold += reward.gold;
+    events.push({ type: 'patrolComplete', areaId: area.id, level: quest.patrol.level, ...reward });
+    grantXp(player, reward.xp, events);
+    leaveQuest(state);
+    return;
+  }
   const firstClear = !state.clearedAreas.includes(area.id);
   player.gold += area.reward.gold;
   events.push({ type: 'questComplete', areaId: area.id, xp: area.reward.xp, gold: area.reward.gold, firstClear });

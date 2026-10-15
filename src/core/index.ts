@@ -7,5 +7,6 @@ export * from './combat';
 export * from './save';
 export * from './bot';
 export { Rng, hashSeed } from './rng';
+export * from './patrol';
 export { describeEvent, describeStep, hostileLabels } from './describe';
 export type { DescribeContext } from './describe';

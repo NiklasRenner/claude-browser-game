@@ -205,6 +205,10 @@ export interface MonsterInstance {
   hp: number;
   maxHp: number;
   statuses: StatusEffect[];
+  /** Patrol scaling (absent in regular missions): effective level, damage and reward multipliers. */
+  level?: number;
+  power?: number;
+  reward?: number;
 }
 
 export const MAX_HOSTILES = 3;
@@ -219,7 +223,10 @@ export interface BattleState {
 }
 
 export interface QuestState {
+  /** For a patrol: the randomly chosen world (backdrop and hostile pool). */
   areaId: string;
+  /** Set for a random patrol: every hostile is scaled to this level. */
+  patrol?: { level: number };
   /** Number of encounters won so far in this quest (boss is the last one). */
   cleared: number;
   earnedXp: number;
@@ -250,6 +257,8 @@ export type Action =
   | { type: 'equip'; itemId: string }
   | { type: 'allocateStat'; stat: Stat }
   | { type: 'startQuest'; areaId: string }
+  /** Random run: unlocked world, random lineups scaled to the player's level, then a boss. */
+  | { type: 'startPatrol' }
   | { type: 'continue' }
   | { type: 'retreat' }
   /** `target` (optional) retargets first; otherwise the current target is used. */
@@ -287,6 +296,7 @@ export type GameEvent =
   | { type: 'defeat'; goldLost: number }
   | { type: 'levelUp'; level: number }
   | { type: 'questComplete'; areaId: string; xp: number; gold: number; firstClear: boolean }
+  | { type: 'patrolComplete'; areaId: string; level: number; xp: number; gold: number }
   | { type: 'gameComplete' }
   | { type: 'gold'; amount: number }
   | { type: 'rested'; cost: number };

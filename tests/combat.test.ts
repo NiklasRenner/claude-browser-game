@@ -31,9 +31,9 @@ describe('combat formulas', () => {
 
   it('bounds flee chance', () => {
     const p = newGame('engineer').player!;
-    const low = fleeChance(p, getMonster('rift_marauder'));
+    const low = fleeChance(p, getMonster('rift_marauder').level);
     p.level = 30;
-    const high = fleeChance(p, getMonster('protoplasm'));
+    const high = fleeChance(p, getMonster('protoplasm').level);
     assert.ok(low >= 20 && high <= 90 && high > low);
   });
 });

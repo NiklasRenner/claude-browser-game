@@ -87,6 +87,8 @@ export function describeEvent(event: GameEvent, { you, foes }: DescribeContext):
     case 'levelUp': return `LEVEL UP! You are now level ${event.level}.`;
     case 'questComplete':
       return `Mission complete: ${getArea(event.areaId).name}! +${event.xp} XP, +${event.gold} credits${event.firstClear ? ' (first clear!)' : ''}.`;
+    case 'patrolComplete':
+      return `Patrol complete: ${getArea(event.areaId).name} sector (level ${event.level})! +${event.xp} XP, +${event.gold} credits.`;
     case 'gameComplete': return 'The Brood Matriarch is dead and the hive falls silent. The Meridian\'s tour is complete!';
     case 'gold': return null;
     case 'rested': return `Treated in sickbay${event.cost ? ` (${event.cost} credits)` : ''}. Fully restored.`;

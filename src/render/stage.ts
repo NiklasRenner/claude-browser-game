@@ -15,11 +15,19 @@ import { Tweens, easeOutBack, easeOutCubic } from './tween';
 
 const HERO_BATTLE_X = -2.5;
 const HERO_POS = new THREE.Vector3(HERO_BATTLE_X, 0, 0.6);
-/** Where hostiles stand, by lineup size: front (closest to camera) to back. */
+/**
+ * Where hostiles stand, by lineup size: a rank facing the hero, front (nearest
+ * the camera) to back. The raised field camera spreads the rank out on screen.
+ */
 const SLOTS: Record<number, [number, number][]> = {
   1: [[2.6, 0.2]],
-  2: [[1.9, 0.9], [4.0, -1.0]],
-  3: [[1.3, 1.3], [3.2, -0.3], [5.1, -1.9]],
+  2: [[2.4, 2.3], [3.4, -1.8]],
+  3: [[2.4, 3.0], [3.4, 0.2], [2.9, -2.6]],
+};
+/** Camera presets: the ship's deck is framed at eye level, away missions from a raised 3/4 view. */
+const CAMERA = {
+  ship: { y: 2.7, z: 9, look: new THREE.Vector3(0, 1.2, 0), yPerExtraZ: 0.12 },
+  field: { y: 6.2, z: 9.5, look: new THREE.Vector3(0.4, 1.0, 0), yPerExtraZ: 0.25 },
 };
 /** Half-width of the action that must stay on screen (fighters + some margin). */
 const ACTION_HALF_WIDTH = 5.2;
@@ -51,7 +59,11 @@ export class Stage {
   /** Back light that outlines figures against dark backdrops. */
   private rim = new THREE.DirectionalLight(0xb8c8ff, 1.4);
   private shake = 0;
+  private cameraView: keyof typeof CAMERA = 'ship';
+  /** Where the camera is heading (per view, adjusted for screen shape) and where it currently is. */
   private cameraBase = new THREE.Vector3(0, 2.7, 9);
+  private cameraPos = new THREE.Vector3(0, 2.7, 9);
+  private cameraLook = CAMERA.ship.look.clone();
 
   constructor(private canvas: HTMLCanvasElement, overlay: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
@@ -78,10 +90,15 @@ export class Stage {
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / Math.max(1, h);
     // Pull the camera back on narrow (portrait) screens so both fighters stay in frame.
+    this.updateCameraBase();
+    this.camera.updateProjectionMatrix();
+  }
+
+  private updateCameraBase() {
+    const view = CAMERA[this.cameraView];
     const halfFov = THREE.MathUtils.degToRad(this.camera.fov / 2);
     const needed = ACTION_HALF_WIDTH / (Math.tan(halfFov) * this.camera.aspect);
-    this.cameraBase.set(0, 2.7 + Math.max(0, needed - 9) * 0.12, Math.max(9, needed));
-    this.camera.updateProjectionMatrix();
+    this.cameraBase.set(0, view.y + Math.max(0, needed - view.z) * view.yPerExtraZ, Math.max(view.z, needed));
   }
 
   private frame() {
@@ -95,12 +112,16 @@ export class Stage {
     // Gentle camera sway plus impact shake.
     this.shake = Math.max(0, this.shake - dt * 3);
     const s = this.shake * 0.15;
+    // Glide between camera views (instantly when animations are skipped).
+    const k = this.tweens.speed === 0 ? 1 : 1 - Math.exp(-dt * 3);
+    this.cameraPos.lerp(this.cameraBase, k);
+    this.cameraLook.lerp(CAMERA[this.cameraView].look, k);
     this.camera.position.set(
-      this.cameraBase.x + Math.sin(this.time * 0.3) * 0.3 + (Math.random() - 0.5) * s,
-      this.cameraBase.y + (Math.random() - 0.5) * s,
-      this.cameraBase.z,
+      this.cameraPos.x + Math.sin(this.time * 0.3) * 0.3 + (Math.random() - 0.5) * s,
+      this.cameraPos.y + (Math.random() - 0.5) * s,
+      this.cameraPos.z,
     );
-    this.camera.lookAt(0, 1.2, 0);
+    this.camera.lookAt(this.cameraLook);
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -111,6 +132,11 @@ export class Stage {
     const areaId = state.quest?.areaId;
     const onMission = areaId && (state.mode === 'battle' || state.mode === 'quest');
     this.setEnvironment(onMission ? areaId : 'ship');
+    const view = onMission ? 'field' : 'ship';
+    if (view !== this.cameraView) {
+      this.cameraView = view;
+      this.updateCameraBase();
+    }
 
     const p = state.player;
     if (p) {

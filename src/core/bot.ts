@@ -3,9 +3,9 @@
  * so it doubles as an integration test of the whole game loop and as a
  * balance probe (`npm run sim`).
  */
-import { aliveIndices, averageEffectDamage, hitChance, monsterDamageTaken, monsterEvasion, resolveElement, statusPower } from './combat';
+import { aliveIndices, averageEffectDamage, hostileLevel, hitChance, monsterDamageTaken, monsterEvasion, resolveElement, statusPower } from './combat';
 import { AREA_ORDER, CLASSES, ITEMS, getArea, getClass, getMonster } from './data';
-import { checkAction, initialState, legalActions, step } from './game';
+import { checkAction, initialState, legalActions, questEncounters, step } from './game';
 import { countItem, derive, knownSpells, statMultiplier } from './player';
 import type { Action, ArmorDef, ClassId, GameState, MonsterDef, Player, StatusEffect, WeaponDef } from './types';
 
@@ -119,7 +119,7 @@ function bestHealthPotion(p: Player): string | null {
 function questAction(state: GameState, p: Player): Action {
   const d = derive(p);
   const quest = state.quest!;
-  const bossNext = quest.cleared >= getArea(quest.areaId).encounters;
+  const bossNext = quest.cleared >= questEncounters(quest);
   const want = bossNext ? 0.8 : 0.5;
   if (p.hp < d.maxHp * want) {
     const potion = bestHealthPotion(p);
@@ -168,7 +168,7 @@ function battleAction(state: GameState, p: Player): Action {
 
   // Otherwise pick the highest expected damage option.
   const accuracy = d.accuracy - statusPower(battle.playerStatuses, 'chill');
-  const hit = hitChance(accuracy, monsterEvasion(monster)) / 100;
+  const hit = hitChance(accuracy, monsterEvasion(monster, hostileLevel(target))) / 100;
   const cls = getClass(p.classId);
   let best: Action = { type: 'attack' };
   const weapon = ITEMS[p.weapon] as WeaponDef;

@@ -5,7 +5,7 @@
  */
 import {
   AREA_ORDER, CLASSES, ELEMENTS, SHOP_STOCK, STATS, checkAction, countItem, derive, getArea, getClass,
-  getItem, getMonster, getWeapon, hostileLabels, isAreaUnlocked, isEquipped, knownSpells, monsterDamageTaken, resolveElement, restCost,
+  PATROL_CONTACTS, getItem, getMonster, getWeapon, hostileLabels, hostileLevel, isAreaUnlocked, patrolReward, patrolWorlds, questEncounters, isEquipped, knownSpells, monsterDamageTaken, resolveElement, restCost,
   sellPrice, xpToNext,
 } from '../core';
 import type { Action, ClassId, Element, GameState, ItemDef, MonsterDef, Player, SpellDef, Stat, StatusEffect } from '../core';
@@ -204,7 +204,7 @@ export class UI {
     return `
       <div class="monster-card panel ${def.boss ? 'boss' : ''}">
         ${roster}
-        <div class="hud-name"><strong>${esc(labels[b.target]!)}</strong> <span class="muted">Lv ${def.level}${def.boss ? ' · PRIORITY TARGET' : ''}</span></div>
+        <div class="hud-name"><strong>${esc(labels[b.target]!)}</strong> <span class="muted">Lv ${hostileLevel(target)}${def.boss ? ' · PRIORITY TARGET' : ''}</span></div>
         ${bar('hp enemy', target.hp, target.maxHp, 'HP')}
         <div class="hud-row">${statusChips(target.statuses)}</div>
         ${weak.length ? `<div class="res">Vulnerable: ${chips(weak)}</div>` : ''}
@@ -257,7 +257,16 @@ export class UI {
 
   private questBoard(s: GameState, btn: BtnFn) {
     const p = s.player!;
-    return `<div class="list">${AREA_ORDER.map((id) => {
+    const reward = patrolReward(p.level);
+    const worlds = patrolWorlds(s).map((id) => getArea(id).name);
+    const patrol = `<div class="row patrol-row">
+        <div class="row-main"><strong>⟳ Patrol</strong> <span class="badge">Random</span> <span class="muted">Hostiles at level ${p.level}</span>
+          <div class="muted small">Respond to a random distress call on ${worlds.length > 1 ? 'one of your unlocked worlds' : worlds[0]}:
+            ${PATROL_CONTACTS} unpredictable contacts — solo hostiles or packs — then a priority target.
+            Repeatable; bonus ${reward.xp} XP and ◈ ${reward.gold} on completion.</div></div>
+        ${btn({ type: 'startPatrol' }, 'Launch patrol', 'primary')}
+      </div>`;
+    return `<h3>Patrol</h3><div class="list">${patrol}</div><h3>Story missions</h3><div class="list">${AREA_ORDER.map((id) => {
       const a = getArea(id);
       const unlocked = isAreaUnlocked(s, id);
       const cleared = s.clearedAreas.includes(id);
@@ -321,14 +330,15 @@ export class UI {
   private questPanel(s: GameState, btn: BtnFn) {
     const q = s.quest!;
     const area = getArea(q.areaId);
-    const total = area.encounters + 1;
+    const contacts = questEncounters(q);
+    const total = contacts + 1;
     const pips = Array.from({ length: total }, (_, i) => `<span class="pip ${i < q.cleared ? 'done' : ''} ${i === total - 1 ? 'boss' : ''}"></span>`).join('');
-    const bossNext = q.cleared >= area.encounters;
+    const bossNext = q.cleared >= contacts;
     const potions = Object.keys(s.player!.inventory).filter((id) => getItem(id).kind === 'consumable');
     return `
-      <h2>${area.name}</h2>
+      <h2>${q.patrol ? `<span class="muted">Patrol ·</span> ` : ''}${area.name}${q.patrol ? ` <span class="badge">Lv ${q.patrol.level}</span>` : ''}</h2>
       <div class="pips">${pips}</div>
-      <p class="muted">${bossNext ? 'Sensors show a massive life sign ahead…' : `Contact ${q.cleared + 1} of ${area.encounters}, then the priority target.`} Earned so far: ${q.earnedXp} XP, ◈ ${q.earnedGold}.</p>
+      <p class="muted">${bossNext ? 'Sensors show a massive life sign ahead…' : `Contact ${q.cleared + 1} of ${contacts}, then the priority target.`} Earned so far: ${q.earnedXp} XP, ◈ ${q.earnedGold}.</p>
       <div class="actions">${btn({ type: 'continue' }, `<span class="key">Enter</span>${bossNext ? 'Engage priority target' : 'Advance'}`, 'primary big')}${btn({ type: 'retreat' }, '<span class="key">R</span>Beam up to ship', 'ghost')}</div>
       ${potions.length ? `<div class="actions small-actions">${potions.map((id) => btn({ type: 'useItem', itemId: id }, `${getItem(id).name} ×${countItem(s.player!, id)}`, 'small')).join('')}</div>` : ''}`;
   }

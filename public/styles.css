@@ -242,3 +242,8 @@ h3 { font-size: 13px; margin-top: 10px; text-transform: uppercase; letter-spacin
   .roster-hint { display: none; }
   .roster-item { grid-template-columns: 1fr 40px; font-size: 11px; }
 }
+
+/* ─── Patrol entry ───────────────────────────────────────────────────────── */
+.patrol-row { border-left-color: var(--gold); background: rgba(255, 184, 74, 0.06); }
+.patrol-row .badge { background: #6b4a12; }
+.tab-body > h3:first-child { margin-top: 0; }

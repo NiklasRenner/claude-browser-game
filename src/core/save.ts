@@ -109,11 +109,16 @@ function validateState(s: any): string | null {
     if (ITEMS[p.armor]?.kind !== 'armor' || !p.inventory[p.armor]) return 'bad armor';
   }
   if ((s.mode === 'quest' || s.mode === 'battle') && !(s.quest?.areaId in AREAS)) return 'bad quest';
+  if (s.quest?.patrol !== undefined && !isInt(s.quest.patrol?.level, 1)) return 'bad patrol';
   if (s.mode === 'battle') {
     const b = s.battle;
     if (!Array.isArray(b?.monsters) || b.monsters.length < 1 || b.monsters.length > MAX_HOSTILES) return 'bad battle';
     for (const m of b.monsters) {
       if (!(m?.defId in MONSTERS) || !isInt(m.hp) || !isInt(m.maxHp, 1) || m.hp > m.maxHp || !Array.isArray(m.statuses)) return 'bad hostile';
+      if (m.level !== undefined && !isInt(m.level, 1)) return 'bad hostile level';
+      for (const k of ['power', 'reward'] as const) {
+        if (m[k] !== undefined && !(typeof m[k] === 'number' && Number.isFinite(m[k]) && m[k] > 0)) return `bad hostile ${k}`;
+      }
     }
     if (!isInt(b.target) || b.target >= b.monsters.length || b.monsters[b.target].hp <= 0) return 'bad target';
   }
