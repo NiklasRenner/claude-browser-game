@@ -5,11 +5,11 @@
  */
 import { getConsumable, getAbility, getWeapon, getHostile } from '../data';
 import { derive, removeItem } from '../player';
-import { PLAYER_CRIT_MULT, healMultiplier } from '../stats';
+import { FLEE_BASE, FLEE_MAX, FLEE_MIN, FLEE_PER_LEVEL, PLAYER_CRIT_MULT, healMultiplier } from '../stats';
 import type { Element, GameEvent, Player, StatusEffect } from '../types';
 import { aliveIndices, applyStatus, clamp, damageHostile, isAlive, statusPower } from './battle';
 import type { Ctx } from './battle';
-import { hostileHitChance, mitigate, hostileDamageTaken, resolveElement, strikeChance, strikeProfile } from './formulas';
+import { exposure, hostileDamageTaken, hostileHitChance, mitigate, resolveElement, strikeChance, strikeProfile } from './formulas';
 
 const HOSTILE_CRIT_MULT = 1.5;
 
@@ -18,7 +18,7 @@ const HOSTILE_CRIT_MULT = 1.5;
 interface Volley {
   name: string;
   element: Element;
-  /** Base hit chance before chill and the target's evasion. */
+  /** Base hit chance before blind, level gap and the target's evasion. */
   hit: number;
   hits: number;
   extraCrit?: number;
@@ -41,12 +41,13 @@ function strike(ctx: Ctx, foe: number, volley: Volley): boolean {
   for (let i = 0; i < volley.hits && isAlive(target); i++) {
     const raw = volley.roll();
     const base = { type: 'attack', actor: 'player', foe, name: volley.name, element: volley.element } as const;
-    if (!rng.chance(strikeChance(battle, foe, volley.hit))) {
+    if (!rng.chance(strikeChance(player, battle, foe, volley.hit))) {
       events.push({ ...base, hit: false, crit: false, damage: 0 });
       continue;
     }
     const crit = rng.chance(derive(player).critChance + (volley.extraCrit ?? 0));
-    const damage = mitigate(crit ? raw * PLAYER_CRIT_MULT : raw, hostileDamageTaken(def, volley.element), 0);
+    const taken = hostileDamageTaken(def, volley.element) * exposure(target.statuses);
+    const damage = mitigate(crit ? raw * PLAYER_CRIT_MULT : raw, taken, 0);
     events.push({ ...base, hit: true, crit, damage });
     damageHostile(ctx, foe, damage);
     landed = true;
@@ -138,9 +139,13 @@ export function useConsumable(player: Player, itemId: string, statuses: StatusEf
   }
 }
 
-/** Escape chance against a hostile of the given level (use the toughest living one). Faster officers get away more often. */
+/**
+ * Escape chance against a hostile of the given level (use the toughest living
+ * one): easy from weaker hostiles, hard from stronger ones. Speed helps a little.
+ */
 export function fleeChance(player: Player, hostileLvl: number): number {
-  return clamp(50 + (player.level - hostileLvl) * 6 + (derive(player).speed - 100), 20, 90);
+  const chance = FLEE_BASE + (player.level - hostileLvl) * FLEE_PER_LEVEL + (derive(player).speed - 100) / 2;
+  return clamp(Math.round(chance), FLEE_MIN, FLEE_MAX);
 }
 
 // ─── Hostiles ──────────────────────────────────────────────────────────────
@@ -162,7 +167,8 @@ export function hostileAct(ctx: Ctx, foe: number): void {
     // `power` only exists on patrol-scaled hostiles.
     let raw = rng.int(...attack.damage) * (crit ? HOSTILE_CRIT_MULT : 1);
     if (self.power !== undefined) raw *= self.power;
-    const damage = mitigate(raw, derive(player).damageTaken[attack.element], statusPower(battle.playerStatuses, 'shield'));
+    const taken = derive(player).damageTaken[attack.element] * exposure(battle.playerStatuses);
+    const damage = mitigate(raw, taken, statusPower(battle.playerStatuses, 'shield'));
     player.hp = Math.max(0, player.hp - damage);
     events.push({ ...base, hit: true, crit, damage });
     if (attack.effect && player.hp > 0 && rng.chance(attack.effect.chance)) {

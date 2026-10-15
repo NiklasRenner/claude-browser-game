@@ -5,7 +5,8 @@
  * waits turnDelay(speed) before acting again. A speed-110 officer facing a
  * speed-100 hostile takes 11 turns for every 10 of theirs, so roughly every
  * 10th turn they act twice in a row — on a fixed, predictable beat, no dice.
- * Ties go to the player, then to hostiles in lineup order.
+ * Ties go to the player, then to hostiles in lineup order. Chill (cryo) slows:
+ * a chilled actor's speed drops by its power in %, so its next turn comes later.
  *
  * A new battle starts everyone one delay away (initTimeline), so faster
  * combatants go first and with equal speed the player does. A battle without
@@ -15,13 +16,17 @@
 import { getHostile } from '../data';
 import { derive } from '../player';
 import { turnDelay } from '../stats';
-import type { BattleState, Hostile, Player } from '../types';
-import { isAlive } from './battle';
+import type { BattleState, Hostile, Player, StatusEffect } from '../types';
+import { isAlive, statusPower } from './battle';
 
 export type Turn = 'player' | number;
 
-const playerDelay = (player: Player) => turnDelay(derive(player).speed);
-const hostileDelay = (inst: Hostile) => turnDelay(getHostile(inst.defId).speed);
+const chilled = (speed: number, statuses: StatusEffect[]) => speed * (1 - statusPower(statuses, 'chill') / 100);
+/** Effective speeds right now (chill included); the hostile one is shown in the UI. */
+const playerSpeed = (player: Player, battle: BattleState) => chilled(derive(player).speed, battle.playerStatuses);
+export const hostileSpeed = (inst: Hostile) => chilled(getHostile(inst.defId).speed, inst.statuses);
+const playerDelay = (player: Player, battle: BattleState) => turnDelay(playerSpeed(player, battle));
+const hostileDelay = (inst: Hostile) => turnDelay(hostileSpeed(inst));
 const playerNextTime = (battle: BattleState) => battle.playerNext ?? 0;
 
 /**
@@ -31,14 +36,14 @@ const playerNextTime = (battle: BattleState) => battle.playerNext ?? 0;
  */
 function hostileNextTime(player: Player, battle: BattleState, inst: Hostile): number {
   if (inst.next !== undefined) return inst.next;
-  const dp = playerDelay(player);
+  const dp = playerDelay(player, battle);
   const dm = hostileDelay(inst);
   return playerNextTime(battle) + Math.ceil(dp / dm - 1e-9) * dm - dp;
 }
 
 /** Sets up a brand-new battle's timeline: everyone is one turn-delay away from acting. */
 export function initTimeline(player: Player, battle: BattleState): void {
-  battle.playerNext = playerDelay(player);
+  battle.playerNext = playerDelay(player, battle);
   for (const m of battle.hostiles) m.next = hostileDelay(m);
 }
 
@@ -63,7 +68,7 @@ export function nextActor(player: Player, battle: BattleState): Turn {
 /** Moves an actor's next turn one delay further along the timeline (call after it has had its turn). */
 export function spendTurn(player: Player, battle: BattleState, who: Turn): void {
   if (who === 'player') {
-    battle.playerNext = playerNextTime(battle) + playerDelay(player);
+    battle.playerNext = playerNextTime(battle) + playerDelay(player, battle);
   } else {
     const m = battle.hostiles[who]!;
     m.next = hostileNextTime(player, battle, m) + hostileDelay(m);

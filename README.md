@@ -45,7 +45,19 @@ The e2e test needs a Playwright Chromium (`npx playwright install chromium` once
 - **Multiple hostiles:** fights can have up to 3 hostiles. You attack your current target (shown on the status card, a ring and an arrow in the scene). Switch with `Tab` / `Shift+Tab`, by clicking a name in the target list, or by clicking the hostile itself; switching is free. When your target goes down, targeting moves to the next living hostile. Area abilities (marked ⇶ all: Suppressive Fire, Ion Storm, Cryo Grenade) hit every hostile. You can't beam out while a priority target is standing.
 - **Selling:** everything sells for half its price, minimum 1 credit (so starter kit can be cleared out); equipped gear can't be sold.
 - **Damage types:** kinetic, plasma, cryo, ion, photon, void, corrosive. Hostiles show what they're vulnerable to and what they resist; buy weapons to exploit that, or swap weapons mid-fight (costs your turn).
-- **Status effects** (same on both sides): burn, corrode, stun, chill (−hit chance), shield (−damage taken), evasive (+evasion), marked (−evasion; the Engineer's Target Painter).
+- **Damage types and their effects.** Each damage type has one associated effect that its weapons, abilities and hostile attacks *can* carry (with a chance; never guaranteed, and never another type's effect, `validateContent` enforces it). Kinetic has none for now:
+
+  | Type | Effect | What it does |
+  | --- | --- | --- |
+  | plasma | Burn | Heavy damage every turn, short (2 turns); a new burn replaces the old one |
+  | corrosive | Corrode | Poison: lighter damage every turn for longer (4 turns), and each new dose stacks, up to 3× |
+  | cryo | Chill | Slowed: −25–30% speed, so turns come later on the timeline |
+  | ion | Stun | Skips the next turn |
+  | photon | Blind | −hit chance |
+  | void | Exposed | Takes extra damage from everything |
+
+  Statuses work the same on both sides. Abilities also give shield (−damage taken), evasive (+evasion) and marked (−evasion). Chips and tooltips name each effect and its strength (`src/core/data/effects.ts`).
+- **Level gap:** your hit chance drops 10% per level a hostile is above you (no bonus below). Escape chance is 60% at equal level, ±12% per level of difference (5–95%), plus a little from speed; the Beam out button shows it. Story bosses fight at the mission's recommended level + 1 (`bossLevel` on a mission overrides it).
 - **Progression:** XP levels grant 4 stat points; abilities unlock by level; going down costs 10% credits.
 - **Saves:** autosaved to `localStorage` after every action; *Resume duty* on the title screen. Saves are versioned (see `src/core/save.ts`); the history was reset at version 1, so pre-reset saves no longer load.
 - **Keys:** Combat `A` attack · `1–9` abilities · `Tab`/`Shift+Tab` switch target · `F` beam out · `Esc` back. Between fights `Enter`/`Space` advance · `R` return to ship. Keys pressed during an animation are queued.

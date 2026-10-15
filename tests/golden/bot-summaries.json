@@ -2,10 +2,10 @@
   {
     "divisionId": "security",
     "seed": 1,
-    "steps": 422,
+    "steps": 641,
     "completed": true,
-    "level": 16,
-    "credits": 2509,
+    "level": 18,
+    "credits": 2319,
     "cleared": [
       "veridia",
       "kethra",
@@ -13,16 +13,16 @@
       "void_rift",
       "xenith"
     ],
-    "battlesWon": 46,
-    "battlesLost": 0
+    "battlesWon": 64,
+    "battlesLost": 4
   },
   {
     "divisionId": "security",
     "seed": 2,
-    "steps": 437,
+    "steps": 488,
     "completed": true,
     "level": 17,
-    "credits": 2029,
+    "credits": 2657,
     "cleared": [
       "veridia",
       "kethra",
@@ -36,10 +36,10 @@
   {
     "divisionId": "science",
     "seed": 1,
-    "steps": 480,
+    "steps": 448,
     "completed": true,
     "level": 16,
-    "credits": 3021,
+    "credits": 2263,
     "cleared": [
       "veridia",
       "kethra",
@@ -53,10 +53,10 @@
   {
     "divisionId": "science",
     "seed": 2,
-    "steps": 449,
+    "steps": 483,
     "completed": true,
     "level": 16,
-    "credits": 2705,
+    "credits": 2383,
     "cleared": [
       "veridia",
       "kethra",
@@ -70,10 +70,10 @@
   {
     "divisionId": "engineer",
     "seed": 1,
-    "steps": 951,
+    "steps": 905,
     "completed": true,
-    "level": 20,
-    "credits": 1719,
+    "level": 21,
+    "credits": 1790,
     "cleared": [
       "veridia",
       "kethra",
@@ -81,16 +81,16 @@
       "void_rift",
       "xenith"
     ],
-    "battlesWon": 92,
-    "battlesLost": 12
+    "battlesWon": 94,
+    "battlesLost": 10
   },
   {
     "divisionId": "engineer",
     "seed": 2,
-    "steps": 445,
+    "steps": 366,
     "completed": true,
     "level": 16,
-    "credits": 2606,
+    "credits": 2778,
     "cleared": [
       "veridia",
       "kethra",

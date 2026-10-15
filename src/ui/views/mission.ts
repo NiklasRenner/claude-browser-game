@@ -1,7 +1,8 @@
 /** In-mission views: the HUD, the target card, the turn-order strip, and the mission / battle / defeat panels. */
 import {
-  ELEMENTS, countItem, derive, getMission, getDivision, getItem, getHostile, getWeapon, hostileEvasion, hostileHitChance,
-  hostileLabels, hostileLevel, knownAbilities, missionEncounters, upcomingTurns, xpToNext,
+  ELEMENTS, checkAction, countItem, derive, fleeChance, getMission, getDivision, getItem, getHostile, getWeapon, hostileEvasion,
+  hostileHitChance, hostileLabels, hostileLevel, hostileSpeed, knownAbilities, levelPenalty, missionEncounters,
+  toughestAliveLevel, upcomingTurns, xpToNext,
 } from '../../core';
 import type { GameState, Player, StatusEffect } from '../../core';
 import { ELEMENT_ICONS } from '../../game/elements';
@@ -65,10 +66,10 @@ export function hostileCard(s: GameState, busy: boolean) {
   return `
     <div class="hostile-card panel ${def.boss ? 'boss' : ''}">
       ${roster}
-      <div class="hud-name"><strong>${esc(labels[b.target]!)}</strong> <span class="muted">Lv ${hostileLevel(target)}${def.boss ? ' · PRIORITY TARGET' : ''}</span></div>
+      <div class="hud-name"><strong>${esc(labels[b.target]!)}</strong> <span class="muted">Lv ${hostileLevel(target)}${def.boss ? ' · PRIORITY TARGET' : ''}</span>${levelPenalty(s.player!, target) ? ` <span class="warn" title="It is above your level: your hit chance is lower">−${levelPenalty(s.player!, target)}% hit</span>` : ''}</div>
       ${bar('hp enemy', target.hp, target.maxHp, 'HP')}
       <div class="hud-row">${statusChips(target.statuses)}</div>
-      <div class="res profile" title="Speed vs. the normal 100 · its evasion against your attacks · its chance to hit you">Speed <b>${speedText(def.speed)}</b> · Evasion <b>${Math.round(hostileEvasion(target))}%</b> · Hit <b>${Math.round(hostileHitChance(s.player!, b, b.target))}%</b></div>
+      <div class="res profile" title="Speed vs. the normal 100 · its evasion against your attacks · its chance to hit you">Speed <b>${speedText(hostileSpeed(target))}</b> · Evasion <b>${Math.round(hostileEvasion(target))}%</b> · Hit <b>${Math.round(hostileHitChance(s.player!, b, b.target))}%</b></div>
       ${weak.length ? `<div class="res">Vulnerable: ${chips(weak)}</div>` : ''}
       ${strong.length ? `<div class="res">Resists: ${chips(strong)}</div>` : ''}
     </div>`;
@@ -114,7 +115,7 @@ export function battlePanel(s: GameState, btn: BtnFn, menu: BattleMenu, busy: bo
         <button class="btn big" data-ui="menu:abilities" ${busy ? 'disabled' : ''}>Abilities ▸</button>
         <button class="btn" data-ui="menu:items" ${busy ? 'disabled' : ''}>Items ▸</button>
         <button class="btn" data-ui="menu:gear" ${busy ? 'disabled' : ''}>Swap weapon ▸</button>
-        ${btn({ type: 'flee' }, '<span class="key">F</span>Beam out', 'ghost')}
+        ${btn({ type: 'flee' }, `<span class="key">F</span>Beam out${b && checkAction(s, { type: 'flee' }) === null ? ` <span class="muted">${fleeChance(p, toughestAliveLevel(b))}%</span>` : ''}`, 'ghost', 'Chance to escape: easier from lower-level hostiles, harder from higher-level ones')}
       </div>`;
   }
 }

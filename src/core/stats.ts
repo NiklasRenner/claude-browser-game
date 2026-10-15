@@ -81,5 +81,20 @@ export const intellectEnergy = (int: number) => int * INT_PER_POINT;
 export const luckCrit = (luk: number) => (CRIT_MAX * Math.max(0, luk)) / (Math.max(0, luk) + CRIT_K);
 /** Share of max energy recovered after each won fight on a mission or patrol. */
 export const ENERGY_RECOVERY = 0.15;
+// ─── Level difference ──────────────────────────────────────────────────────
+
+/** Your hit chance drops by this much per level a hostile is above you. */
+export const LEVEL_HIT_PENALTY = 10;
+/** Escape chance: base at equal level, ± per level of difference, clamped. */
+export const FLEE_BASE = 60;
+export const FLEE_PER_LEVEL = 12;
+export const FLEE_MIN = 5;
+export const FLEE_MAX = 95;
+
+// ─── Status effects ────────────────────────────────────────────────────────
+
+/** Corrode stacks up to this many times the strength of the dose being applied. */
+export const CORRODE_MAX_STACKS = 3;
+
 /** Heals have no stat; they grow with level. */
 export const healMultiplier = (level: number) => 1 + level * 0.15;

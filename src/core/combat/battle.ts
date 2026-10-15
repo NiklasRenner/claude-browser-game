@@ -7,6 +7,7 @@
  * Statuses work the same way on the player and on hostiles.
  */
 import { getHostile } from '../data';
+import { CORRODE_MAX_STACKS } from '../stats';
 import type { Rng } from '../rng';
 import type { Actor, BattleState, Element, GameEvent, Hostile, Player, StatusEffect, StatusId } from '../types';
 
@@ -77,16 +78,18 @@ export function hasStatus(statuses: StatusEffect[], id: StatusId): boolean {
   return statuses.some((s) => s.id === id);
 }
 
-/** Applies or refreshes a status. Always inserts a new object (see endTurn). `foe` = hostile index when target is 'hostile'. */
+/** Applies or refreshes a status (corrode stacks). Always inserts a new object (see endTurn). `foe` = hostile index when target is 'hostile'. */
 export function applyStatus(
   statuses: StatusEffect[], target: Actor, id: StatusId, turns: number, power: number, events: GameEvent[], foe?: number,
 ): void {
   const i = statuses.findIndex((s) => s.id === id);
   const prev = i >= 0 ? statuses[i]! : null;
+  // Corrode (poison) stacks: each dose adds up, to CORRODE_MAX_STACKS× the dose. Everything else keeps the stronger value.
+  const stacked = id === 'corrode' && prev ? Math.min(prev.power + power, power * CORRODE_MAX_STACKS) : power;
   const next: StatusEffect = {
     id,
     turns: Math.max(turns, prev?.turns ?? 0),
-    power: Math.max(power, prev?.power ?? 0),
+    power: Math.max(stacked, prev?.power ?? 0),
   };
   if (i >= 0) statuses.splice(i, 1);
   statuses.push(next);

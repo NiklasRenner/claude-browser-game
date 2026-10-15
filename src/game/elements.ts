@@ -17,8 +17,9 @@ export const ELEMENT_ICONS: Record<Element, string> = {
 
 export const STATUS_COLORS: Record<StatusId, number> = {
   burn: 0xff6a2b, corrode: 0x8ee84a, stun: 0xffe14d, shield: 0x6cc6ff, evasive: 0xc9d6ff, chill: 0x6cd6ff, marked: 0xff4d6d,
+  blind: 0xfff4c0, exposed: 0xa36bff,
 };
 
 export const STATUS_ICONS: Record<StatusId, string> = {
-  burn: '🔥', corrode: '☣', stun: '💫', shield: '🛡', evasive: '◌', chill: '❄', marked: '⌖',
+  burn: '🔥', corrode: '☣', stun: '💫', shield: '🛡', evasive: '◌', chill: '❄', marked: '⌖', blind: '✷', exposed: '⊘',
 };

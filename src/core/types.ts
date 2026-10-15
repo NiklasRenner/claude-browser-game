@@ -16,13 +16,15 @@ export type Resistances = Partial<Record<Element, number>>;
 export type DivisionId = 'security' | 'science' | 'engineer';
 
 /**
- * burn/corrode: damage `power` at the start of each owner turn (plasma / corrosive).
- * stun: owner skips its turn. chill: owner's hit chance −`power`.
- * shield: owner takes `power`% less damage. evasive: owner's evasion +`power`.
- * marked: owner's evasion −`power` (attacks against it land more often).
- * Statuses work the same on the player and on hostiles.
+ * Element effects (one per damage type, see ELEMENT_EFFECTS; an attack *may* carry it):
+ *   burn (plasma): heavy damage `power` at the start of each owner turn; short, doesn't stack.
+ *   corrode (corrosive): weaker damage per turn, but every new dose adds to it (up to CORRODE_MAX_STACKS×); long.
+ *   chill (cryo): owner's speed −`power`%. stun (ion): owner skips its next turn.
+ *   blind (photon): owner's hit chance −`power`. exposed (void): owner takes +`power`% damage.
+ * Other statuses: shield: owner takes `power`% less damage. evasive: owner's evasion +`power`.
+ * marked: owner's evasion −`power`. Statuses work the same on the player and on hostiles.
  */
-export type StatusId = 'burn' | 'corrode' | 'stun' | 'shield' | 'evasive' | 'chill' | 'marked';
+export type StatusId = 'burn' | 'corrode' | 'chill' | 'stun' | 'blind' | 'exposed' | 'shield' | 'evasive' | 'marked';
 
 export interface StatusEffect {
   id: StatusId;
@@ -207,6 +209,8 @@ export interface MissionDef {
   boss: string;
   /** Hostiles that fight alongside the boss (max 2, so the boss fight has up to 3). */
   bossAdds?: string[];
+  /** The boss's level in this mission (default: minLevel + 1, see bossLevel()). */
+  bossLevel?: number;
   /** Ending text, for the final mission (FINAL_MISSION): shown in the log and the victory screen. */
   finale?: { title: string; text: string };
   /** Regular encounters before the boss. */

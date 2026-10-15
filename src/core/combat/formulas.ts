@@ -4,12 +4,14 @@
  * rules will roll.
  *
  * The hit rule is the same for both sides: the attack's hit chance minus the
- * defender's evasion, clamped to [MIN_HIT, MAX_HIT].
+ * defender's evasion, clamped to [MIN_HIT, MAX_HIT]. Blind lowers the
+ * attacker's hit chance; the player also loses LEVEL_HIT_PENALTY per level a
+ * hostile is above them.
  */
 import { getArmor, getHostile, getWeapon } from '../data';
 import { derive } from '../player';
-import { ABILITY_HIT, MAX_HIT, MIN_HIT, PLAYER_EVASION_CAP } from '../stats';
-import type { BattleState, Element, HostileAttack, HostileDef, Hostile, Player, AbilityEffect } from '../types';
+import { ABILITY_HIT, LEVEL_HIT_PENALTY, MAX_HIT, MIN_HIT, PLAYER_EVASION_CAP } from '../stats';
+import type { AbilityEffect, BattleState, Element, Hostile, HostileAttack, HostileDef, Player, StatusEffect } from '../types';
 import { clamp, hostileLevel, statusPower } from './battle';
 
 export type DamageEffect = Extract<AbilityEffect, { type: 'damage' }>;
@@ -27,7 +29,14 @@ export function hitChance(hit: number, evasion: number): number {
 export function hostileHit(inst: Hostile, attack?: HostileAttack): number {
   const def = getHostile(inst.defId);
   const base = attack?.hit ?? def.accuracy;
-  return base + (hostileLevel(inst) - def.level) * HOSTILE_ACCURACY_PER_LEVEL - statusPower(inst.statuses, 'chill');
+  // Only patrol-scaled hostiles (which carry `power`) gain accuracy with level.
+  const scaled = inst.power !== undefined ? (hostileLevel(inst) - def.level) * HOSTILE_ACCURACY_PER_LEVEL : 0;
+  return base + scaled - statusPower(inst.statuses, 'blind');
+}
+
+/** Damage multiplier from the exposed status (void). */
+export function exposure(statuses: StatusEffect[]): number {
+  return 1 + statusPower(statuses, 'exposed') / 100;
 }
 
 /** A hostile's evasion right now (statuses included). */
@@ -68,12 +77,18 @@ export function strikeProfile(player: Player, effect?: DamageEffect): { hit: num
 
 /** Chance (%) that one strike of the weapon (or ability effect) lands on hostile `foe` right now. */
 export function playerHitChance(player: Player, battle: BattleState, foe: number, effect?: DamageEffect): number {
-  return strikeChance(battle, foe, strikeProfile(player, effect).hit);
+  return strikeChance(player, battle, foe, strikeProfile(player, effect).hit);
 }
 
-/** Chance (%) that a player strike with base hit `hit` lands on hostile `foe` (chill included). */
-export function strikeChance(battle: BattleState, foe: number, hit: number): number {
-  return hitChance(hit - statusPower(battle.playerStatuses, 'chill'), hostileEvasion(battle.hostiles[foe]!));
+/** Hit chance lost against a hostile above the player's level. */
+export function levelPenalty(player: Player, inst: Hostile): number {
+  return Math.max(0, hostileLevel(inst) - player.level) * LEVEL_HIT_PENALTY;
+}
+
+/** Chance (%) that a player strike with base hit `hit` lands on hostile `foe` (blind and level gap included). */
+export function strikeChance(player: Player, battle: BattleState, foe: number, hit: number): number {
+  const inst = battle.hostiles[foe]!;
+  return hitChance(hit - statusPower(battle.playerStatuses, 'blind') - levelPenalty(player, inst), hostileEvasion(inst));
 }
 
 /** The element a damage effect actually deals ('weapon' = the equipped weapon's). */

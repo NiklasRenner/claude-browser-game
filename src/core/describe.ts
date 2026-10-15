@@ -3,7 +3,8 @@ import { FINAL_MISSION, getMission, getItem, getHostile, getAbility } from './da
 import type { GameEvent, GameState, StatusId, StepResult } from './types';
 
 const STATUS_TEXT: Record<StatusId, string> = {
-  burn: 'burning', corrode: 'corroding', stun: 'stunned', shield: 'shielded', evasive: 'evasive', chill: 'chilled', marked: 'marked',
+  burn: 'burning', corrode: 'corroding', stun: 'stunned', shield: 'shielded', evasive: 'evasive', chill: 'chilled (slowed)', marked: 'marked',
+  blind: 'blinded', exposed: 'exposed',
 };
 
 interface DescribeContext {

@@ -8,12 +8,14 @@ const abilities: AbilityDef[] = [
     effects: [{ type: 'status', target: 'self', status: 'shield', turns: 3, power: 40 }] },
   { id: 'combat_stim', name: 'Combat Stim', divisionId: 'security', level: 5, energy: 12, description: 'A shot of adrenaline and coagulant. Recovers health.',
     effects: [{ type: 'heal', dice: [26, 36] }] },
-  { id: 'photon_grenade', name: 'Photon Grenade', divisionId: 'security', level: 4, energy: 14, description: 'A blinding burst of photon energy.',
-    effects: [{ type: 'damage', element: 'photon', dice: [24, 34], hit: 86 }] },
-  { id: 'suppressive_fire', name: 'Suppressive Fire', divisionId: 'security', level: 11, energy: 22, description: 'Sweep every hostile for 240% weapon damage (−10% hit), with a chance to stun.',
+  { id: 'photon_grenade', name: 'Photon Grenade', divisionId: 'security', level: 4, energy: 14, description: 'A burst of photon energy that may blind the target.',
     effects: [
-      { type: 'damage', element: 'weapon', dice: [0, 0], useWeapon: true, mult: 2.4, aoe: true, accuracy: -10 },
-      { type: 'status', target: 'enemy', status: 'stun', turns: 1, power: 0, chance: 25 },
+      { type: 'damage', element: 'photon', dice: [24, 34], hit: 86 },
+      { type: 'status', target: 'enemy', status: 'blind', turns: 2, power: 30, chance: 50 },
+    ] },
+  { id: 'suppressive_fire', name: 'Suppressive Fire', divisionId: 'security', level: 11, energy: 22, description: 'Sweep every hostile for 260% weapon damage (−10% hit).',
+    effects: [
+      { type: 'damage', element: 'weapon', dice: [0, 0], useWeapon: true, mult: 2.6, aoe: true, accuracy: -10 },
     ] },
 
   // ── Science: field science ──
@@ -22,7 +24,7 @@ const abilities: AbilityDef[] = [
   { id: 'cryo_beam', name: 'Cryo Beam', divisionId: 'science', level: 2, energy: 7, description: 'A freezing beam that may chill the target.',
     effects: [
       { type: 'damage', element: 'cryo', dice: [9, 14], hit: 88 },
-      { type: 'status', target: 'enemy', status: 'chill', turns: 2, power: 20, chance: 40 },
+      { type: 'status', target: 'enemy', status: 'chill', turns: 2, power: 30, chance: 40 },
     ] },
   { id: 'regen_field', name: 'Regen Field', divisionId: 'science', level: 3, energy: 10, description: 'Accelerate cellular repair.',
     effects: [{ type: 'heal', dice: [28, 38] }] },
@@ -38,14 +40,14 @@ const abilities: AbilityDef[] = [
   { id: 'orbital_strike', name: 'Orbital Strike', divisionId: 'science', level: 12, energy: 34, description: 'Paint the target for the ship\'s plasma batteries. Devastating, if it lands.',
     effects: [
       { type: 'damage', element: 'plasma', dice: [54, 72], hit: 75 },
-      { type: 'status', target: 'enemy', status: 'burn', turns: 3, power: 8, chance: 60 },
+      { type: 'status', target: 'enemy', status: 'burn', turns: 2, power: 12, chance: 60 },
     ] },
 
   // ── Engineer: gadgets ──
   { id: 'nanite_swarm', name: 'Nanite Swarm', divisionId: 'engineer', level: 1, energy: 5, description: 'A strike that releases corrosive nanites.',
     effects: [
       { type: 'damage', element: 'corrosive', dice: [0, 0], useWeapon: true, mult: 1.1, accuracy: 5 },
-      { type: 'status', target: 'enemy', status: 'corrode', turns: 3, power: 4, chance: 75 },
+      { type: 'status', target: 'enemy', status: 'corrode', turns: 4, power: 3, chance: 75 },
     ] },
   { id: 'target_painter', name: 'Target Painter', divisionId: 'engineer', level: 2, energy: 4, description: 'Laser-mark the target: it is 35% easier to hit for 3 turns.',
     effects: [{ type: 'status', target: 'enemy', status: 'marked', turns: 3, power: 35 }] },
@@ -58,7 +60,7 @@ const abilities: AbilityDef[] = [
   { id: 'cryo_grenade', name: 'Cryo Grenade', divisionId: 'engineer', level: 7, energy: 10, description: 'A canister of liquid coolant that bursts over every hostile.',
     effects: [
       { type: 'damage', element: 'cryo', dice: [16, 24], aoe: true, hit: 86 },
-      { type: 'status', target: 'enemy', status: 'chill', turns: 2, power: 20, chance: 50 },
+      { type: 'status', target: 'enemy', status: 'chill', turns: 2, power: 30, chance: 50 },
     ] },
   { id: 'overload', name: 'Precision Overload', divisionId: 'engineer', level: 10, energy: 24, description: '260% weapon damage, +10% hit, +25% crit chance.',
     effects: [{ type: 'damage', element: 'weapon', dice: [0, 0], useWeapon: true, mult: 2.6, extraCrit: 25, accuracy: 10 }] },

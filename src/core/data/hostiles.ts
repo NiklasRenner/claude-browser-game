@@ -6,7 +6,7 @@ const hostiles: HostileDef[] = [
     resist: { plasma: 150, cryo: 75, corrosive: 50 },
     attacks: [
       { name: 'Engulf', element: 'kinetic', damage: [3, 6], weight: 3 },
-      { name: 'Acid Spit', element: 'corrosive', damage: [2, 4], weight: 1, effect: { status: 'corrode', chance: 30, turns: 2, power: 2 } },
+      { name: 'Acid Spit', element: 'corrosive', damage: [2, 4], weight: 1, effect: { status: 'corrode', chance: 30, turns: 3, power: 2 } },
     ],
     xp: 14, credits: [6, 12], drops: [{ itemId: 'medkit', chance: 10 }],
     look: { body: 'blob', color: 0x45d8c0, accent: 0xb8fff0, scale: 0.9 } },
@@ -22,7 +22,7 @@ const hostiles: HostileDef[] = [
     resist: {},
     attacks: [
       { name: 'Shock Baton', element: 'kinetic', damage: [5, 8], weight: 3 },
-      { name: 'Flashbang', element: 'kinetic', damage: [3, 5], weight: 1, effect: { status: 'stun', chance: 15, turns: 1, power: 0 } },
+      { name: 'Flashbang', element: 'photon', damage: [3, 5], weight: 1, effect: { status: 'blind', chance: 40, turns: 2, power: 25 } },
     ],
     xp: 26, credits: [15, 30], drops: [{ itemId: 'medkit', chance: 25 }],
     look: { body: 'humanoid', color: 0x6b6f78, accent: 0xff7a1a, scale: 1, features: ['helmet', 'baton'] } },
@@ -30,8 +30,8 @@ const hostiles: HostileDef[] = [
     resist: { kinetic: 85, plasma: 125 },
     attacks: [
       { name: 'Gore', element: 'kinetic', damage: [7, 11], weight: 3 },
-      { name: 'Spore Barrage', element: 'kinetic', damage: [5, 8], weight: 2, effect: { status: 'corrode', chance: 25, turns: 3, power: 3 } },
-      { name: 'Trample', element: 'kinetic', damage: [10, 14], weight: 1, effect: { status: 'stun', chance: 20, turns: 1, power: 0 } },
+      { name: 'Spore Barrage', element: 'corrosive', damage: [5, 8], weight: 2, effect: { status: 'corrode', chance: 30, turns: 4, power: 2 } },
+      { name: 'Trample', element: 'kinetic', damage: [11, 15], weight: 1 },
     ],
     xp: 70, credits: [60, 90], drops: [{ itemId: 'trauma_kit', chance: 50 }],
     look: { body: 'beast', color: 0x4a3a5e, accent: 0xc8f04a, scale: 1.45, features: ['tusks'] } },
@@ -48,7 +48,7 @@ const hostiles: HostileDef[] = [
   { id: 'plasma_sprite', name: 'Plasma Sprite', level: 5, hp: 48, accuracy: 84, evasion: 15, crit: 5, speed: 110,
     resist: { plasma: 25, cryo: 160 },
     attacks: [
-      { name: 'Plasma Spit', element: 'plasma', damage: [7, 11], weight: 3, effect: { status: 'burn', chance: 25, turns: 3, power: 3 } },
+      { name: 'Plasma Spit', element: 'plasma', damage: [7, 11], weight: 3, effect: { status: 'burn', chance: 25, turns: 2, power: 5 } },
       { name: 'Claw', element: 'kinetic', damage: [5, 8], weight: 2 },
     ],
     xp: 50, credits: [15, 27], drops: [{ itemId: 'energy_cell', chance: 20 }],
@@ -64,7 +64,7 @@ const hostiles: HostileDef[] = [
   { id: 'magma_colossus', name: 'Magma Colossus', level: 8, hp: 250, accuracy: 80, evasion: 0, crit: 4, speed: 80, boss: true,
     resist: { plasma: 0, kinetic: 70, cryo: 175, corrosive: 50 },
     attacks: [
-      { name: 'Molten Fist', element: 'plasma', damage: [12, 17], weight: 3, effect: { status: 'burn', chance: 30, turns: 3, power: 4 } },
+      { name: 'Molten Fist', element: 'plasma', damage: [12, 17], weight: 3, effect: { status: 'burn', chance: 30, turns: 2, power: 7 } },
       { name: 'Rockslide', element: 'kinetic', damage: [10, 15], weight: 2 },
       { name: 'Eruption', element: 'plasma', damage: [16, 22], weight: 1 },
     ],
@@ -75,7 +75,7 @@ const hostiles: HostileDef[] = [
   { id: 'frost_serpent', name: 'Frost Serpent', level: 8, hp: 72, accuracy: 88, evasion: 8, crit: 5, speed: 105,
     resist: { cryo: 25, plasma: 160 },
     attacks: [
-      { name: 'Frost Breath', element: 'cryo', damage: [10, 15], weight: 2, effect: { status: 'chill', chance: 30, turns: 2, power: 15 } },
+      { name: 'Frost Breath', element: 'cryo', damage: [10, 15], weight: 2, effect: { status: 'chill', chance: 30, turns: 2, power: 25 } },
       { name: 'Bite', element: 'kinetic', damage: [9, 13], weight: 3 },
     ],
     xp: 85, credits: [30, 48],
@@ -84,14 +84,14 @@ const hostiles: HostileDef[] = [
     resist: { cryo: 50, plasma: 140 },
     attacks: [
       { name: 'Pummel', element: 'kinetic', damage: [16, 23], weight: 3 },
-      { name: 'Avalanche', element: 'cryo', damage: [20, 27], weight: 1, effect: { status: 'stun', chance: 20, turns: 1, power: 0 } },
+      { name: 'Avalanche', element: 'cryo', damage: [20, 27], weight: 1, effect: { status: 'chill', chance: 40, turns: 2, power: 30 } },
     ],
     xp: 95, credits: [36, 54], drops: [{ itemId: 'trauma_kit', chance: 20 }],
     look: { body: 'brute', color: 0xf2f2f2, accent: 0x7a9cc6, scale: 1.1, features: ['horns'] } },
   { id: 'cryo_phantom', name: 'Cryo Phantom', level: 10, hp: 64, accuracy: 94, evasion: 30, crit: 5, speed: 110,
     resist: { kinetic: 60, cryo: 0, photon: 175, plasma: 140, void: 50 },
     attacks: [
-      { name: 'Cryo Touch', element: 'cryo', damage: [10, 15], weight: 3, effect: { status: 'chill', chance: 30, turns: 2, power: 15 } },
+      { name: 'Cryo Touch', element: 'cryo', damage: [10, 15], weight: 3, effect: { status: 'chill', chance: 30, turns: 2, power: 25 } },
       { name: 'Entropy Drain', element: 'void', damage: [12, 16], weight: 1 },
     ],
     xp: 105, credits: [39, 60], drops: [{ itemId: 'energy_cell', chance: 30 }],
@@ -99,7 +99,7 @@ const hostiles: HostileDef[] = [
   { id: 'glacius', name: 'Glacius, the Ice Wyrm', level: 12, hp: 440, accuracy: 94, evasion: 5, crit: 5, speed: 95, boss: true,
     resist: { cryo: 0, plasma: 165, kinetic: 85 },
     attacks: [
-      { name: 'Glacial Breath', element: 'cryo', damage: [18, 26], weight: 2, effect: { status: 'chill', chance: 40, turns: 2, power: 20 } },
+      { name: 'Glacial Breath', element: 'cryo', damage: [18, 26], weight: 2, effect: { status: 'chill', chance: 40, turns: 2, power: 30 } },
       { name: 'Tail Sweep', element: 'kinetic', damage: [16, 22], weight: 3 },
       { name: 'Blizzard', element: 'cryo', damage: [24, 30], weight: 1 },
     ],
@@ -111,7 +111,7 @@ const hostiles: HostileDef[] = [
     resist: { void: 0, photon: 180, kinetic: 70, corrosive: 0 },
     attacks: [
       { name: 'Void Claw', element: 'void', damage: [13, 18], weight: 3 },
-      { name: 'Psychic Scream', element: 'void', damage: [8, 12], weight: 1, effect: { status: 'stun', chance: 20, turns: 1, power: 0 } },
+      { name: 'Psychic Scream', element: 'void', damage: [8, 12], weight: 1, effect: { status: 'exposed', chance: 35, turns: 2, power: 25 } },
     ],
     xp: 140, credits: [48, 72], drops: [{ itemId: 'energy_cell', chance: 30 }],
     look: { body: 'wraith', color: 0x45346a, accent: 0xc49bff, scale: 1.1 } },
@@ -127,7 +127,7 @@ const hostiles: HostileDef[] = [
     resist: { kinetic: 70, void: 50, photon: 150, ion: 125 },
     attacks: [
       { name: 'Rift Blade', element: 'kinetic', damage: [16, 22], weight: 3 },
-      { name: 'Shield Bash', element: 'kinetic', damage: [12, 16], weight: 1, effect: { status: 'stun', chance: 20, turns: 1, power: 0 } },
+      { name: 'Shock Bash', element: 'ion', damage: [12, 16], weight: 1, effect: { status: 'stun', chance: 20, turns: 1, power: 0 } },
     ],
     xp: 160, credits: [60, 90], drops: [{ itemId: 'trauma_kit', chance: 30 }],
     look: { body: 'humanoid', color: 0x2a2a34, accent: 0xb3122e, scale: 1.2, features: ['armor', 'helmet', 'blade', 'shield'] } },
@@ -143,7 +143,7 @@ const hostiles: HostileDef[] = [
     resist: { void: 0, photon: 160, kinetic: 80, corrosive: 25 },
     attacks: [
       { name: 'Void Cannon', element: 'void', damage: [22, 30], weight: 3 },
-      { name: 'Nanite Plague', element: 'void', damage: [16, 22], weight: 2, effect: { status: 'corrode', chance: 40, turns: 3, power: 8 } },
+      { name: 'Nanite Plague', element: 'corrosive', damage: [16, 22], weight: 2, effect: { status: 'corrode', chance: 40, turns: 4, power: 5 } },
       { name: 'Event Horizon', element: 'void', damage: [32, 42], weight: 1 },
     ],
     xp: 1000, credits: [900, 1200],
@@ -161,7 +161,7 @@ const hostiles: HostileDef[] = [
   { id: 'hive_spitter', name: 'Hive Spitter', level: 15, hp: 90, accuracy: 100, evasion: 7, crit: 5, speed: 100,
     resist: { corrosive: 0, cryo: 150, kinetic: 90 },
     attacks: [
-      { name: 'Acid Spray', element: 'corrosive', damage: [17, 22], weight: 3, effect: { status: 'corrode', chance: 30, turns: 3, power: 8 } },
+      { name: 'Acid Spray', element: 'corrosive', damage: [17, 22], weight: 3, effect: { status: 'corrode', chance: 30, turns: 4, power: 5 } },
       { name: 'Spine Volley', element: 'kinetic', damage: [4, 6], hits: 3, hit: 88, weight: 2 },
     ],
     xp: 75, credits: [12, 20], drops: [{ itemId: 'energy_cell', chance: 15 }],
@@ -170,7 +170,7 @@ const hostiles: HostileDef[] = [
     resist: { kinetic: 60, ion: 150, plasma: 125, corrosive: 50 },
     attacks: [
       { name: 'Crushing Claw', element: 'kinetic', damage: [26, 34], weight: 3 },
-      { name: 'Carapace Slam', element: 'kinetic', damage: [20, 26], weight: 1, effect: { status: 'stun', chance: 20, turns: 1, power: 0 } },
+      { name: 'Carapace Slam', element: 'kinetic', damage: [22, 28], weight: 1 },
     ],
     xp: 170, credits: [30, 45], drops: [{ itemId: 'trauma_kit', chance: 25 }],
     look: { body: 'insect', color: 0x3a3020, accent: 0xffb000, scale: 1.25, features: ['armor'] } },
@@ -178,7 +178,7 @@ const hostiles: HostileDef[] = [
     resist: { corrosive: 25, kinetic: 80, plasma: 140, cryo: 125 },
     attacks: [
       { name: 'Brood Lash', element: 'kinetic', damage: [28, 38], weight: 3 },
-      { name: 'Acid Deluge', element: 'corrosive', damage: [26, 34], weight: 2, effect: { status: 'corrode', chance: 40, turns: 3, power: 12 } },
+      { name: 'Acid Deluge', element: 'corrosive', damage: [26, 34], weight: 2, effect: { status: 'corrode', chance: 40, turns: 4, power: 7 } },
       { name: 'Hive Shriek', element: 'ion', damage: [20, 26], weight: 1, effect: { status: 'stun', chance: 20, turns: 1, power: 0 } },
     ],
     xp: 1400, credits: [800, 1000], drops: [{ itemId: 'nano_restorer', chance: 100 }],

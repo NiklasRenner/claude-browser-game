@@ -29,7 +29,7 @@ describe('combat formulas', () => {
     const low = fleeChance(p, getHostile('rift_marauder').level);
     p.level = 30;
     const high = fleeChance(p, getHostile('protoplasm').level);
-    assert.ok(low >= 20 && high <= 90 && high > low);
+    assert.ok(low >= 5 && high <= 95 && high > low);
   });
 });
 

@@ -1,9 +1,11 @@
 /** Reusable bits of UI: chips for damage types, hit chances, statuses and item stats. */
 import {
-  damageMultiplier, enduranceHp, getHostile, intellectEnergy, luckCrit, hostileDamageTaken, playerHitChance,
-  resolveElement, speedBonus, strikeProfile,
+  ELEMENT_EFFECTS, STATUS_INFO, damageMultiplier, enduranceHp, getHostile, intellectEnergy, luckCrit, hostileDamageTaken,
+  playerHitChance, resolveElement, speedBonus, strikeProfile,
 } from '../core';
-import type { BattleState, DamageEffect, Element, ItemDef, HostileDef, Player, AbilityDef, Stat, StatusEffect } from '../core';
+import type {
+  AbilityDef, BattleState, DamageEffect, Element, HostileDef, ItemDef, Player, Stat, StatusEffect, StatusId,
+} from '../core';
 import { ELEMENT_ICONS, STATUS_ICONS } from '../game/elements';
 import { esc } from './html';
 
@@ -26,9 +28,27 @@ export function statEffect(stat: Stat, v: number): string {
 
 // ─── Ability / element tags ─────────────────────────────────────────────────
 
-const STATUS_NAMES: Record<StatusEffect['id'], string> = {
-  burn: 'burn', corrode: 'corrode', stun: 'stun', shield: 'shield', evasive: 'evade', chill: 'chill', marked: 'marked',
-};
+/** How strong a status is, in words: "−30% speed", "5 damage/turn"… */
+function statusAmount(id: StatusId, power: number): string {
+  switch (id) {
+    case 'burn': case 'corrode': return `${power} damage/turn`;
+    case 'chill': return `−${power}% speed`;
+    case 'blind': return `−${power}% hit`;
+    case 'exposed': return `+${power}% damage taken`;
+    case 'shield': return `−${power}% damage taken`;
+    case 'evasive': return `+${power} evasion`;
+    case 'marked': return `−${power} evasion`;
+    case 'stun': return 'skips a turn';
+  }
+}
+
+/** Chip for a status an ability, weapon or attack can inflict. */
+function statusTag(id: StatusId, power: number, turns: number, chance: number | undefined, self: boolean): string {
+  const info = STATUS_INFO[id];
+  const odds = chance !== undefined ? ` (${chance}%)` : '';
+  const title = `${self ? 'You gain' : 'Inflicts'} ${info.name}: ${statusAmount(id, power)} for ${turns} turn(s)${odds}. ${info.help}`;
+  return `<span class="chip tag-status tag-${id}" title="${esc(title)}">${STATUS_ICONS[id]} ${info.name.toLowerCase()}${odds}</span>`;
+}
 
 /**
  * Damage-type chip. With a foe, adds how well it works against them:
@@ -36,7 +56,8 @@ const STATUS_NAMES: Record<StatusEffect['id'], string> = {
  */
 export function elementChip(el: Element, foe: HostileDef | null, iconOnly = false): string {
   let eff = '';
-  let title = el;
+  const effect = ELEMENT_EFFECTS[el];
+  let title = effect ? `${el} (can inflict ${STATUS_INFO[effect].name}: ${STATUS_INFO[effect].help.toLowerCase()})` : el;
   if (foe) {
     const pct = hostileDamageTaken(foe, el);
     if (pct === 0) { eff = '<b class="eff eff-immune">✕</b>'; title += ` — ${foe.name} is immune`; }
@@ -58,16 +79,18 @@ export function abilityTags(p: Player, ability: AbilityDef, battle: BattleState 
     } else if (e.type === 'heal') {
       tags.push('<span class="chip tag-heal" title="Restores HP">✚ heal</span>');
     } else {
-      const who = e.target === 'self' ? 'You gain' : 'Inflicts';
-      const chance = e.chance !== undefined ? ` (${e.chance}%)` : '';
-      tags.push(`<span class="chip tag-status tag-${e.status}" title="${who} ${STATUS_NAMES[e.status]} for ${e.turns} turn(s)${chance}">${STATUS_ICONS[e.status]} ${STATUS_NAMES[e.status]}${chance}</span>`);
+      tags.push(statusTag(e.status, e.power, e.turns, e.chance, e.target === 'self'));
     }
   }
   return `<span class="tags">${tags.join('')}</span>`;
 }
 
 export function statusChips(statuses: StatusEffect[]) {
-  return statuses.map((st) => `<span class="status" title="${st.id} (${st.turns} turns)">${STATUS_ICONS[st.id]}${st.turns}</span>`).join('');
+  return statuses.map((st) => {
+    const info = STATUS_INFO[st.id];
+    const title = `${info.name}: ${statusAmount(st.id, st.power)}, ${st.turns} turn(s) left. ${info.help}`;
+    return `<span class="status" title="${esc(title)}">${STATUS_ICONS[st.id]}${st.turns}</span>`;
+  }).join('');
 }
 
 /** "88%" or "76% ×3" for the equipped weapon. */
@@ -97,7 +120,8 @@ export function itemStats(item: ItemDef): string {
     const hits = item.hits ?? 1;
     return `<span class="el el-${item.element}">${ELEMENT_ICONS[item.element]} ${item.damage[0]}–${item.damage[1]}${hits > 1 ? ` ×${hits}` : ''}</span>`
       + ` <span class="chip tag-hit" title="Hit chance before the target's evasion">◎ ${item.hit}</span>`
-      + (item.crit ? ` <span class="muted" title="Extra critical-hit chance">+${item.crit}% crit</span>` : '');
+      + (item.crit ? ` <span class="muted" title="Extra critical-hit chance">+${item.crit}% crit</span>` : '')
+      + (item.proc ? ` ${statusTag(item.proc.status, item.proc.power, item.proc.turns, item.proc.chance, false)}` : '');
   }
   if (item.kind === 'armor') {
     const res = Object.entries(item.resist).map(([el, v]) => `${ELEMENT_ICONS[el as keyof typeof ELEMENT_ICONS]}${v}%`).join(' ');

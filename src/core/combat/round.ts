@@ -12,7 +12,7 @@ import type { BattleState, Element, GameEvent, Player } from '../types';
 import { allDown, damageHostile, endTurn, fixTarget, hasStatus, isAlive, tickDots } from './battle';
 import type { Ctx } from './battle';
 import { hostileAct } from './actions';
-import { hostileDamageTaken } from './formulas';
+import { exposure, hostileDamageTaken } from './formulas';
 import { ensureTimeline, initTimeline, nextActor, spendTurn } from './timeline';
 
 export type TurnOutcome = 'continue' | 'allDown' | 'playerDied';
@@ -63,7 +63,7 @@ function advance(ctx: Ctx): TurnOutcome {
 function playerTurnStarts({ player, battle, events }: Ctx): boolean {
   battle.round += 1;
   const atStart = new Set(battle.playerStatuses);
-  const taken = (el: Element) => derive(player).damageTaken[el];
+  const taken = (el: Element) => derive(player).damageTaken[el] * exposure(battle.playerStatuses);
   player.hp = Math.max(0, player.hp - tickDots(battle.playerStatuses, 'player', taken, events));
   if (player.hp <= 0) return false;
   if (!hasStatus(battle.playerStatuses, 'stun')) return true;
@@ -80,7 +80,7 @@ function hostileTurn(ctx: Ctx, foe: number): void {
   const def = getHostile(m.defId);
   spendTurn(player, battle, foe);
   const atStart = new Set(m.statuses);
-  damageHostile(ctx, foe, tickDots(m.statuses, 'hostile', (el) => hostileDamageTaken(def, el), events, foe));
+  damageHostile(ctx, foe, tickDots(m.statuses, 'hostile', (el) => hostileDamageTaken(def, el) * exposure(m.statuses), events, foe));
   if (!isAlive(m)) return;
   if (hasStatus(m.statuses, 'stun')) events.push({ type: 'stunned', actor: 'hostile', foe });
   else hostileAct(ctx, foe);

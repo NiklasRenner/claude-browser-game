@@ -41,10 +41,10 @@ describe('hit chance', () => {
     assert.ok(Math.abs(hits / total - expected) < 0.07, `${hits}/${total} vs ${expected}`);
   });
 
-  it('chill lowers the attacker\'s hit; marked and evasive move the defender\'s evasion', () => {
+  it('blind lowers the attacker\'s hit; marked and evasive move the defender\'s evasion', () => {
     const s = fight('raider');
     const base = playerHitChance(s.player!, s.battle!, 0);
-    s.battle!.playerStatuses.push({ id: 'chill', turns: 2, power: 20 });
+    s.battle!.playerStatuses.push({ id: 'blind', turns: 2, power: 20 });
     assert.equal(playerHitChance(s.player!, s.battle!, 0), base - 20);
     s.battle!.hostiles[0]!.statuses.push({ id: 'marked', turns: 2, power: 30 });
     assert.equal(playerHitChance(s.player!, s.battle!, 0), Math.min(100, base + 10));

@@ -5,7 +5,7 @@
  */
 import { beginBattle, runRound } from './combat';
 import type { PlayerAct } from './combat';
-import { FINAL_MISSION, getMission, getHostile } from './data';
+import { bossLevel, FINAL_MISSION, getHostile, getMission } from './data';
 import { addItem, derive, grantXp } from './player';
 import { PATROL_CONTACTS, patrolBoss, patrolContact, patrolReward } from './patrol';
 import type { Rng } from './rng';
@@ -48,7 +48,8 @@ export function startNextBattle(state: GameState, rng: Rng, events: GameEvent[])
   state.battle = {
     hostiles: lineup.map((defId) => {
       const def = getHostile(defId);
-      return { defId, hp: def.hp, maxHp: def.hp, statuses: [] };
+      // Story bosses fight at the mission's boss level (recommended level + 1 by default).
+      return def.boss ? { defId, hp: def.hp, maxHp: def.hp, statuses: [], level: bossLevel(mission) } : { defId, hp: def.hp, maxHp: def.hp, statuses: [] };
     }),
     target: 0,
     playerStatuses: [],
