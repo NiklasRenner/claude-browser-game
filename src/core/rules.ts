@@ -5,15 +5,15 @@
  * and the fuzz tests.
  */
 import { aliveIndices, isAlive } from './combat';
-import { AREA_ORDER, CLASSES, SHOP_STOCK, getArea, getItem, getMonster, getSpell } from './data';
-import { countItem, derive, knownSpells } from './player';
+import { MISSION_ORDER, DIVISIONS, QUARTERMASTER_STOCK, getMission, getItem, getHostile, getAbility } from './data';
+import { countItem, derive, knownAbilities } from './player';
 import { STATS } from './types';
-import type { Action, ClassId, GameState, Player } from './types';
+import type { Action, DivisionId, GameState, Player } from './types';
 
 // ─── Queries (used by UI and bot) ──────────────────────────────────────────
 
-export function restCost(player: Player): number {
-  return Math.min(player.gold, player.level * 2);
+export function treatmentCost(player: Player): number {
+  return Math.min(player.credits, player.level * 2);
 }
 
 /** Half the purchase price; anything (even starter kit) sells for at least 1 credit. */
@@ -21,9 +21,9 @@ export function sellPrice(itemId: string): number {
   return Math.max(1, Math.floor(getItem(itemId).price / 2));
 }
 
-export function isAreaUnlocked(state: GameState, areaId: string): boolean {
-  const area = getArea(areaId);
-  return !area.requires || state.clearedAreas.includes(area.requires);
+export function isMissionUnlocked(state: GameState, missionId: string): boolean {
+  const mission = getMission(missionId);
+  return !mission.requires || state.clearedMissions.includes(mission.requires);
 }
 
 export function isEquipped(player: Player, itemId: string): boolean {
@@ -37,23 +37,23 @@ export function checkAction(state: GameState, action: Action): string | null {
   const { mode, player } = state;
   if (action.type === 'newGame') {
     if (mode !== 'title') return 'A game is already in progress';
-    return action.classId in CLASSES ? null : 'Unknown class';
+    return action.divisionId in DIVISIONS ? null : 'Unknown class';
   }
   if (!player) return 'No active game';
   const inBattle = mode === 'battle' && state.battle !== null;
-  const outOfBattle = mode === 'town' || mode === 'quest';
+  const outOfBattle = mode === 'ship' || mode === 'mission';
 
   switch (action.type) {
-    case 'rest': {
-      if (mode !== 'town') return 'Sickbay is aboard the ship';
+    case 'treat': {
+      if (mode !== 'ship') return 'Sickbay is aboard the ship';
       const d = derive(player);
-      return player.hp >= d.maxHp && player.mp >= d.maxMp ? 'Already fully rested' : null;
+      return player.hp >= d.maxHp && player.energy >= d.maxEnergy ? 'Already fully rested' : null;
     }
     case 'buy': {
-      if (mode !== 'town') return 'The quartermaster is aboard the ship';
-      if (!SHOP_STOCK.includes(action.itemId)) return 'Not stocked here';
+      if (mode !== 'ship') return 'The quartermaster is aboard the ship';
+      if (!QUARTERMASTER_STOCK.includes(action.itemId)) return 'Not stocked here';
       const item = getItem(action.itemId);
-      if (player.gold < item.price) return 'Not enough credits';
+      if (player.credits < item.price) return 'Not enough credits';
       if (item.kind !== 'consumable') {
         if (player.level < item.level) return `Requires level ${item.level}`;
         if (countItem(player, item.id) > 0) return 'Already owned';
@@ -61,7 +61,7 @@ export function checkAction(state: GameState, action: Action): string | null {
       return null;
     }
     case 'sell': {
-      if (mode !== 'town') return 'The quartermaster is aboard the ship';
+      if (mode !== 'ship') return 'The quartermaster is aboard the ship';
       if (countItem(player, action.itemId) <= 0) return 'Not owned';
       if (isEquipped(player, action.itemId)) return 'Unequip it first';
       return null;
@@ -79,22 +79,22 @@ export function checkAction(state: GameState, action: Action): string | null {
       if (!outOfBattle) return 'Train aboard the ship or between fights';
       if (!STATS.includes(action.stat)) return 'Unknown stat';
       return player.statPoints > 0 ? null : 'No stat points';
-    case 'startQuest':
-      if (mode !== 'town') return 'Missions launch from the ship';
-      if (!AREA_ORDER.includes(action.areaId)) return 'Unknown area';
-      return isAreaUnlocked(state, action.areaId) ? null : 'Area is locked';
+    case 'startMission':
+      if (mode !== 'ship') return 'Missions launch from the ship';
+      if (!MISSION_ORDER.includes(action.missionId)) return 'Unknown mission';
+      return isMissionUnlocked(state, action.missionId) ? null : 'Mission is locked';
     case 'startPatrol':
-      return mode === 'town' ? null : 'Patrols launch from the ship';
+      return mode === 'ship' ? null : 'Patrols launch from the ship';
     case 'continue':
     case 'retreat':
-      return mode === 'quest' ? null : 'Not on a mission';
+      return mode === 'mission' ? null : 'Not on a mission';
     case 'attack':
       if (!inBattle) return 'Not in battle';
       return action.target === undefined ? null : checkTarget(state, action.target, true);
-    case 'cast': {
+    case 'useAbility': {
       if (!inBattle) return 'Not in battle';
-      if (!knownSpells(player).some((s) => s.id === action.spellId)) return 'Unknown ability';
-      if (player.mp < getSpell(action.spellId).mp) return 'Not enough energy';
+      if (!knownAbilities(player).some((s) => s.id === action.abilityId)) return 'Unknown ability';
+      if (player.energy < getAbility(action.abilityId).energy) return 'Not enough energy';
       return action.target === undefined ? null : checkTarget(state, action.target, true);
     }
     case 'target':
@@ -107,17 +107,17 @@ export function checkAction(state: GameState, action: Action): string | null {
     }
     case 'flee':
       if (!inBattle) return 'Not in battle';
-      return aliveIndices(state.battle!).some((i) => getMonster(state.battle!.monsters[i]!.defId).boss)
+      return aliveIndices(state.battle!).some((i) => getHostile(state.battle!.hostiles[i]!.defId).boss)
         ? 'Too much interference to beam out!' : null;
-    case 'returnToTown':
+    case 'returnToShip':
       return mode === 'defeated' ? null : 'Nothing to return from';
   }
 }
 
 function checkTarget(state: GameState, index: number, allowCurrent: boolean): string | null {
   const battle = state.battle!;
-  if (!Number.isInteger(index) || index < 0 || index >= battle.monsters.length) return 'No such target';
-  if (!isAlive(battle.monsters[index]!)) return 'That hostile is already down';
+  if (!Number.isInteger(index) || index < 0 || index >= battle.hostiles.length) return 'No such target';
+  if (!isAlive(battle.hostiles[index]!)) return 'That hostile is already down';
   if (!allowCurrent && index === battle.target) return 'Already targeted';
   return null;
 }
@@ -127,18 +127,18 @@ export function legalActions(state: GameState): Action[] {
   const candidates: Action[] = [];
   const p = state.player;
   if (state.mode === 'title') {
-    for (const classId of Object.keys(CLASSES) as ClassId[]) candidates.push({ type: 'newGame', name: 'Hero', classId });
+    for (const divisionId of Object.keys(DIVISIONS) as DivisionId[]) candidates.push({ type: 'newGame', name: 'Hero', divisionId: divisionId });
   } else if (p) {
-    candidates.push({ type: 'rest' }, { type: 'continue' }, { type: 'retreat' }, { type: 'attack' }, { type: 'flee' });
-    candidates.push({ type: 'returnToTown' }, { type: 'startPatrol' });
-    for (const itemId of SHOP_STOCK) candidates.push({ type: 'buy', itemId });
+    candidates.push({ type: 'treat' }, { type: 'continue' }, { type: 'retreat' }, { type: 'attack' }, { type: 'flee' });
+    candidates.push({ type: 'returnToShip' }, { type: 'startPatrol' });
+    for (const itemId of QUARTERMASTER_STOCK) candidates.push({ type: 'buy', itemId });
     for (const itemId of Object.keys(p.inventory)) {
       candidates.push({ type: 'sell', itemId }, { type: 'equip', itemId }, { type: 'useItem', itemId });
     }
     for (const stat of STATS) candidates.push({ type: 'allocateStat', stat });
-    for (const areaId of AREA_ORDER) candidates.push({ type: 'startQuest', areaId });
-    for (const spell of knownSpells(p)) candidates.push({ type: 'cast', spellId: spell.id });
-    if (state.battle) state.battle.monsters.forEach((_, index) => candidates.push({ type: 'target', index }));
+    for (const missionId of MISSION_ORDER) candidates.push({ type: 'startMission', missionId: missionId });
+    for (const ability of knownAbilities(p)) candidates.push({ type: 'useAbility', abilityId: ability.id });
+    if (state.battle) state.battle.hostiles.forEach((_, index) => candidates.push({ type: 'target', index }));
   }
   return candidates.filter((a) => checkAction(state, a) === null);
 }

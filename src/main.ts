@@ -28,7 +28,7 @@ try {
   });
   canvas.addEventListener('pointermove', (e) => {
     const b = game.state.battle;
-    canvas.style.cursor = b && b.monsters.length > 1 && s.pickHostile(e.clientX, e.clientY) !== null ? 'crosshair' : '';
+    canvas.style.cursor = b && b.hostiles.length > 1 && s.pickHostile(e.clientX, e.clientY) !== null ? 'crosshair' : '';
   });
 } catch (err) {
   console.warn('3D view disabled:', err);

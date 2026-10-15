@@ -1,18 +1,18 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-  CLASSES, MAX_LEVEL, STAT_POINTS_PER_LEVEL, allocateStat, createPlayer, derive, grantXp, knownSpells, xpToNext,
+  DIVISIONS, MAX_LEVEL, STAT_POINTS_PER_LEVEL, allocateStat, createPlayer, derive, grantXp, knownAbilities, xpToNext,
 } from '../src/core';
-import type { ClassId, GameEvent } from '../src/core';
+import type { DivisionId, GameEvent } from '../src/core';
 
 describe('player progression', () => {
   it('starts every class at full health with its starter kit equipped and owned', () => {
-    for (const id of Object.keys(CLASSES) as ClassId[]) {
+    for (const id of Object.keys(DIVISIONS) as DivisionId[]) {
       const p = createPlayer('  Ana  ', id);
       const d = derive(p);
       assert.equal(p.name, 'Ana');
       assert.equal(p.hp, d.maxHp);
-      assert.equal(p.mp, d.maxMp);
+      assert.equal(p.energy, d.maxEnergy);
       assert.equal(p.inventory[p.weapon], 1);
       assert.equal(p.inventory[p.armor], 1);
     }
@@ -56,11 +56,11 @@ describe('player progression', () => {
     assert.throws(() => allocateStat(p, 'end'), /No stat points/);
   });
 
-  it('unlocks spells by level', () => {
+  it('unlocks abilities by level', () => {
     const p = createPlayer('A', 'science');
-    const at1 = knownSpells(p).length;
+    const at1 = knownAbilities(p).length;
     p.level = 12;
-    assert.ok(knownSpells(p).length > at1);
+    assert.ok(knownAbilities(p).length > at1);
   });
 
   it('applies armor resistances to damage taken', () => {

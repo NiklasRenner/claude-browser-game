@@ -12,7 +12,7 @@ export interface Storage {
   clear(): void;
 }
 
-export const localStorageAdapter = (key = 'questforge.save'): Storage => ({
+export const localStorageAdapter = (key = 'starward.save'): Storage => ({
   load: () => { try { return localStorage.getItem(key); } catch { return null; } },
   save: (data) => { try { localStorage.setItem(key, data); } catch { /* storage full or blocked: play on */ } },
   clear: () => { try { localStorage.removeItem(key); } catch { /* ignore */ } },

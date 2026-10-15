@@ -8,21 +8,21 @@
  * chips in widgets.ts, string helpers in html.ts, key bindings in keys.ts.
  */
 import { checkAction } from '../core';
-import type { Action, ClassId } from '../core';
+import type { Action, DivisionId } from '../core';
 import type { GameController } from '../game/controller';
 import { actionAttr, esc } from './html';
 import { keyAction } from './keys';
-import { battlePanel, defeatedPanel, hud, monsterCard, questPanel, turnOrder } from './views/mission';
+import { battlePanel, defeatedPanel, hud, hostileCard, missionPanel, turnOrder } from './views/mission';
 import type { BattleMenu } from './views/mission';
 import { titleScreen, victoryModal } from './views/title';
-import { town } from './views/town';
-import type { TownTab } from './views/town';
+import { shipView } from './views/ship';
+import type { ShipTab } from './views/ship';
 
 export class UI {
-  private tab: TownTab = 'quests';
+  private tab: ShipTab = 'missions';
   private battleMenu: BattleMenu = 'main';
   private titleName = '';
-  private titleClass: ClassId = 'security';
+  private titleDivision: DivisionId = 'security';
   private seenGameComplete = false;
   private lastLogId = 0;
   /**
@@ -62,7 +62,7 @@ export class UI {
     if (!el || (el as HTMLButtonElement).disabled) return;
     if (el.dataset.action) {
       const action = JSON.parse(el.dataset.action) as Action;
-      if (['attack', 'cast', 'useItem', 'equip', 'flee'].includes(action.type) && this.game.state.mode === 'battle') {
+      if (['attack', 'useAbility', 'useItem', 'equip', 'flee'].includes(action.type) && this.game.state.mode === 'battle') {
         this.battleMenu = 'main';
       }
       void this.run(action);
@@ -70,12 +70,12 @@ export class UI {
     }
     const [kind, value] = (el.dataset.ui ?? '').split(':');
     switch (kind) {
-      case 'tab': this.tab = value as TownTab; break;
+      case 'tab': this.tab = value as ShipTab; break;
       case 'menu': this.battleMenu = value as BattleMenu; break;
-      case 'class': this.titleClass = value as ClassId; break;
+      case 'class': this.titleDivision = value as DivisionId; break;
       case 'start':
-        void this.run({ type: 'newGame', name: this.titleName || 'Hero', classId: this.titleClass });
-        this.tab = 'quests';
+        void this.run({ type: 'newGame', name: this.titleName || 'Hero', divisionId: this.titleDivision });
+        this.tab = 'missions';
         return;
       case 'continue': {
         const err = this.game.continueGame();
@@ -132,16 +132,16 @@ export class UI {
 
     let main = '';
     switch (s.mode) {
-      case 'title': main = titleScreen(this.titleClass, this.game.hasSave()); break;
-      case 'town': main = town(s, btn, this.tab); break;
-      case 'quest': main = questPanel(s, btn); break;
+      case 'title': main = titleScreen(this.titleDivision, this.game.hasSave()); break;
+      case 'ship': main = shipView(s, btn, this.tab); break;
+      case 'mission': main = missionPanel(s, btn); break;
       case 'battle': main = battlePanel(s, btn, this.battleMenu, this.game.busy); break;
       case 'defeated': main = defeatedPanel(btn); break;
     }
 
     this.root.innerHTML = `
       ${s.player ? hud(s.player, s.battle?.playerStatuses ?? []) : ''}
-      ${s.battle ? monsterCard(s, this.game.busy) : ''}
+      ${s.battle ? hostileCard(s, this.game.busy) : ''}
       ${s.battle ? turnOrder(s) : ''}
       <div class="main-panel mode-${s.mode}">${main}</div>
       ${s.mode !== 'title' ? this.logPanel() : ''}

@@ -2,12 +2,12 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getMonster, initialState, step } from '../src/core';
-import type { Action, ClassId, GameState, StepResult } from '../src/core';
+import { getHostile, initialState, step } from '../src/core';
+import type { Action, DivisionId, GameState, StepResult } from '../src/core';
 
-/** Starts a new game in town. */
-export function newGame(classId: ClassId = 'security', seed = 1): GameState {
-  return act(initialState(seed), { type: 'newGame', name: 'Tester', classId, seed }).state;
+/** Starts a new game in ship. */
+export function newGame(divisionId: DivisionId = 'security', seed = 1): GameState {
+  return act(initialState(seed), { type: 'newGame', name: 'Tester', divisionId: divisionId, seed }).state;
 }
 
 /** Applies an action and fails the test if it was rejected. */
@@ -23,25 +23,25 @@ export function actAll(state: GameState, actions: Action[]): GameState {
   return actions.reduce((s, a) => act(s, a).state, state);
 }
 
-/** Puts the player straight into a fight with `monsterId` (inside a quest in the first area). */
-export function inBattle(state: GameState, monsterId: string): GameState {
+/** Puts the player straight into a fight with `hostileId` (inside a run in the first mission). */
+export function inBattle(state: GameState, hostileId: string): GameState {
   const s = structuredClone(state);
-  const def = getMonster(monsterId);
+  const def = getHostile(hostileId);
   s.mode = 'battle';
-  s.quest = { areaId: 'veridia', cleared: def.boss ? 3 : 0, earnedXp: 0, earnedGold: 0 };
-  s.battle = { monsters: [{ defId: monsterId, hp: def.hp, maxHp: def.hp, statuses: [] }], target: 0, playerStatuses: [], round: 1 };
+  s.mission = { missionId: 'veridia', cleared: def.boss ? 3 : 0, earnedXp: 0, earnedCredits: 0 };
+  s.battle = { hostiles: [{ defId: hostileId, hp: def.hp, maxHp: def.hp, statuses: [] }], target: 0, playerStatuses: [], round: 1 };
   return s;
 }
 
 /**
- * A fight against `monsterId` where nobody dies (both sides have a million HP),
+ * A fight against `hostileId` where nobody dies (both sides have a million HP),
  * for observing many turns. Options tweak the officer.
  */
 export function endlessFight(
-  monsterId: string,
-  opts: { classId?: ClassId; seed?: number; weapon?: string; level?: number; spd?: number } = {},
+  hostileId: string,
+  opts: { divisionId?: DivisionId; seed?: number; weapon?: string; level?: number; spd?: number } = {},
 ): GameState {
-  const s = inBattle(newGame(opts.classId ?? 'security', opts.seed ?? 3), monsterId);
+  const s = inBattle(newGame(opts.divisionId ?? 'security', opts.seed ?? 3), hostileId);
   const p = s.player!;
   if (opts.weapon) {
     p.inventory[opts.weapon] = 1;
@@ -50,7 +50,7 @@ export function endlessFight(
   if (opts.level) p.level = opts.level;
   if (opts.spd) p.stats.spd = opts.spd;
   p.hp = 1_000_000;
-  s.battle!.monsters[0]!.hp = s.battle!.monsters[0]!.maxHp = 1_000_000;
+  s.battle!.hostiles[0]!.hp = s.battle!.hostiles[0]!.maxHp = 1_000_000;
   return s;
 }
 
@@ -59,7 +59,7 @@ export function endlessFight(
  * penalty (still subject to the MAX_HIT cap, which is 100).
  */
 export function sureHit(state: GameState): GameState {
-  for (const m of state.battle?.monsters ?? []) {
+  for (const m of state.battle?.hostiles ?? []) {
     m.statuses = m.statuses.filter((st) => st.id !== 'marked');
     m.statuses.push({ id: 'marked', turns: 99, power: 1000 });
   }

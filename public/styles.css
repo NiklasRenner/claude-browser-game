@@ -5,11 +5,11 @@
   --border: rgba(95, 214, 255, 0.38);
   --accent: #5fd6ff;
   --accent-strong: #2fb8ea;
-  --gold: #ffb84a; /* credits & highlights */
+  --amber: #ffb84a; /* credits & highlights */
   --text: #e6eef8;
   --muted: #8a9ab0;
   --hp: #d8434a;
-  --mp: #3f7fe0;
+  --energy: #3f7fe0;
   --xp: #9b6bff;
   --good: #7ddc8a;
   --bad: #ff7a6e;
@@ -36,11 +36,11 @@ body.no-webgl #scene { background: radial-gradient(circle at 50% 30%, #3a2f52, v
   display: grid; gap: 12px;
   grid-template-columns: minmax(240px, 300px) 1fr minmax(240px, 300px);
   grid-template-rows: auto 1fr auto;
-  grid-template-areas: "hud turns monster" ". . ." "log main main";
+  grid-template-areas: "hud turns hostile" ". . ." "log main main";
 }
 #ui > * { pointer-events: auto; }
 .hud { grid-area: hud; align-self: start; }
-.monster-card { grid-area: monster; align-self: start; }
+.hostile-card { grid-area: hostile; align-self: start; }
 .log { grid-area: log; align-self: end; }
 .turn-order {
   grid-area: turns; align-self: start; justify-self: center; display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
@@ -71,23 +71,23 @@ body.no-webgl #scene { background: radial-gradient(circle at 50% 30%, #3a2f52, v
   grid-area: 1 / 1 / 4 / 4; align-self: center; width: min(820px, 100%);
   max-height: calc(100vh - 32px); overflow-y: auto;
 }
-.main-panel.mode-town { max-height: 62vh; display: flex; flex-direction: column; }
+.main-panel.mode-ship { max-height: 62vh; display: flex; flex-direction: column; }
 /* Header and tabs keep their size; only the tab body shrinks and scrolls.
    (min-height: 0 is required for a flex child to shrink below its content.) */
-.main-panel.mode-town .town-header,
-.main-panel.mode-town .tabs { flex: none; }
-.main-panel.mode-town .tab-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-right: 4px; }
+.main-panel.mode-ship .ship-header,
+.main-panel.mode-ship .tabs { flex: none; }
+.main-panel.mode-ship .tab-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-right: 4px; }
 
 @media (max-width: 760px) {
   #ui {
     padding: 8px; gap: 8px;
     grid-template-columns: 1fr 1fr;
     grid-template-rows: auto 1fr auto auto;
-    grid-template-areas: "hud monster" "turns turns" "log log" "main main";
+    grid-template-areas: "hud hostile" "turns turns" "log log" "main main";
   }
-  .hud, .monster-card { font-size: 12px; padding: 8px; }
+  .hud, .hostile-card { font-size: 12px; padding: 8px; }
   .log { max-height: 76px; overflow: hidden; font-size: 12px; }
-  .main-panel.mode-town { max-height: 58vh; }
+  .main-panel.mode-ship { max-height: 58vh; }
   .main-panel.mode-title { grid-area: 1 / 1 / 5 / 3; }
   .two-col { grid-template-columns: 1fr !important; }
 }
@@ -117,8 +117,8 @@ h3 { font-size: 13px; margin-top: 10px; text-transform: uppercase; letter-spacin
 
 .badge { display: inline-block; padding: 1px 8px; border-radius: 2px; background: #1f4f80; font-size: 11px; letter-spacing: 0.04em; }
 .badge.good { background: #1d5e4a; }
-.gold { color: var(--gold); font-weight: 600; }
-.mp-cost { color: #8fd8ff; font-size: 12px; }
+.credits { color: var(--amber); font-weight: 600; }
+.energy-cost { color: #8fd8ff; font-size: 12px; }
 
 /* ─── HUD ────────────────────────────────────────────────────────────────── */
 .hud-name { margin-bottom: 6px; font-size: 15px; }
@@ -127,12 +127,12 @@ h3 { font-size: 13px; margin-top: 10px; text-transform: uppercase; letter-spacin
 .bar .fill { position: absolute; inset: 0 auto 0 0; transition: width 0.35s ease-out; }
 .bar span { position: relative; font-size: 11px; padding-left: 6px; line-height: 17px; text-shadow: 0 1px 2px #000; }
 .bar-hp .fill { background: linear-gradient(90deg, #8e1f2a, var(--hp)); }
-.bar-mp .fill { background: linear-gradient(90deg, #13607e, #3fc8f0); }
+.bar-energy .fill { background: linear-gradient(90deg, #13607e, #3fc8f0); }
 .bar-xp { height: 6px; }
-.bar-xp .fill { background: linear-gradient(90deg, #8a5a14, var(--gold)); }
+.bar-xp .fill { background: linear-gradient(90deg, #8a5a14, var(--amber)); }
 .bar-enemy .fill { background: linear-gradient(90deg, #6e1f8e, #d8435f); }
 .status { font-size: 12px; padding: 0 5px; border-radius: 4px; background: rgba(255, 255, 255, 0.08); }
-.monster-card.boss { border-color: #ff5a4a; border-left-color: #ff5a4a; box-shadow: 0 0 24px rgba(255, 90, 74, 0.35); }
+.hostile-card.boss { border-color: #ff5a4a; border-left-color: #ff5a4a; box-shadow: 0 0 24px rgba(255, 90, 74, 0.35); }
 .res { font-size: 12px; margin-top: 4px; color: var(--muted); }
 .el { font-size: 12px; white-space: nowrap; }
 .el-plasma { color: #ff8a55; } .el-cryo { color: #8ae0ff; } .el-ion { color: #ffe36a; } .el-photon { color: #fff4c0; }
@@ -160,8 +160,8 @@ h3 { font-size: 13px; margin-top: 10px; text-transform: uppercase; letter-spacin
 .class-card .stats { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--accent); }
 .class-card.selected { background: rgba(95, 214, 255, 0.1); border-color: var(--accent); border-left-color: var(--division); box-shadow: 0 0 0 1px var(--accent), 0 0 18px rgba(95, 214, 255, 0.2); }
 
-/* ─── Town / lists ───────────────────────────────────────────────────────── */
-.town-header { display: flex; justify-content: space-between; align-items: center; }
+/* ─── Ship / lists ───────────────────────────────────────────────────────── */
+.ship-header { display: flex; justify-content: space-between; align-items: center; }
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 8px; overflow-x: auto; }
 .tab { background: none; border: none; padding: 8px 12px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; white-space: nowrap; text-transform: uppercase; letter-spacing: 0.08em; font-size: 12px; }
 .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
@@ -177,7 +177,7 @@ h3 { font-size: 13px; margin-top: 10px; text-transform: uppercase; letter-spacin
 .kv span { color: var(--muted); }
 .inn { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
 
-/* ─── Quest / battle ─────────────────────────────────────────────────────── */
+/* ─── Mission / battle ─────────────────────────────────────────────────────── */
 .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .actions.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
 .small-actions { margin-top: 8px; }
@@ -201,10 +201,10 @@ h3 { font-size: 13px; margin-top: 10px; text-transform: uppercase; letter-spacin
 .pop-crit { font-size: 32px; color: #ffd34d; }
 .pop-miss { color: #c9c9c9; font-size: 18px; }
 .pop-heal { color: #7dff8a; }
-.pop-mana { color: #7ab8ff; font-size: 18px; }
-.pop-status, .pop-spell { font: 600 15px/1 var(--body); color: #f1ead8; }
+.pop-energy { color: #7ab8ff; font-size: 18px; }
+.pop-status, .pop-ability { font: 600 15px/1 var(--body); color: #f1ead8; }
 .pop-tick { font-size: 18px; }
-.pop-gold { color: var(--gold); font-size: 18px; }
+.pop-credits { color: var(--amber); font-size: 18px; }
 .pop-level { color: #5fd6ff; font-size: 28px; letter-spacing: 0.08em; text-shadow: 0 0 12px rgba(95, 214, 255, 0.8), 0 2px 0 #000; }
 .pop-boss { color: #ff5a4a; font-size: 30px; letter-spacing: 0.2em; }
 @keyframes popUp {
@@ -239,7 +239,7 @@ h3 { font-size: 13px; margin-top: 10px; text-transform: uppercase; letter-spacin
 .eff-good { color: #7dff8a; } .eff-bad { color: #ff9a7a; } .eff-immune { color: #ff5a4a; }
 .actions.grid .btn.skill { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; text-align: left; white-space: normal; }
 .actions.grid .btn.skill .tags { margin-left: 0; flex-basis: 100%; }
-.actions.grid .btn.skill .mp-cost { margin-left: auto; }
+.actions.grid .btn.skill .energy-cost { margin-left: auto; }
 
 /* ─── Target roster (multi-hostile fights) ───────────────────────────────── */
 .roster { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(95, 214, 255, 0.2); }
@@ -262,7 +262,7 @@ h3 { font-size: 13px; margin-top: 10px; text-transform: uppercase; letter-spacin
 }
 
 /* ─── Patrol entry ───────────────────────────────────────────────────────── */
-.patrol-row { border-left-color: var(--gold); background: rgba(255, 184, 74, 0.06); }
+.patrol-row { border-left-color: var(--amber); background: rgba(255, 184, 74, 0.06); }
 .patrol-row .badge { background: #6b4a12; }
 .tab-body > h3:first-child { margin-top: 0; }
 

@@ -17,6 +17,7 @@
     "test:update-golden": "node scripts/update-golden.mjs",
     "test:e2e": "node scripts/build.mjs && node scripts/e2e.mjs",
     "sim": "tsx scripts/simulate.ts",
+    "gallery": "node scripts/build.mjs && node scripts/gallery.mjs",
     "check": "npm run lint && npm test && npm run test:e2e"
   },
   "dependencies": {

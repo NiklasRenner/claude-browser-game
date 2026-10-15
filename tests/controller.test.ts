@@ -6,13 +6,13 @@ import { GameController, memoryStorage } from '../src/game/controller';
 describe('GameController', () => {
   it('colours log lines: victories and level-ups good, purchases as loot, rejections bad', async () => {
     const game = new GameController(memoryStorage(), 7);
-    await game.dispatch({ type: 'newGame', name: 'Log', classId: 'security' });
+    await game.dispatch({ type: 'newGame', name: 'Log', divisionId: 'security' });
     const kinds = new Map<string, string>(); // first line text → kind, collected as we go (the log is capped)
     const record = () => { for (const l of game.log) if (!kinds.has(l.text)) kinds.set(l.text, l.kind); };
     await game.dispatch({ type: 'buy', itemId: 'medkit' });
     await game.dispatch({ type: 'attack' }); // illegal in the ship hub
     record();
-    for (let i = 0; i < 300 && !game.state.clearedAreas.length; i++) {
+    for (let i = 0; i < 300 && !game.state.clearedMissions.length; i++) {
       await game.dispatch(chooseAction(game.state));
       record();
     }
@@ -28,8 +28,8 @@ describe('GameController', () => {
   it('autosaves after every accepted action and can resume', async () => {
     const storage = memoryStorage();
     const a = new GameController(storage, 1);
-    await a.dispatch({ type: 'newGame', name: 'Saver', classId: 'engineer' });
-    await a.dispatch({ type: 'startQuest', areaId: 'veridia' });
+    await a.dispatch({ type: 'newGame', name: 'Saver', divisionId: 'engineer' });
+    await a.dispatch({ type: 'startMission', missionId: 'veridia' });
     const b = new GameController(storage, 2);
     assert.ok(b.hasSave());
     assert.equal(b.continueGame(), null);

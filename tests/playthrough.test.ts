@@ -7,18 +7,18 @@
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { CLASSES, chooseAction, describeStep, initialState, runBot, step } from '../src/core';
-import type { Action, ClassId, GameState } from '../src/core';
+import { DIVISIONS, chooseAction, describeStep, initialState, runBot, step } from '../src/core';
+import type { Action, DivisionId, GameState } from '../src/core';
 import { expectGolden } from './helpers';
 
-const classes = Object.keys(CLASSES) as ClassId[];
+const classes = Object.keys(DIVISIONS) as DivisionId[];
 
 describe('bot playthroughs', () => {
-  for (const classId of classes) {
-    it(`a ${classId} can finish the whole game`, () => {
+  for (const divisionId of classes) {
+    it(`a ${divisionId} can finish the whole game`, () => {
       for (const seed of [1, 2, 3]) {
-        const r = runBot(classId, seed, 5000);
-        assert.ok(r.completed, `${classId} seed ${seed} did not finish: ${JSON.stringify(r)}`);
+        const r = runBot(divisionId, seed, 5000);
+        assert.ok(r.completed, `${divisionId} seed ${seed} did not finish: ${JSON.stringify(r)}`);
       }
     });
   }
@@ -30,7 +30,7 @@ describe('bot playthroughs', () => {
 });
 
 /** Plays with the bot and records a readable transcript of every action and its log lines. */
-function transcript(classId: ClassId, seed: number, until: (s: GameState) => boolean, maxSteps = 400): string[] {
+function transcript(divisionId: DivisionId, seed: number, until: (s: GameState) => boolean, maxSteps = 400): string[] {
   let s = initialState(seed);
   const lines: string[] = [];
   const play = (action: Action) => {
@@ -38,17 +38,17 @@ function transcript(classId: ClassId, seed: number, until: (s: GameState) => boo
     lines.push(`> ${JSON.stringify(action)}`, ...describeStep(s, r).map((l) => `  ${l}`));
     s = r.state;
   };
-  play({ type: 'newGame', name: 'Golden', classId, seed });
+  play({ type: 'newGame', name: 'Golden', divisionId: divisionId, seed });
   for (let i = 0; i < maxSteps && !until(s); i++) play(chooseAction(s));
   const p = s.player!;
-  lines.push(`= ${s.mode} L${p.level} xp ${p.xp} hp ${p.hp} mp ${p.mp} gold ${p.gold} weapon ${p.weapon}`);
+  lines.push(`= ${s.mode} L${p.level} xp ${p.xp} hp ${p.hp} energy ${p.energy} credits ${p.credits} weapon ${p.weapon}`);
   return lines;
 }
 
 describe('golden transcripts', () => {
-  for (const classId of classes) {
-    it(`${classId}: first quest`, () => {
-      expectGolden(`transcript-${classId}`, transcript(classId, 2026, (s) => s.clearedAreas.length > 0));
+  for (const divisionId of classes) {
+    it(`${divisionId}: first mission`, () => {
+      expectGolden(`transcript-${divisionId}`, transcript(divisionId, 2026, (s) => s.clearedMissions.length > 0));
     });
   }
 });

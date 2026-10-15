@@ -1,12 +1,12 @@
 /**
  * Property / fuzz tests: random play must never crash, stall, or reach an
  * inconsistent state. These catch whole classes of bugs that example-based
- * tests miss (e.g. softlocks, negative gold, orphaned battles).
+ * tests miss (e.g. softlocks, negative credits, orphaned battles).
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-  AREA_ORDER, ITEMS, Rng, STATS, deserialize, derive, initialState, legalActions, serialize, spellsFor, step,
+  MISSION_ORDER, ITEMS, Rng, STATS, deserialize, derive, initialState, legalActions, serialize, abilitiesFor, step,
 } from '../src/core';
 import type { Action, GameState } from '../src/core';
 
@@ -14,24 +14,24 @@ function checkInvariants(s: GameState, ctx: string): void {
   const fail = (msg: string) => assert.fail(`${msg} (${ctx})`);
   if (legalActions(s).length === 0) fail('softlock: no legal actions');
   if ((s.mode === 'battle') !== (s.battle !== null)) fail('battle/mode mismatch');
-  if ((s.mode === 'quest' || s.mode === 'battle') !== (s.quest !== null)) fail('quest/mode mismatch');
+  if ((s.mode === 'mission' || s.mode === 'battle') !== (s.mission !== null)) fail('mission/mode mismatch');
   if (s.mode === 'title') return;
   const p = s.player;
   if (!p) return fail('missing player');
   const d = derive(p);
-  if (!Number.isInteger(p.gold) || p.gold < 0) fail(`bad gold ${p.gold}`);
+  if (!Number.isInteger(p.credits) || p.credits < 0) fail(`bad credits ${p.credits}`);
   if (!Number.isInteger(p.hp) || p.hp < 0 || p.hp > d.maxHp) fail(`bad hp ${p.hp}/${d.maxHp}`);
-  if (!Number.isInteger(p.mp) || p.mp < 0 || p.mp > d.maxMp) fail(`bad mp ${p.mp}/${d.maxMp}`);
+  if (!Number.isInteger(p.energy) || p.energy < 0 || p.energy > d.maxEnergy) fail(`bad energy ${p.energy}/${d.maxEnergy}`);
   if (p.hp === 0 && s.mode !== 'defeated') fail('dead but not defeated');
   if (!(p.inventory[p.weapon]! >= 1) || !(p.inventory[p.armor]! >= 1)) fail('equipped item not owned');
   for (const [id, n] of Object.entries(p.inventory)) if (!(n >= 1) || !ITEMS[id]) fail(`bad inventory ${id}=${n}`);
   if (s.battle) {
     const b = s.battle;
-    if (b.monsters.length < 1 || b.monsters.length > 3) fail(`bad lineup size ${b.monsters.length}`);
-    if (!b.monsters.some((m) => m.hp > 0)) fail('battle continues with every hostile down');
-    if (!(b.monsters[b.target]!.hp > 0)) fail(`target ${b.target} is not a living hostile`);
-    for (const m of b.monsters) {
-      if (!Number.isInteger(m.hp) || m.hp < 0 || m.hp > m.maxHp) fail(`bad monster hp ${m.hp}`);
+    if (b.hostiles.length < 1 || b.hostiles.length > 3) fail(`bad lineup size ${b.hostiles.length}`);
+    if (!b.hostiles.some((m) => m.hp > 0)) fail('battle continues with every hostile down');
+    if (!(b.hostiles[b.target]!.hp > 0)) fail(`target ${b.target} is not a living hostile`);
+    for (const m of b.hostiles) {
+      if (!Number.isInteger(m.hp) || m.hp < 0 || m.hp > m.maxHp) fail(`bad hostile hp ${m.hp}`);
       for (const st of m.statuses) if (st.turns <= 0) fail('expired status lingering');
     }
     for (const st of b.playerStatuses) if (st.turns <= 0) fail('expired status lingering');
@@ -46,18 +46,18 @@ function randomAction(s: GameState, rng: Rng): Action {
       { type: 'sell', itemId: rng.pick(Object.keys(ITEMS)) },
       { type: 'equip', itemId: rng.pick(Object.keys(ITEMS)) },
       { type: 'useItem', itemId: rng.pick(Object.keys(ITEMS)) },
-      { type: 'cast', spellId: rng.pick(spellsFor('science', 30).map((x) => x.id)) },
-      { type: 'startQuest', areaId: rng.pick([...AREA_ORDER, 'void']) },
+      { type: 'useAbility', abilityId: rng.pick(abilitiesFor('science', 30).map((x) => x.id)) },
+      { type: 'startMission', missionId: rng.pick([...MISSION_ORDER, 'void']) },
       { type: 'allocateStat', stat: rng.pick(STATS) },
       { type: 'target', index: rng.int(-1, 4) },
       { type: 'attack', target: rng.int(-1, 4) },
-      { type: rng.pick(['attack', 'flee', 'rest', 'continue', 'retreat', 'returnToTown'] as const) },
+      { type: rng.pick(['attack', 'flee', 'treat', 'continue', 'retreat', 'returnToShip'] as const) },
     ];
     return rng.pick(junk);
   }
   const legal = legalActions(s);
   // Favour progress so random walks actually reach deeper states.
-  const fight = legal.filter((a) => a.type === 'attack' || a.type === 'continue' || a.type === 'returnToTown');
+  const fight = legal.filter((a) => a.type === 'attack' || a.type === 'continue' || a.type === 'returnToShip');
   return fight.length && rng.chance(60) ? rng.pick(fight) : rng.pick(legal);
 }
 

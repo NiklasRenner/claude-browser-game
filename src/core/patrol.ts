@@ -7,9 +7,9 @@
  * world's priority target (scaled a bit above the patrol level), sometimes
  * with escorts.
  */
-import { AREA_ORDER, getArea, getMonster } from './data';
+import { MISSION_ORDER, getMission, getHostile } from './data';
 import type { Rng } from './rng';
-import type { GameState, MonsterInstance } from './types';
+import type { GameState, Hostile } from './types';
 
 export const PATROL_CONTACTS = 4;
 
@@ -30,16 +30,16 @@ const PACK_POWER = [1, 1, 0.75, 0.6];
 const patrolBossLevel = (level: number) => (level >= 12 ? level + 1 : level);
 
 /** Bonus on defeating the patrol's priority target (patrols are repeatable, so below story rewards). */
-export function patrolReward(level: number): { xp: number; gold: number } {
-  return { xp: Math.round(1.5 * level * level), gold: Math.round(2 * level * level) };
+export function patrolReward(level: number): { xp: number; credits: number } {
+  return { xp: Math.round(1.5 * level * level), credits: Math.round(2 * level * level) };
 }
 
 /** Story bosses pay out a one-off fortune; a repeatable patrol boss pays a fraction of it. */
 const PATROL_BOSS_REWARD = 0.3;
 
 /** A hostile scaled to `level`, as one of `packSize` in its lineup. */
-export function scaledHostile(defId: string, level: number, packSize: number): MonsterInstance {
-  const def = getMonster(defId);
+export function scaledHostile(defId: string, level: number, packSize: number): Hostile {
+  const def = getHostile(defId);
   const hpMult = (hpCurve(level) / hpCurve(def.level)) * PACK_HP[packSize]!;
   const hp = Math.max(1, Math.round(def.hp * hpMult));
   return {
@@ -55,15 +55,15 @@ export function scaledHostile(defId: string, level: number, packSize: number): M
 
 /** Worlds the player may patrol: any mission that is unlocked. */
 export function patrolWorlds(state: GameState): string[] {
-  return AREA_ORDER.filter((id) => {
-    const area = getArea(id);
-    return !area.requires || state.clearedAreas.includes(area.requires);
+  return MISSION_ORDER.filter((id) => {
+    const mission = getMission(id);
+    return !mission.requires || state.clearedMissions.includes(mission.requires);
   });
 }
 
 /** Lineup for a regular patrol contact. */
-export function patrolContact(areaId: string, level: number, rng: Rng): MonsterInstance[] {
-  const pool = getArea(areaId).monsters;
+export function patrolContact(missionId: string, level: number, rng: Rng): Hostile[] {
+  const pool = getMission(missionId).hostiles;
   // Mostly singles and pairs; packs of three are rarer and never the very first contact at level 1–2.
   const roll = rng.int(1, 100);
   const size = roll <= 45 ? 1 : roll <= 80 ? 2 : level >= 3 ? 3 : 2;
@@ -72,14 +72,14 @@ export function patrolContact(areaId: string, level: number, rng: Rng): MonsterI
 }
 
 /** Lineup for the patrol's final fight: the world's boss, from level 8 sometimes with escorts. */
-export function patrolBoss(areaId: string, level: number, rng: Rng): MonsterInstance[] {
-  const area = getArea(areaId);
+export function patrolBoss(missionId: string, level: number, rng: Rng): Hostile[] {
+  const mission = getMission(missionId);
   const bossLevel = patrolBossLevel(level);
   const escorts = level >= 8 && rng.chance(50) ? (level >= 14 ? 2 : 1) : 0;
-  const boss = scaledHostile(area.boss, bossLevel, 1);
+  const boss = scaledHostile(mission.boss, bossLevel, 1);
   boss.reward = Math.round(boss.reward! * PATROL_BOSS_REWARD * 1000) / 1000;
   if (escorts === 0) return [boss];
-  const adds = Array.from({ length: escorts }, () => scaledHostile(rng.pick(area.monsters), level, escorts + 1));
+  const adds = Array.from({ length: escorts }, () => scaledHostile(rng.pick(mission.hostiles), level, escorts + 1));
   // Escorts flank the boss, like story bosses.
   return [adds[0]!, boss, ...adds.slice(1)];
 }

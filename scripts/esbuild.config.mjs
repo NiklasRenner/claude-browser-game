@@ -9,8 +9,9 @@ export const outdir = path.join(root, 'dist');
 /** @param {{ dev?: boolean }} opts */
 export function buildOptions({ dev = false } = {}) {
   return {
-    entryPoints: [path.join(root, 'src/main.ts')],
-    outfile: path.join(outdir, 'assets/main.js'),
+    // main = the game; gallery = a model viewer for art work (dist/gallery.html, `npm run gallery`).
+    entryPoints: { main: path.join(root, 'src/main.ts'), gallery: path.join(root, 'src/gallery.ts') },
+    outdir: path.join(outdir, 'assets'),
     bundle: true,
     format: 'esm',
     target: 'es2022',

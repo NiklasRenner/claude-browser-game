@@ -2,13 +2,13 @@
  * Battle-state helpers shared by the rest of the combat code: who is alive,
  * targeting, levels, and status effects.
  *
- * Battles hold 1–3 hostiles. Defeated hostiles stay in `battle.monsters` with
+ * Battles hold 1–3 hostiles. Defeated hostiles stay in `battle.hostiles` with
  * hp 0 so indices stay stable; `battle.target` always points at a living one.
  * Statuses work the same way on the player and on hostiles.
  */
-import { getMonster } from '../data';
+import { getHostile } from '../data';
 import type { Rng } from '../rng';
-import type { Actor, BattleState, Element, GameEvent, MonsterInstance, Player, StatusEffect, StatusId } from '../types';
+import type { Actor, BattleState, Element, GameEvent, Hostile, Player, StatusEffect, StatusId } from '../types';
 
 /** Everything an action needs while it resolves (the state is already a private copy, so it is mutated). */
 export interface Ctx {
@@ -22,32 +22,32 @@ export const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.mi
 
 // ─── Hostiles ──────────────────────────────────────────────────────────────
 
-export function isAlive(m: MonsterInstance): boolean {
+export function isAlive(m: Hostile): boolean {
   return m.hp > 0;
 }
 
 /** Indices of living hostiles, in order. */
 export function aliveIndices(battle: BattleState): number[] {
   const out: number[] = [];
-  battle.monsters.forEach((m, i) => { if (isAlive(m)) out.push(i); });
+  battle.hostiles.forEach((m, i) => { if (isAlive(m)) out.push(i); });
   return out;
 }
 
-export const allDown = (battle: BattleState) => !battle.monsters.some(isAlive);
+export const allDown = (battle: BattleState) => !battle.hostiles.some(isAlive);
 
 /** Effective level of a hostile (patrols scale it; otherwise the definition's level). */
-export function hostileLevel(inst: MonsterInstance): number {
-  return inst.level ?? getMonster(inst.defId).level;
+export function hostileLevel(inst: Hostile): number {
+  return inst.level ?? getHostile(inst.defId).level;
 }
 
 /** Highest effective level among living hostiles. */
 export function toughestAliveLevel(battle: BattleState): number {
-  return Math.max(...aliveIndices(battle).map((i) => hostileLevel(battle.monsters[i]!)));
+  return Math.max(...aliveIndices(battle).map((i) => hostileLevel(battle.hostiles[i]!)));
 }
 
 /** Applies damage to hostile `foe`; announces it going down. */
 export function damageHostile(ctx: Ctx, foe: number, amount: number) {
-  const m = ctx.battle.monsters[foe]!;
+  const m = ctx.battle.hostiles[foe]!;
   if (!isAlive(m)) return;
   m.hp = Math.max(0, m.hp - amount);
   if (!isAlive(m)) ctx.events.push({ type: 'hostileDown', foe });
@@ -55,11 +55,11 @@ export function damageHostile(ctx: Ctx, foe: number, amount: number) {
 
 /** If the current target is down, moves it to the next living hostile (wrapping). */
 export function fixTarget(battle: BattleState, events: GameEvent[]): void {
-  if (isAlive(battle.monsters[battle.target]!)) return;
-  const n = battle.monsters.length;
+  if (isAlive(battle.hostiles[battle.target]!)) return;
+  const n = battle.hostiles.length;
   for (let step = 1; step < n; step++) {
     const i = (battle.target + step) % n;
-    if (isAlive(battle.monsters[i]!)) {
+    if (isAlive(battle.hostiles[i]!)) {
       battle.target = i;
       events.push({ type: 'targeted', foe: i });
       return;
@@ -77,7 +77,7 @@ export function hasStatus(statuses: StatusEffect[], id: StatusId): boolean {
   return statuses.some((s) => s.id === id);
 }
 
-/** Applies or refreshes a status. Always inserts a new object (see endTurn). `foe` = hostile index when target is 'monster'. */
+/** Applies or refreshes a status. Always inserts a new object (see endTurn). `foe` = hostile index when target is 'hostile'. */
 export function applyStatus(
   statuses: StatusEffect[], target: Actor, id: StatusId, turns: number, power: number, events: GameEvent[], foe?: number,
 ): void {

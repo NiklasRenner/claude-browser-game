@@ -1,5 +1,5 @@
 // ─── Shared game types. Everything here is plain, JSON-serializable data. ───
-// Internal field names (gold, mp, spells, area, monster) are mechanical; the
+// Internal field names (credits, energy, abilities, mission, hostile) are mechanical; the
 // player-facing terms (credits, energy, abilities, mission, hostile) live in UI text.
 
 export const ELEMENTS = ['kinetic', 'plasma', 'cryo', 'ion', 'photon', 'void', 'corrosive'] as const;
@@ -13,7 +13,7 @@ export type Stats = Record<Stat, number>;
 /** Damage taken in percent per element. 100 = normal, 50 = resist, 150 = weak. */
 export type Resistances = Partial<Record<Element, number>>;
 
-export type ClassId = 'security' | 'science' | 'engineer';
+export type DivisionId = 'security' | 'science' | 'engineer';
 
 /**
  * burn/corrode: damage `power` at the start of each owner turn (plasma / corrosive).
@@ -71,7 +71,7 @@ export interface ArmorDef {
   /** Percentage points subtracted from damage taken per element. */
   resist: Resistances;
   hp: number;
-  mp: number;
+  energy: number;
   level: number;
   price: number;
   description: string;
@@ -82,7 +82,7 @@ export interface ConsumableDef {
   id: string;
   name: string;
   heal: number;
-  mana: number;
+  energy: number;
   /** Status removed on use (e.g. detox injector). */
   cures?: StatusId[];
   price: number;
@@ -91,7 +91,7 @@ export interface ConsumableDef {
 
 export type ItemDef = WeaponDef | ArmorDef | ConsumableDef;
 
-export type SpellEffect =
+export type AbilityEffect =
   | {
       type: 'damage';
       element: Element | 'weapon';
@@ -116,18 +116,18 @@ export type SpellEffect =
   | { type: 'heal'; dice: [number, number] }
   | { type: 'status'; target: 'self' | 'enemy'; status: StatusId; turns: number; power: number; chance?: number };
 
-export interface SpellDef {
+export interface AbilityDef {
   id: string;
   name: string;
-  classId: ClassId;
+  divisionId: DivisionId;
   level: number;
-  mp: number;
-  effects: SpellEffect[];
+  energy: number;
+  effects: AbilityEffect[];
   description: string;
 }
 
-export interface ClassDef {
-  id: ClassId;
+export interface DivisionDef {
+  id: DivisionId;
   name: string;
   description: string;
   /** Repeating pattern the bot (and auto-allocate) uses to spend stat points. */
@@ -137,7 +137,7 @@ export interface ClassDef {
   color: number;
 }
 
-export interface MonsterAttack {
+export interface HostileAttack {
   name: string;
   element: Element;
   /** Damage per hit. */
@@ -150,15 +150,21 @@ export interface MonsterAttack {
   effect?: { status: StatusId; chance: number; turns: number; power: number };
 }
 
-/** Purely visual description; the renderer builds a mesh from this. */
-export interface MonsterLook {
-  body: 'blob' | 'beast' | 'humanoid' | 'flyer' | 'golem' | 'dragon' | 'wraith';
+/** Optional parts a body plan can show (each body uses the ones that make sense for it). */
+export type LookFeature =
+  | 'spikes' | 'tusks' | 'horns' | 'tail' | 'wings' | 'sac' | 'armor' | 'crown' | 'ice'
+  | 'helmet' | 'baton' | 'blade' | 'shield' | 'staff' | 'coat' | 'tendrils';
+
+/** Purely visual description; the renderer builds the figure from this (see src/render/models). */
+export interface HostileLook {
+  body: 'blob' | 'beast' | 'brute' | 'humanoid' | 'husk' | 'elemental' | 'flyer' | 'golem' | 'serpent' | 'dragon' | 'insect' | 'wraith' | 'wisp';
   color: number;
   accent: number;
   scale: number;
+  features?: LookFeature[];
 }
 
-export interface MonsterDef {
+export interface HostileDef {
   id: string;
   name: string;
   level: number;
@@ -178,35 +184,35 @@ export interface MonsterDef {
   /** Turn speed; 100 = normal. 120 acts 1.2× as often as a speed-100 opponent. */
   speed: number;
   resist: Resistances;
-  attacks: MonsterAttack[];
+  attacks: HostileAttack[];
   xp: number;
-  gold: [number, number];
+  credits: [number, number];
   drops?: { itemId: string; chance: number }[];
   boss?: boolean;
-  look: MonsterLook;
+  look: HostileLook;
 }
 
-export interface AreaDef {
+export interface MissionDef {
   id: string;
   name: string;
   description: string;
   minLevel: number;
   /** Pool for regular single-hostile encounters (used when `groups` is not set). */
-  monsters: string[];
+  hostiles: string[];
   /**
    * Optional group encounters: each regular encounter picks one of these lineups
-   * (1–3 hostile ids). Lets an area mix solo fights and packs.
+   * (1–3 hostile ids). Lets an mission mix solo fights and packs.
    */
   groups?: string[][];
   boss: string;
   /** Hostiles that fight alongside the boss (max 2, so the boss fight has up to 3). */
   bossAdds?: string[];
-  /** Ending text, for the final mission (FINAL_AREA): shown in the log and the victory screen. */
+  /** Ending text, for the final mission (FINAL_MISSION): shown in the log and the victory screen. */
   finale?: { title: string; text: string };
   /** Regular encounters before the boss. */
   encounters: number;
-  reward: { xp: number; gold: number };
-  /** Area required to be cleared before this one unlocks. */
+  reward: { xp: number; credits: number };
+  /** Mission required to be cleared before this one unlocks. */
   requires?: string;
   palette: { sky: number; ground: number; fog: number };
 }
@@ -215,12 +221,12 @@ export interface AreaDef {
 
 export interface Player {
   name: string;
-  classId: ClassId;
+  divisionId: DivisionId;
   level: number;
   xp: number;
-  gold: number;
+  credits: number;
   hp: number;
-  mp: number;
+  energy: number;
   stats: Stats;
   statPoints: number;
   weapon: string;
@@ -229,7 +235,7 @@ export interface Player {
   inventory: Record<string, number>;
 }
 
-export interface MonsterInstance {
+export interface Hostile {
   defId: string;
   hp: number;
   maxHp: number;
@@ -246,7 +252,7 @@ export const MAX_HOSTILES = 3;
 
 export interface BattleState {
   /** 1–3 hostiles. Defeated ones stay in the list with hp 0 so indices are stable. */
-  monsters: MonsterInstance[];
+  hostiles: Hostile[];
   /** Index of the hostile the player is targeting (always a living one while the battle lasts). */
   target: number;
   playerStatuses: StatusEffect[];
@@ -255,68 +261,68 @@ export interface BattleState {
   round: number;
 }
 
-export interface QuestState {
+export interface MissionRun {
   /** For a patrol: the randomly chosen world (backdrop and hostile pool). */
-  areaId: string;
+  missionId: string;
   /** Set for a random patrol: every hostile is scaled to this level. */
   patrol?: { level: number };
-  /** Number of encounters won so far in this quest (boss is the last one). */
+  /** Number of encounters won so far in this run (boss is the last one). */
   cleared: number;
   earnedXp: number;
-  earnedGold: number;
+  earnedCredits: number;
 }
 
-export type Mode = 'title' | 'town' | 'quest' | 'battle' | 'defeated';
+export type Mode = 'title' | 'ship' | 'mission' | 'battle' | 'defeated';
 
 export interface GameState {
   version: number;
   mode: Mode;
   rng: number;
   player: Player | null;
-  quest: QuestState | null;
+  mission: MissionRun | null;
   battle: BattleState | null;
-  /** Areas whose boss has been defeated at least once. */
-  clearedAreas: string[];
+  /** Missions whose boss has been defeated at least once. */
+  clearedMissions: string[];
   stats: { battlesWon: number; battlesLost: number; actions: number };
 }
 
 // ─── Actions & events ──────────────────────────────────────────────────────
 
 export type Action =
-  | { type: 'newGame'; name: string; classId: ClassId; seed?: number }
-  | { type: 'rest' }
+  | { type: 'newGame'; name: string; divisionId: DivisionId; seed?: number }
+  | { type: 'treat' }
   | { type: 'buy'; itemId: string }
   | { type: 'sell'; itemId: string }
   | { type: 'equip'; itemId: string }
   | { type: 'allocateStat'; stat: Stat }
-  | { type: 'startQuest'; areaId: string }
+  | { type: 'startMission'; missionId: string }
   /** Random run: unlocked world, random lineups scaled to the player's level, then a boss. */
   | { type: 'startPatrol' }
   | { type: 'continue' }
   | { type: 'retreat' }
   /** `target` (optional) retargets first; otherwise the current target is used. */
   | { type: 'attack'; target?: number }
-  | { type: 'cast'; spellId: string; target?: number }
+  | { type: 'useAbility'; abilityId: string; target?: number }
   /** Change target without spending a turn. */
   | { type: 'target'; index: number }
   | { type: 'useItem'; itemId: string }
   | { type: 'flee' }
-  | { type: 'returnToTown' };
+  | { type: 'returnToShip' };
 
-export type Actor = 'player' | 'monster';
+export type Actor = 'player' | 'hostile';
 
 /**
  * Events describe what happened; UI and renderer animate them.
- * `foe` is the index of the hostile involved (the attacker for monster attacks,
+ * `foe` is the index of the hostile involved (the attacker for hostile attacks,
  * the target for player attacks, the owner for status events on hostiles).
  */
 export type GameEvent =
   | { type: 'error'; reason: string }
   | { type: 'message'; text: string }
-  | { type: 'battleStart'; monsterIds: string[]; boss: boolean }
+  | { type: 'battleStart'; hostileIds: string[]; boss: boolean }
   | { type: 'attack'; actor: Actor; foe: number; name: string; element: Element; hit: boolean; crit: boolean; damage: number }
-  | { type: 'cast'; actor: Actor; spellId: string; name: string }
-  | { type: 'heal'; actor: Actor; amount: number; mana: number }
+  | { type: 'abilityUsed'; actor: Actor; abilityId: string; name: string }
+  | { type: 'heal'; actor: Actor; amount: number; energy: number }
   | { type: 'statusApplied'; target: Actor; foe?: number; status: StatusId; turns: number }
   | { type: 'statusTick'; target: Actor; foe?: number; status: StatusId; damage: number }
   | { type: 'statusExpired'; target: Actor; foe?: number; status: StatusId }
@@ -325,16 +331,16 @@ export type GameEvent =
   | { type: 'hostileDown'; foe: number }
   | { type: 'equip'; itemId: string }
   | { type: 'fled'; success: boolean }
-  | { type: 'victory'; xp: number; gold: number; drops: string[] }
-  | { type: 'defeat'; goldLost: number }
+  | { type: 'victory'; xp: number; credits: number; drops: string[] }
+  | { type: 'defeat'; creditsLost: number }
   | { type: 'levelUp'; level: number }
-  | { type: 'questComplete'; areaId: string; xp: number; gold: number; firstClear: boolean }
-  | { type: 'patrolComplete'; areaId: string; level: number; xp: number; gold: number }
+  | { type: 'missionComplete'; missionId: string; xp: number; credits: number; firstClear: boolean }
+  | { type: 'patrolComplete'; missionId: string; level: number; xp: number; credits: number }
   | { type: 'gameComplete' }
   | { type: 'bought'; itemId: string; price: number }
   | { type: 'sold'; itemId: string; credits: number }
-  | { type: 'learned'; spellId: string }
-  | { type: 'rested'; cost: number };
+  | { type: 'learned'; abilityId: string }
+  | { type: 'treated'; cost: number };
 
 export interface StepResult {
   state: GameState;

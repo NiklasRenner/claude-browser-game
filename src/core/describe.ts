@@ -1,5 +1,5 @@
 /** Human-readable text for events — used by the in-game log and golden test transcripts. */
-import { FINAL_AREA, getArea, getItem, getMonster, getSpell } from './data';
+import { FINAL_MISSION, getMission, getItem, getHostile, getAbility } from './data';
 import type { GameEvent, GameState, StatusId, StepResult } from './types';
 
 const STATUS_TEXT: Record<StatusId, string> = {
@@ -21,7 +21,7 @@ export function hostileLabels(defIds: string[]): string[] {
   for (const id of defIds) counts.set(id, (counts.get(id) ?? 0) + 1);
   const seen = new Map<string, number>();
   return defIds.map((id) => {
-    const name = getMonster(id).name;
+    const name = getHostile(id).name;
     if (counts.get(id)! < 2) return name;
     const n = seen.get(id) ?? 0;
     seen.set(id, n + 1);
@@ -44,7 +44,7 @@ export function describeLog(before: GameState, result: StepResult): LogEntry[] {
   const battle = result.state.battle ?? before.battle;
   const ctx: DescribeContext = {
     you: result.state.player?.name ?? 'You',
-    foes: battle ? hostileLabels(battle.monsters.map((m) => m.defId)) : [],
+    foes: battle ? hostileLabels(battle.hostiles.map((m) => m.defId)) : [],
   };
   const out: LogEntry[] = [];
   for (const e of result.events) {
@@ -63,7 +63,7 @@ function toneOf(e: GameEvent): Tone {
   switch (e.type) {
     case 'error': case 'defeat': return 'bad';
     case 'fled': return e.success ? 'info' : 'bad';
-    case 'victory': case 'levelUp': case 'learned': case 'questComplete': case 'patrolComplete': case 'gameComplete': return 'good';
+    case 'victory': case 'levelUp': case 'learned': case 'missionComplete': case 'patrolComplete': case 'gameComplete': return 'good';
     case 'bought': case 'sold': case 'equip': return 'loot';
     default: return 'info';
   }
@@ -71,14 +71,14 @@ function toneOf(e: GameEvent): Tone {
 
 function describeEvent(event: GameEvent, { you, foes }: DescribeContext): string | null {
   const foeName = (i: number | undefined) => foes[i ?? 0] ?? 'The hostile';
-  const who = (actor: 'player' | 'monster', foe?: number) => (actor === 'player' ? you : foeName(foe));
+  const who = (actor: 'player' | 'hostile', foe?: number) => (actor === 'player' ? you : foeName(foe));
   switch (event.type) {
     case 'error': return `⚠ ${event.reason}`;
     case 'message': return event.text;
     case 'battleStart': {
-      const names = hostileLabels(event.monsterIds);
+      const names = hostileLabels(event.hostileIds);
       if (event.boss) {
-        const bossAt = event.monsterIds.findIndex((id) => getMonster(id).boss);
+        const bossAt = event.hostileIds.findIndex((id) => getHostile(id).boss);
         const escorts = names.filter((_, i) => i !== bossAt);
         return `PRIORITY TARGET — ${names[bossAt]}!${escorts.length ? ` Escorts: ${listJoin(escorts)}.` : ''}`;
       }
@@ -96,9 +96,9 @@ function describeEvent(event: GameEvent, { you, foes }: DescribeContext): string
     }
     case 'hostileDown': return foes.length > 1 ? `${foeName(event.foe)} is down!` : null;
     case 'targeted': return null;
-    case 'cast': return `${who(event.actor)} uses ${event.name}.`;
+    case 'abilityUsed': return `${who(event.actor)} uses ${event.name}.`;
     case 'heal': {
-      const parts = [event.amount > 0 && `+${event.amount} HP`, event.mana > 0 && `+${event.mana} EN`].filter(Boolean);
+      const parts = [event.amount > 0 && `+${event.amount} HP`, event.energy > 0 && `+${event.energy} EN`].filter(Boolean);
       return parts.length ? `${who(event.actor)} recovers ${parts.join(', ')}.` : null;
     }
     case 'statusApplied': return `${who(event.target, event.foe)} is ${STATUS_TEXT[event.status]} (${event.turns}).`;
@@ -109,18 +109,18 @@ function describeEvent(event: GameEvent, { you, foes }: DescribeContext): string
     case 'fled': return event.success ? 'Emergency beam-out successful!' : 'Transporter lock failed!';
     case 'victory': {
       const drops = event.drops.map((d) => getItem(d).name);
-      return `Hostile neutralised! +${event.xp} XP, +${event.gold} credits${drops.length ? `, salvaged ${drops.join(', ')}` : ''}.`;
+      return `Hostile neutralised! +${event.xp} XP, +${event.credits} credits${drops.length ? `, salvaged ${drops.join(', ')}` : ''}.`;
     }
-    case 'defeat': return `You're down! Emergency beam-out… (lost ${event.goldLost} credits)`;
+    case 'defeat': return `You're down! Emergency beam-out… (lost ${event.creditsLost} credits)`;
     case 'levelUp': return `LEVEL UP! You are now level ${event.level}.`;
-    case 'questComplete':
-      return `Mission complete: ${getArea(event.areaId).name}! +${event.xp} XP, +${event.gold} credits${event.firstClear ? ' (first clear!)' : ''}.`;
+    case 'missionComplete':
+      return `Mission complete: ${getMission(event.missionId).name}! +${event.xp} XP, +${event.credits} credits${event.firstClear ? ' (first clear!)' : ''}.`;
     case 'patrolComplete':
-      return `Patrol complete: ${getArea(event.areaId).name} sector (level ${event.level})! +${event.xp} XP, +${event.gold} credits.`;
-    case 'gameComplete': return getArea(FINAL_AREA).finale?.text ?? 'The tour is complete!';
+      return `Patrol complete: ${getMission(event.missionId).name} sector (level ${event.level})! +${event.xp} XP, +${event.credits} credits.`;
+    case 'gameComplete': return getMission(FINAL_MISSION).finale?.text ?? 'The tour is complete!';
     case 'bought': return `Bought ${getItem(event.itemId).name}.`;
     case 'sold': return `Sold ${getItem(event.itemId).name}.`;
-    case 'learned': return `Learned ${getSpell(event.spellId).name}!`;
-    case 'rested': return `Treated in sickbay${event.cost ? ` (${event.cost} credits)` : ''}. Fully restored.`;
+    case 'learned': return `Learned ${getAbility(event.abilityId).name}!`;
+    case 'treated': return `Treated in sickbay${event.cost ? ` (${event.cost} credits)` : ''}. Fully restored.`;
   }
 }

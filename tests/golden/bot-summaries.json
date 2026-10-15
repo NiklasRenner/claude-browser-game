@@ -1,11 +1,11 @@
 [
   {
-    "classId": "security",
+    "divisionId": "security",
     "seed": 1,
     "steps": 422,
     "completed": true,
     "level": 16,
-    "gold": 2509,
+    "credits": 2509,
     "cleared": [
       "veridia",
       "kethra",
@@ -17,12 +17,12 @@
     "battlesLost": 0
   },
   {
-    "classId": "security",
+    "divisionId": "security",
     "seed": 2,
     "steps": 437,
     "completed": true,
     "level": 17,
-    "gold": 2029,
+    "credits": 2029,
     "cleared": [
       "veridia",
       "kethra",
@@ -34,12 +34,12 @@
     "battlesLost": 1
   },
   {
-    "classId": "science",
+    "divisionId": "science",
     "seed": 1,
     "steps": 480,
     "completed": true,
     "level": 16,
-    "gold": 3021,
+    "credits": 3021,
     "cleared": [
       "veridia",
       "kethra",
@@ -51,12 +51,12 @@
     "battlesLost": 0
   },
   {
-    "classId": "science",
+    "divisionId": "science",
     "seed": 2,
     "steps": 449,
     "completed": true,
     "level": 16,
-    "gold": 2705,
+    "credits": 2705,
     "cleared": [
       "veridia",
       "kethra",
@@ -68,12 +68,12 @@
     "battlesLost": 0
   },
   {
-    "classId": "engineer",
+    "divisionId": "engineer",
     "seed": 1,
     "steps": 951,
     "completed": true,
     "level": 20,
-    "gold": 1719,
+    "credits": 1719,
     "cleared": [
       "veridia",
       "kethra",
@@ -85,12 +85,12 @@
     "battlesLost": 12
   },
   {
-    "classId": "engineer",
+    "divisionId": "engineer",
     "seed": 2,
     "steps": 445,
     "completed": true,
     "level": 16,
-    "gold": 2606,
+    "credits": 2606,
     "cleared": [
       "veridia",
       "kethra",

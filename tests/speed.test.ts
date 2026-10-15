@@ -2,12 +2,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-  PLAYER_EVASION_CAP, Rng, SPEED_MAX, beginBattle, derive, getMonster, initTimeline, nextActor, playerEvasion, speedBonus, upcomingTurns,
+  PLAYER_EVASION_CAP, Rng, SPEED_MAX, beginBattle, derive, getHostile, initTimeline, nextActor, playerEvasion, speedBonus, upcomingTurns,
 } from '../src/core';
 import type { GameEvent, GameState } from '../src/core';
 import { act, endlessFight, newGame } from './helpers';
 
-const fight = (monsterId: string, spd = 5) => endlessFight(monsterId, { spd });
+const fight = (hostileId: string, spd = 5) => endlessFight(hostileId, { spd });
 
 /** Plays `n` player actions and returns the actor sequence seen in the log ('P' / 'M'). */
 function turnLog(s: GameState, n: number): string {
@@ -19,7 +19,7 @@ function turnLog(s: GameState, n: number): string {
     let lastFoe = -1;
     for (const e of r.events) {
       // One hostile turn can contain several strikes; count turns, not strikes.
-      if (e.type === 'attack' && e.actor === 'monster') { if (lastFoe !== e.foe) seq += 'M'; lastFoe = e.foe; } else if (e.type === 'attack') lastFoe = -1;
+      if (e.type === 'attack' && e.actor === 'hostile') { if (lastFoe !== e.foe) seq += 'M'; lastFoe = e.foe; } else if (e.type === 'attack') lastFoe = -1;
     }
     state = r.state;
   }
@@ -67,7 +67,7 @@ describe('battle timeline', () => {
     assert.equal(nextActor(s.player!, s.battle!), 0);
     const events: GameEvent[] = [];
     assert.equal(beginBattle(s.player!, s.battle!, new Rng(1), events), 'continue');
-    assert.ok(events.some((e) => e.type === 'attack' && e.actor === 'monster'));
+    assert.ok(events.some((e) => e.type === 'attack' && e.actor === 'hostile'));
     assert.equal(nextActor(s.player!, s.battle!), 'player', 'then it is the player\'s turn');
   });
 
@@ -86,14 +86,14 @@ describe('battle timeline', () => {
     let saw = false;
     for (let seed = 1; seed <= 20 && !saw; seed++) {
       const s = newGame('security', seed);
-      s.clearedAreas = ['veridia'];
+      s.clearedMissions = ['veridia'];
       s.player!.level = 6;
       s.player!.hp = 10_000;
-      const r = act(s, { type: 'startQuest', areaId: 'kethra' });
-      const fast = r.state.battle?.monsters.some((m) => getMonster(m.defId).speed > 100);
+      const r = act(s, { type: 'startMission', missionId: 'kethra' });
+      const fast = r.state.battle?.hostiles.some((m) => getHostile(m.defId).speed > 100);
       if (fast) {
         saw = true;
-        assert.ok(r.events.some((e) => e.type === 'attack' && e.actor === 'monster'), 'they attacked right away');
+        assert.ok(r.events.some((e) => e.type === 'attack' && e.actor === 'hostile'), 'they attacked right away');
       }
     }
     assert.ok(saw, 'found a fast Kethra hostile');

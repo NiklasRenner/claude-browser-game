@@ -23,6 +23,7 @@ npm run dev        # http://localhost:5173 with live reload
 | `npm test` | Unit, property/fuzz, playthrough and golden tests (~4 s) |
 | `npm run test:e2e` | Builds, then drives the real UI in headless Chromium; screenshots in `test-results/` |
 | `npm run test:update-golden` | Re-record golden files after an *intentional* gameplay change |
+| `npm run gallery` | Renders every officer kit and hostile side by side to `test-results/gallery.png` (`npm run gallery -- heroes` / `hostiles` for one group). Use it after changing models |
 | `npm run sim` | Balance report: full bot playthroughs per class, patrols at several levels and post-game, and **stat weights** (`npm run sim -- 100` for more seeds) |
 | `npm run check` | lint + tests + e2e (run before committing) |
 
@@ -36,7 +37,7 @@ The e2e test needs a Playwright Chromium (`npx playwright install chromium` once
 - **Turn order is a deterministic timeline.** Every combatant waits `100 / speed` between turns and whoever is due first acts (ties: you, then hostiles in lineup order). At equal speed turns simply alternate; at speed 110 against 100 you get 11 turns for every 10 of theirs, i.e. a double turn on a fixed beat roughly every 10 rounds. Fast hostiles (Hive Drones, Phase Wisps) can open a fight before you act and sometimes act twice. No dice are involved, so the battle screen shows the next 8 turns (»You marks a turn you get again before anyone else). Armor can add or cost speed (Thermal Envirosuit +4%, Aegis Power Armor −4%).
 - **Player evasion is gear, not a stat:** fixed amounts from armor and abilities (Holo-Decoy), capped at 40 in total. Hostile evasion is not capped.
 - **Hit chance is gear, not a stat.** Every weapon, ability and hostile attack has its own hit chance (◎), and the defender's evasion is subtracted from it (final chance clamped to 5–100%, one rule for both sides). Values above 100 still matter: they keep landing against evasive targets. Weapons and abilities can strike several times (×N), each strike rolling hit, crit, damage and procs on its own, so a 3-shot 71% flechette pistol plays very differently from a 59% mass driver. Weapon techniques (Overcharge, Exploit Weakness…) use the weapon's hit and strikes, plus their own accuracy modifier. In battle, chips show the real chance against the current target.
-- **Hostiles have combat profiles** (`src/core/data/monsters.ts`): HP, accuracy, evasion, crit and resistances, authored directly in those output units. The player's diminishing curves are only the price list for turning stat points into those numbers, so hostiles aren't bound by them: the Phase Wisp has 70 evasion and 34 HP, the Tundra Brute hits hard but only has 78 accuracy. Hostiles also have a speed (80 for a lumbering Magma Colossus, 130 for a Phase Wisp). Patrol scaling raises accuracy by 0.5 per level. The target card shows the current hostile's speed, evasion and chance to hit you.
+- **Hostiles have combat profiles** (`src/core/data/hostiles.ts`): HP, accuracy, evasion, crit and resistances, authored directly in those output units. The player's diminishing curves are only the price list for turning stat points into those numbers, so hostiles aren't bound by them: the Phase Wisp has 70 evasion and 34 HP, the Tundra Brute hits hard but only has 78 accuracy. Hostiles also have a speed (80 for a lumbering Magma Colossus, 130 for a Phase Wisp). Patrol scaling raises accuracy by 0.5 per level. The target card shows the current hostile's speed, evasion and chance to hit you.
   You recover 15% of max energy after each won fight. The Personnel File shows what each stat currently gives.
 - **Loop:** Ship → Mission Board → beam down → hostile contacts + a priority target → beam back up. HP carries over between fights, so medkits, returning to the ship and sickbay matter.
 - **Missions:** Veridia Prime (jungle colony) → Kethra Mining Moon (volcanic) → Glacies IV (ice world) → The Void Rift (derelict fleet) → Xenith Hive World (5 contacts fought in packs, and the Brood Matriarch with two escorts; the finale).
@@ -46,10 +47,10 @@ The e2e test needs a Playwright Chromium (`npx playwright install chromium` once
 - **Damage types:** kinetic, plasma, cryo, ion, photon, void, corrosive. Hostiles show what they're vulnerable to and what they resist; buy weapons to exploit that, or swap weapons mid-fight (costs your turn).
 - **Status effects** (same on both sides): burn, corrode, stun, chill (−hit chance), shield (−damage taken), evasive (+evasion), marked (−evasion; the Engineer's Target Painter).
 - **Progression:** XP levels grant 4 stat points; abilities unlock by level; going down costs 10% credits.
-- **Saves:** autosaved to `localStorage` after every action; *Resume duty* on the title screen. Older saves are migrated (see `src/core/save.ts`).
+- **Saves:** autosaved to `localStorage` after every action; *Resume duty* on the title screen. Saves are versioned (see `src/core/save.ts`); the history was reset at version 1, so pre-reset saves no longer load.
 - **Keys:** Combat `A` attack · `1–9` abilities · `Tab`/`Shift+Tab` switch target · `F` beam out · `Esc` back. Between fights `Enter`/`Space` advance · `R` return to ship. Keys pressed during an animation are queued.
 
-Naming note: internal identifiers are mechanical (`gold`, `mp`, `spells`, `areas`, `monsters`, mode `town`); the player-facing words (credits, energy, abilities, missions, hostiles, ship) live in UI text and content data.
+Naming: code uses the same words as the game (divisions, credits, energy, abilities, missions, hostiles, the ship). The repository name `questforge` is the only leftover.
 
 ## Architecture
 
@@ -57,11 +58,11 @@ Naming note: internal identifiers are mechanical (`gold`, `mp`, `spells`, `areas
 src/
   core/            Pure, deterministic game rules. No DOM, no three.js.
     types.ts       All state / action / event types (plain JSON data)
-    data/          Content tables: classes, items, spells, monsters, areas (+ validateContent)
+    data/          Content tables: divisions, items, abilities, hostiles, missions (+ validateContent)
     stats.ts       Stat formulas and every balance knob
     game.ts        Reducer: step(state, action) → { state, events }
     rules.ts       checkAction() / legalActions() and read-only queries (prices, unlocks)
-    missions.ts    Mission flow: starting fights, victory rewards, defeat, mission/patrol completion
+    flow.ts        Mission flow: starting fights, victory rewards, defeat, mission/patrol completion
     combat/        battle.ts (helpers, statuses) · formulas.ts (hit, evasion, damage) ·
                    timeline.ts (speed turn order) · actions.ts (attacks, abilities, items) ·
                    round.ts (sequencing a round)
@@ -73,8 +74,9 @@ src/
     rng.ts         Seeded PRNG; its state lives inside GameState
   game/            controller.ts (live state, dispatch, autosave, animator hook);
                    elements.ts (colours/icons shared by UI and stage)
-  render/          three.js stage: procedural models, environments, effects, tweens
-  ui/              ui.ts (input + UI-only state) · views/ (title, town, mission: state → HTML) ·
+  render/          three.js stage (bloom post-processing), environments, effects, tweens;
+                   models/ (procedural figures: builder, hero, weapons, creatures, beings)
+  ui/              ui.ts (input + UI-only state) · views/ (title, ship, mission: state → HTML) ·
                    widgets.ts (chips) · html.ts (helpers) · keys.ts (keyboard bindings)
 tests/             node:test suites (run via tsx) + golden files
 scripts/           build, dev server, e2e, sim, golden updater
@@ -93,7 +95,7 @@ Key design rules:
 - **Fuzz tests:** 40 seeds × 1500 random (partly garbage) actions, asserting invariants after every step: no softlocks, HP/MP/gold in bounds, mode consistency, rejected actions don't change state, and every state survives save/load.
 - **Playthrough tests:** the bot must finish the whole game with every class.
 - **Golden tests** (`tests/golden/`): exact seeded transcripts and bot summaries. Any change to formulas, content or turn order shows up as a readable diff. If the change was intended, run `npm run test:update-golden` and review `git diff tests/golden`.
-- **E2E** (`scripts/e2e.mjs`): real clicks through title → town → battle, a 400-action bot run through the real UI and renderer, a HUD/state sync check, a non-blank canvas check, reload/continue, a mobile layout check, and zero console errors.
+- **E2E** (`scripts/e2e.mjs`): real clicks through title → ship → battle, a 400-action bot run through the real UI and renderer, a HUD/state sync check, a non-blank canvas check, reload/continue, a mobile layout check, and zero console errors.
 
 The browser build exposes `window.__qf` (`state`, `legal()`, `dispatch(action)`, `botStep()`, `speed(n)`, `load(state)`, `hostileScreenPoint(slot)`) for debugging and tests. `load` jumps straight to any (validated) state, e.g. a specific fight.
 
@@ -107,9 +109,9 @@ Aim for every stat in roughly the same band (currently about 1–4% per point). 
 
 ## Adding content
 
-- **New hostile:** add it to `src/core/data/monsters.ts` and list it in an area. `look` picks a procedural body (`blob`, `beast`, `humanoid`, `flyer`, `golem`, `dragon`, `wraith`).
-- **New item or ability:** add it to `items.ts` / `spells.ts`. Weapons have a visual `style` (`melee` or `ranged`); the held model comes from `WEAPON_SHAPES` in `src/render/models.ts`. Quartermaster stock is everything with a price above 0.
-- **New mission:** add it to `areas.ts` with `requires` pointing at the previous one (the last one sets `FINAL_AREA` and a `finale`), then add a backdrop case and lighting entry in `src/render/environment.ts`. For pack fights, list lineups (1–3 hostile ids) in `groups`, and escorts for the priority target in `bossAdds` (max 2; the boss stands between them).
-- **Renaming content ids** breaks existing saves: bump `SAVE_VERSION` and add a migration in `src/core/save.ts` (see the v1 → v2 sci-fi migration).
+- **New hostile:** add it to `src/core/data/hostiles.ts` and list it in a mission. `look` picks a procedural body plan (`blob`, `beast`, `brute`, `humanoid`, `husk`, `elemental`, `flyer`, `golem`, `serpent`, `dragon`, `insect`, `wraith`, `wisp`), colours, a scale and optional `features` (e.g. `helmet`, `shield`, `blade`, `spikes`, `wings`, `crown`). Check it with `npm run gallery`.
+- **New item or ability:** add it to `items.ts` / `abilities.ts`. Weapons have a visual `style` (`melee` or `ranged`); the held model comes from `SHAPES` in `src/render/models/weapons.ts`. Quartermaster stock is everything with a price above 0.
+- **New mission:** add it to `missions.ts` with `requires` pointing at the previous one (the last one sets `FINAL_MISSION` and a `finale`), then add a backdrop case and lighting entry in `src/render/environment.ts`. For pack fights, list lineups (1–3 hostile ids) in `groups`, and escorts for the priority target in `bossAdds` (max 2; the boss stands between them).
+- **Renaming content ids** breaks existing saves: bump `SAVE_VERSION` and add a migration to `MIGRATIONS` in `src/core/save.ts`.
 
 `validateContent()` (run by the test suite) catches broken references. Then run `npm run sim` to check balance and `npm run test:update-golden` to accept the new behaviour.

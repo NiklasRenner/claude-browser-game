@@ -12,16 +12,16 @@
  * timeline data (an older save or a hand-made test state) is at the player's
  * turn, and reads as a fresh battle right after any opening hostile turns.
  */
-import { getMonster } from '../data';
+import { getHostile } from '../data';
 import { derive } from '../player';
 import { turnDelay } from '../stats';
-import type { BattleState, MonsterInstance, Player } from '../types';
+import type { BattleState, Hostile, Player } from '../types';
 import { isAlive } from './battle';
 
 export type Turn = 'player' | number;
 
 const playerDelay = (player: Player) => turnDelay(derive(player).speed);
-const hostileDelay = (inst: MonsterInstance) => turnDelay(getMonster(inst.defId).speed);
+const hostileDelay = (inst: Hostile) => turnDelay(getHostile(inst.defId).speed);
 const playerNextTime = (battle: BattleState) => battle.playerNext ?? 0;
 
 /**
@@ -29,7 +29,7 @@ const playerNextTime = (battle: BattleState) => battle.playerNext ?? 0;
  * would have it once the player is up (its first multiple of its delay at or
  * after the player's first turn), shifted so the player is due at 0.
  */
-function hostileNextTime(player: Player, battle: BattleState, inst: MonsterInstance): number {
+function hostileNextTime(player: Player, battle: BattleState, inst: Hostile): number {
   if (inst.next !== undefined) return inst.next;
   const dp = playerDelay(player);
   const dm = hostileDelay(inst);
@@ -39,12 +39,12 @@ function hostileNextTime(player: Player, battle: BattleState, inst: MonsterInsta
 /** Sets up a brand-new battle's timeline: everyone is one turn-delay away from acting. */
 export function initTimeline(player: Player, battle: BattleState): void {
   battle.playerNext = playerDelay(player);
-  for (const m of battle.monsters) m.next = hostileDelay(m);
+  for (const m of battle.hostiles) m.next = hostileDelay(m);
 }
 
 /** Writes any missing timeline data into the battle (see hostileNextTime) so it can be advanced. */
 export function ensureTimeline(player: Player, battle: BattleState): void {
-  for (const m of battle.monsters) m.next = hostileNextTime(player, battle, m);
+  for (const m of battle.hostiles) m.next = hostileNextTime(player, battle, m);
   battle.playerNext = playerNextTime(battle);
 }
 
@@ -52,7 +52,7 @@ export function ensureTimeline(player: Player, battle: BattleState): void {
 export function nextActor(player: Player, battle: BattleState): Turn {
   let who: Turn = 'player';
   let at = playerNextTime(battle);
-  battle.monsters.forEach((m, i) => {
+  battle.hostiles.forEach((m, i) => {
     if (!isAlive(m)) return;
     const t = hostileNextTime(player, battle, m);
     if (t < at) { who = i; at = t; }
@@ -65,7 +65,7 @@ export function spendTurn(player: Player, battle: BattleState, who: Turn): void 
   if (who === 'player') {
     battle.playerNext = playerNextTime(battle) + playerDelay(player);
   } else {
-    const m = battle.monsters[who]!;
+    const m = battle.hostiles[who]!;
     m.next = hostileNextTime(player, battle, m) + hostileDelay(m);
   }
 }
@@ -75,7 +75,7 @@ export function spendTurn(player: Player, battle: BattleState, who: Turn): void 
  * happened yet). Used by the turn-order strip in the UI.
  */
 export function upcomingTurns(player: Player, battle: BattleState, n: number): Turn[] {
-  const sim: BattleState = { ...battle, monsters: battle.monsters.map((m) => ({ ...m })) };
+  const sim: BattleState = { ...battle, hostiles: battle.hostiles.map((m) => ({ ...m })) };
   ensureTimeline(player, sim);
   const out: Turn[] = [];
   for (let i = 0; i < n; i++) {

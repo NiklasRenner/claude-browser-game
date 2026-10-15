@@ -1,9 +1,9 @@
-import { getArmor, getClass, getWeapon, spellsFor } from './data';
+import { getArmor, getDivision, getWeapon, abilitiesFor } from './data';
 import { ELEMENTS } from './types';
 import {
   PLAYER_EVASION_CAP, baseStats, damageMultiplier, enduranceHp, intellectEnergy, luckCrit, speedBonus,
 } from './stats';
-import type { ClassId, Element, GameEvent, Player, Resistances, SpellDef, Stat } from './types';
+import type { DivisionId, Element, GameEvent, Player, Resistances, AbilityDef, Stat } from './types';
 
 export const MAX_LEVEL = 30;
 export const STAT_POINTS_PER_LEVEL = 4;
@@ -15,7 +15,7 @@ export function xpToNext(level: number): number {
 
 export interface DerivedStats {
   maxHp: number;
-  maxMp: number;
+  maxEnergy: number;
   /** Subtracted from the enemy's to-hit chance (armor only here; abilities add in battle, capped). */
   evasion: number;
   critChance: number;
@@ -33,7 +33,7 @@ export function derive(player: Player): DerivedStats {
   const { pow, spd, int, end, luk } = player.stats;
   return {
     maxHp: 40 + player.level * 12 + enduranceHp(end) + armor.hp,
-    maxMp: 15 + player.level * 4 + intellectEnergy(int) + armor.mp,
+    maxEnergy: 15 + player.level * 4 + intellectEnergy(int) + armor.energy,
     evasion: Math.min(PLAYER_EVASION_CAP, armor.block),
     critChance: 5 + luckCrit(luk) + weapon.crit,
     damage: damageMultiplier(pow),
@@ -48,16 +48,16 @@ function resistTable(resist: Resistances): Record<Element, number> {
   return table;
 }
 
-export function createPlayer(name: string, classId: ClassId): Player {
-  const cls = getClass(classId);
+export function createPlayer(name: string, divisionId: DivisionId): Player {
+  const cls = getDivision(divisionId);
   const player: Player = {
     name: name.trim().slice(0, 20) || 'Hero',
-    classId,
+    divisionId: divisionId,
     level: 1,
     xp: 0,
-    gold: 50,
+    credits: 50,
     hp: 1,
-    mp: 1,
+    energy: 1,
     stats: baseStats(),
     statPoints: 0,
     weapon: cls.startWeapon,
@@ -71,14 +71,14 @@ export function createPlayer(name: string, classId: ClassId): Player {
 export function fullRestore(player: Player): void {
   const d = derive(player);
   player.hp = d.maxHp;
-  player.mp = d.maxMp;
+  player.energy = d.maxEnergy;
 }
 
-/** Keeps hp/mp within bounds after max values change (e.g. equipment swap). */
+/** Keeps hp/energy within bounds after max values change (e.g. equipment swap). */
 export function clampVitals(player: Player): void {
   const d = derive(player);
   player.hp = Math.max(0, Math.min(player.hp, d.maxHp));
-  player.mp = Math.max(0, Math.min(player.mp, d.maxMp));
+  player.energy = Math.max(0, Math.min(player.energy, d.maxEnergy));
 }
 
 /** Adds XP and handles any number of level-ups. Mutates `player`. */
@@ -90,8 +90,8 @@ export function grantXp(player: Player, amount: number, events: GameEvent[]): vo
     player.statPoints += STAT_POINTS_PER_LEVEL;
     fullRestore(player);
     events.push({ type: 'levelUp', level: player.level });
-    for (const spell of spellsFor(player.classId, player.level)) {
-      if (spell.level === player.level) events.push({ type: 'learned', spellId: spell.id });
+    for (const ability of abilitiesFor(player.divisionId, player.level)) {
+      if (ability.level === player.level) events.push({ type: 'learned', abilityId: ability.id });
     }
   }
   if (player.level >= MAX_LEVEL) player.xp = 0;
@@ -105,11 +105,11 @@ export function allocateStat(player: Player, stat: Stat): void {
   const after = derive(player);
   // Raising END/INT also raises current HP/MP by the same amount, like a level-up would.
   player.hp += after.maxHp - before.maxHp;
-  player.mp += after.maxMp - before.maxMp;
+  player.energy += after.maxEnergy - before.maxEnergy;
 }
 
-export function knownSpells(player: Player): SpellDef[] {
-  return spellsFor(player.classId, player.level);
+export function knownAbilities(player: Player): AbilityDef[] {
+  return abilitiesFor(player.divisionId, player.level);
 }
 
 export function countItem(player: Player, itemId: string): number {

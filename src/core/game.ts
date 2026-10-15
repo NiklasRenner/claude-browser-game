@@ -5,16 +5,16 @@
  * - Total: illegal actions return the unchanged state plus an `error` event
  *   (legality lives in rules.ts).
  */
-import { fleeChance, playerAttack, playerCast, toughestAliveLevel, useConsumable } from './combat';
-import { CLASSES, getArea, getItem } from './data';
+import { fleeChance, playerAttack, playerUseAbility, toughestAliveLevel, useConsumable } from './combat';
+import { DIVISIONS, getMission, getItem } from './data';
 import { addItem, allocateStat, clampVitals, createPlayer, fullRestore, removeItem } from './player';
-import { leaveQuest, resolveBattleRound, startNextBattle } from './missions';
+import { leaveMission, resolveBattleRound, startNextBattle } from './flow';
 import { patrolWorlds } from './patrol';
 import { Rng } from './rng';
-import { checkAction, restCost, sellPrice } from './rules';
+import { checkAction, treatmentCost, sellPrice } from './rules';
 import type { Action, GameEvent, GameState, StepResult } from './types';
 
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 1;
 
 export function initialState(seed = 1): GameState {
   return {
@@ -22,9 +22,9 @@ export function initialState(seed = 1): GameState {
     mode: 'title',
     rng: seed >>> 0,
     player: null,
-    quest: null,
+    mission: null,
     battle: null,
-    clearedAreas: [],
+    clearedMissions: [],
     stats: { battlesWon: 0, battlesLost: 0, actions: 0 },
   };
 }
@@ -49,24 +49,24 @@ function apply(state: GameState, action: Action, rng: Rng, events: GameEvent[]):
     const seed = action.seed ?? state.rng;
     Object.assign(state, initialState(seed));
     rng.state = seed >>> 0;
-    state.player = createPlayer(action.name, action.classId);
-    state.mode = 'town';
-    events.push({ type: 'message', text: `${state.player.name} the ${CLASSES[action.classId].name} reports for duty aboard the Meridian.` });
+    state.player = createPlayer(action.name, action.divisionId);
+    state.mode = 'ship';
+    events.push({ type: 'message', text: `${state.player.name} the ${DIVISIONS[action.divisionId].name} reports for duty aboard the Meridian.` });
     return;
   }
   const player = state.player!;
 
   switch (action.type) {
-    case 'rest': {
-      const cost = restCost(player);
-      player.gold -= cost;
+    case 'treat': {
+      const cost = treatmentCost(player);
+      player.credits -= cost;
       fullRestore(player);
-      events.push({ type: 'rested', cost });
+      events.push({ type: 'treated', cost });
       return;
     }
     case 'buy': {
       const item = getItem(action.itemId);
-      player.gold -= item.price;
+      player.credits -= item.price;
       addItem(player, item.id);
       events.push({ type: 'bought', itemId: item.id, price: item.price });
       return;
@@ -74,7 +74,7 @@ function apply(state: GameState, action: Action, rng: Rng, events: GameEvent[]):
     case 'sell': {
       const value = sellPrice(action.itemId);
       removeItem(player, action.itemId);
-      player.gold += value;
+      player.credits += value;
       events.push({ type: 'sold', itemId: action.itemId, credits: value });
       return;
     }
@@ -98,15 +98,15 @@ function apply(state: GameState, action: Action, rng: Rng, events: GameEvent[]):
       }
       return;
     }
-    case 'startQuest': {
-      state.quest = { areaId: action.areaId, cleared: 0, earnedXp: 0, earnedGold: 0 };
+    case 'startMission': {
+      state.mission = { missionId: action.missionId, cleared: 0, earnedXp: 0, earnedCredits: 0 };
       startNextBattle(state, rng, events);
       return;
     }
     case 'startPatrol': {
-      const areaId = rng.pick(patrolWorlds(state));
-      state.quest = { areaId, patrol: { level: player.level }, cleared: 0, earnedXp: 0, earnedGold: 0 };
-      events.push({ type: 'message', text: `Patrol launched: ${getArea(areaId).name} sector. Hostiles at level ${player.level}.` });
+      const missionId = rng.pick(patrolWorlds(state));
+      state.mission = { missionId: missionId, patrol: { level: player.level }, cleared: 0, earnedXp: 0, earnedCredits: 0 };
+      events.push({ type: 'message', text: `Patrol launched: ${getMission(missionId).name} sector. Hostiles at level ${player.level}.` });
       startNextBattle(state, rng, events);
       return;
     }
@@ -115,7 +115,7 @@ function apply(state: GameState, action: Action, rng: Rng, events: GameEvent[]):
       return;
     case 'retreat':
       events.push({ type: 'message', text: 'Beaming back to the Meridian.' });
-      leaveQuest(state);
+      leaveMission(state);
       return;
     case 'target':
       state.battle!.target = action.index;
@@ -125,23 +125,23 @@ function apply(state: GameState, action: Action, rng: Rng, events: GameEvent[]):
       if (action.target !== undefined) state.battle!.target = action.target;
       resolveBattleRound(state, rng, events, (ctx) => playerAttack(ctx));
       return;
-    case 'cast':
+    case 'useAbility':
       if (action.target !== undefined) state.battle!.target = action.target;
-      resolveBattleRound(state, rng, events, (ctx) => playerCast(ctx, action.spellId));
+      resolveBattleRound(state, rng, events, (ctx) => playerUseAbility(ctx, action.abilityId));
       return;
     case 'flee': {
       if (rng.chance(fleeChance(player, toughestAliveLevel(state.battle!)))) {
         events.push({ type: 'fled', success: true });
-        leaveQuest(state);
+        leaveMission(state);
       } else {
         events.push({ type: 'fled', success: false });
         resolveBattleRound(state, rng, events, null);
       }
       return;
     }
-    case 'returnToTown':
+    case 'returnToShip':
       fullRestore(player);
-      state.mode = 'town';
+      state.mode = 'ship';
       return;
   }
 }

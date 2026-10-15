@@ -1,15 +1,15 @@
 /** Title screen and the end-of-campaign modal. */
-import { CLASSES, FINAL_AREA, getArea, getItem, spellsFor } from '../../core';
-import type { ClassId, GameState } from '../../core';
+import { DIVISIONS, FINAL_MISSION, getMission, getItem, abilitiesFor } from '../../core';
+import type { DivisionId, GameState } from '../../core';
 import { esc } from '../html';
 
 /** Working title — change it here (and in public/index.html). */
 const GAME_TITLE = 'STARWARD';
 
-export function titleScreen(selected: ClassId, hasSave: boolean) {
-  const cards = (Object.keys(CLASSES) as ClassId[]).map((id) => {
-    const c = CLASSES[id];
-    const kit = spellsFor(id, 7).map((sp) => sp.name).join(' · ');
+export function titleScreen(selected: DivisionId, hasSave: boolean) {
+  const cards = (Object.keys(DIVISIONS) as DivisionId[]).map((id) => {
+    const c = DIVISIONS[id];
+    const kit = abilitiesFor(id, 7).map((sp) => sp.name).join(' · ');
     const stats = `<span>${getItem(c.startWeapon).name}</span><span class="muted">${kit}</span>`;
     return `<button class="class-card ${id === selected ? 'selected' : ''}" data-ui="class:${id}" style="--division:#${c.color.toString(16).padStart(6, '0')}">
       <strong>${c.name}</strong><span class="desc">${c.description}</span><span class="stats">${stats}</span></button>`;
@@ -28,7 +28,7 @@ export function titleScreen(selected: ClassId, hasSave: boolean) {
 
 /** Shown once, when the final mission is cleared for the first time. */
 export function victoryModal(s: GameState) {
-  const finale = getArea(FINAL_AREA).finale;
+  const finale = getMission(FINAL_MISSION).finale;
   return `<div class="modal-backdrop"><div class="modal panel">
     <h2>${finale?.title ?? 'Tour complete!'}</h2>
     <p>${finale?.text ?? ''} ${esc(s.player!.name)} reached level ${s.player!.level} after ${s.stats.battlesWon} victories.</p>

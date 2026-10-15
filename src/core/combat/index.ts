@@ -11,11 +11,11 @@ export { aliveIndices, applyStatus, hostileLevel, isAlive, toughestAliveLevel } 
 export type { Ctx } from './battle';
 export {
   HOSTILE_ACCURACY_PER_LEVEL, averageEffectDamage, hitChance, hostileEvasion, hostileHit, hostileHitChance,
-  mitigate, monsterDamageTaken, playerEvasion, playerHitChance, resolveElement, strikeProfile,
+  mitigate, hostileDamageTaken, playerEvasion, playerHitChance, resolveElement, strikeProfile,
 } from './formulas';
 export type { DamageEffect } from './formulas';
 export { initTimeline, nextActor, upcomingTurns } from './timeline';
 export type { Turn } from './timeline';
-export { fleeChance, playerAttack, playerCast, useConsumable } from './actions';
+export { fleeChance, playerAttack, playerUseAbility, useConsumable } from './actions';
 export { beginBattle, runRound } from './round';
 export type { PlayerAct, TurnOutcome } from './round';

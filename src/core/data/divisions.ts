@@ -1,11 +1,11 @@
-import type { ClassDef, ClassId } from '../types';
+import type { DivisionDef, DivisionId } from '../types';
 
 /**
  * Divisions differ only in their ability kits and starting gear. Stats are
  * generic and every officer starts with the same ones (see stats.ts).
  * `statPriority` is just how the autoplayer likes to build each division.
  */
-export const CLASSES: Record<ClassId, ClassDef> = {
+export const DIVISIONS: Record<DivisionId, DivisionDef> = {
   security: {
     id: 'security',
     name: 'Security Officer',

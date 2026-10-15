@@ -60,28 +60,28 @@ try {
   await page.click('#start-game');
   await page.waitForSelector('text=Meridian');
   const s1 = await page.evaluate(() => window.__qf.state);
-  check(s1.mode === 'town' && s1.player.name === 'Playwright' && s1.player.classId === 'science', 'new game created from title screen');
+  check(s1.mode === 'ship' && s1.player.name === 'Playwright' && s1.player.divisionId === 'science', 'new game created from title screen');
   await page.waitForTimeout(400);
-  await page.screenshot({ path: `${OUT}/02-town.png` });
+  await page.screenshot({ path: `${OUT}/02-ship.png` });
 
-  // Visit each town tab; the header and tab bar must stay fully visible even when the list is long.
+  // Visit each ship tab; the header and tab bar must stay fully visible even when the list is long.
   const squashed = [];
-  for (const tab of ['shop', 'inventory', 'character', 'inn', 'quests']) {
+  for (const tab of ['quartermaster', 'locker', 'personnel', 'sickbay', 'missions']) {
     await page.click(`[data-ui="tab:${tab}"]`);
     const ok = await page.evaluate(() => {
       const tabs = document.querySelector('.tabs');
-      const header = document.querySelector('.town-header');
+      const header = document.querySelector('.ship-header');
       return tabs.clientHeight >= 30 && tabs.scrollHeight <= tabs.clientHeight && header.getBoundingClientRect().top >= 0;
     });
     if (!ok) squashed.push(tab);
   }
-  check(squashed.length === 0, `town tab bar stays visible on every tab${squashed.length ? ` (broken on: ${squashed.join(', ')})` : ''}`);
+  check(squashed.length === 0, `ship tab bar stays visible on every tab${squashed.length ? ` (broken on: ${squashed.join(', ')})` : ''}`);
 
-  // Start a quest through the real button and fight with real clicks at normal animation speed.
+  // Start a run through the real button and fight with real clicks at normal animation speed.
   await page.click('[data-action*="veridia"]');
-  await page.waitForSelector('.monster-card');
+  await page.waitForSelector('.hostile-card');
   await waitIdle(page);
-  await page.click('[data-ui="menu:skills"]');
+  await page.click('[data-ui="menu:abilities"]');
   await page.click('[data-action*="plasma_burst"]');
   await page.waitForTimeout(350);
   await page.screenshot({ path: `${OUT}/03-battle-mid-animation.png` });
@@ -105,15 +105,15 @@ try {
   }
   check(mismatch === null, `HUD stays in sync with game state${mismatch ? ` (${mismatch})` : ''}`);
   const s2 = await page.evaluate(() => window.__qf.state);
-  check(s2.player.level > 1 && s2.clearedAreas.length >= 1, `bot progressed via UI (level ${s2.player.level}, cleared ${s2.clearedAreas.join(', ')})`);
+  check(s2.player.level > 1 && s2.clearedMissions.length >= 1, `bot progressed via UI (level ${s2.player.level}, cleared ${s2.clearedMissions.join(', ')})`);
   // Keyboard-only fight at normal animation speed: win with ability keys, then press Enter
   // *during* the victory animation; the buffered key must start the next fight.
   // (Finish the bot's current mission with animations off first; that part isn't under test.)
   await page.evaluate(async () => {
     const qf = window.__qf;
-    while (qf.state.mode !== 'town') await qf.botStep();
+    while (qf.state.mode !== 'ship') await qf.botStep();
     qf.speed(1);
-    await qf.dispatch({ type: 'startQuest', areaId: 'veridia' });
+    await qf.dispatch({ type: 'startMission', missionId: 'veridia' });
   });
   await waitIdle(page);
   let pressedWhileAnimating = false;
@@ -121,7 +121,7 @@ try {
     await page.keyboard.press('1');
     await page.waitForTimeout(60);
     const st = await page.evaluate(() => ({ mode: window.__qf.state.mode, busy: window.__qf.busy }));
-    if (st.mode === 'quest') {
+    if (st.mode === 'mission') {
       pressedWhileAnimating = st.busy;
       await page.screenshot({ path: `${OUT}/06-between-fights.png` });
       await page.keyboard.press('Enter');
@@ -136,7 +136,7 @@ try {
   check(nextFight, 'Enter between fights starts the next fight (key buffered during animation)');
 
   // Ability menu: every damaging ability shows its damage type, with effectiveness against this foe.
-  await page.click('[data-ui="menu:skills"]');
+  await page.click('[data-ui="menu:abilities"]');
   const chips = await page.evaluate(() => {
     const buttons = [...document.querySelectorAll('.btn.skill')];
     return {
@@ -146,7 +146,7 @@ try {
       effectiveness: document.querySelectorAll('.btn.skill .eff').length,
       // Expected markers: damage chips whose type this hostile doesn't take at 100%.
       expected: [...document.querySelectorAll('.btn.skill .chip.el')].filter((c) => /vulnerable|resists|immune/.test(c.getAttribute('title') ?? '')).length,
-      foeHasModifiers: document.querySelectorAll('.monster-card .res').length > 0,
+      foeHasModifiers: document.querySelectorAll('.hostile-card .res').length > 0,
     };
   });
   check(chips.buttons > 0 && chips.withTag === chips.buttons, `every ability shows effect chips (${chips.withTag}/${chips.buttons})`);
@@ -156,7 +156,7 @@ try {
   await page.screenshot({ path: `${OUT}/07-abilities.png` });
   await page.click('[data-ui="menu:main"]');
 
-  // Get into a battle for a screenshot with a monster on stage.
+  // Get into a battle for a screenshot with a hostile on stage.
   for (let i = 0; i < 50 && (await page.evaluate(() => window.__qf.state.mode)) !== 'battle'; i++) {
     await page.evaluate(() => window.__qf.botStep());
   }
@@ -169,20 +169,20 @@ try {
   await page.evaluate(() => window.__qf.speed(0));
   const reachedHive = await page.evaluate(async () => {
     const qf = window.__qf;
-    for (let i = 0; i < 4000 && !qf.state.clearedAreas.includes('void_rift'); i++) await qf.botStep();
-    if (!qf.state.clearedAreas.includes('void_rift')) return false;
+    for (let i = 0; i < 4000 && !qf.state.clearedMissions.includes('void_rift'); i++) await qf.botStep();
+    if (!qf.state.clearedMissions.includes('void_rift')) return false;
     // Find a fight that opens with 3 hostiles.
     for (let tries = 0; tries < 400; tries++) {
-      while (qf.state.mode !== 'town') await qf.botStep();
-      while (qf.state.player.level < 14) { await qf.dispatch({ type: 'startQuest', areaId: 'void_rift' }); while (qf.state.mode !== 'town') await qf.botStep(); }
-      if (qf.state.player.hp < qf.state.player.level * 20) await qf.dispatch({ type: 'rest' });
-      await qf.dispatch({ type: 'startQuest', areaId: 'xenith' });
-      for (let k = 0; k < 6 && qf.state.mode === 'battle' || qf.state.mode === 'quest'; k++) {
-        if (qf.state.mode === 'battle' && qf.state.battle.monsters.length === 3 && qf.state.battle.monsters.every((m) => m.hp === m.maxHp)) return true;
+      while (qf.state.mode !== 'ship') await qf.botStep();
+      while (qf.state.player.level < 14) { await qf.dispatch({ type: 'startMission', missionId: 'void_rift' }); while (qf.state.mode !== 'ship') await qf.botStep(); }
+      if (qf.state.player.hp < qf.state.player.level * 20) await qf.dispatch({ type: 'treat' });
+      await qf.dispatch({ type: 'startMission', missionId: 'xenith' });
+      for (let k = 0; k < 6 && qf.state.mode === 'battle' || qf.state.mode === 'mission'; k++) {
+        if (qf.state.mode === 'battle' && qf.state.battle.hostiles.length === 3 && qf.state.battle.hostiles.every((m) => m.hp === m.maxHp)) return true;
         await qf.botStep();
         if (k > 40) break;
       }
-      if (qf.state.mode === 'battle') { const b = qf.state.battle; if (b.monsters.length === 3 && b.monsters.every((m) => m.hp === m.maxHp)) return true; }
+      if (qf.state.mode === 'battle') { const b = qf.state.battle; if (b.hostiles.length === 3 && b.hostiles.every((m) => m.hp === m.maxHp)) return true; }
     }
     return false;
   });
@@ -207,7 +207,7 @@ try {
     if (pt) await page.mouse.click(pt.x, pt.y);
     await waitIdle(page);
     check((await target()) === 1, 'clicking a hostile in the 3D scene targets it');
-    const cardName = await page.locator('.monster-card .hud-name strong').innerText();
+    const cardName = await page.locator('.hostile-card .hud-name strong').innerText();
     const rosterCurrent = await page.locator('.roster-item.current .roster-name').innerText();
     check(rosterCurrent.includes(cardName), `status card follows the target (${cardName})`);
     await page.waitForTimeout(300);
@@ -229,26 +229,26 @@ try {
   await page.evaluate(async () => {
     const qf = window.__qf;
     qf.speed(0);
-    while (qf.state.mode !== 'town') await qf.botStep();
+    while (qf.state.mode !== 'ship') await qf.botStep();
   });
-  await page.click('[data-ui="tab:quests"]');
+  await page.click('[data-ui="tab:missions"]');
   await page.waitForTimeout(200);
   await page.screenshot({ path: `${OUT}/10-mission-board.png` });
   await page.click('[data-action*="startPatrol"]');
   await waitIdle(page);
-  const patrol = await page.evaluate(() => window.__qf.state.quest?.patrol ?? null);
+  const patrol = await page.evaluate(() => window.__qf.state.mission?.patrol ?? null);
   check(patrol !== null && patrol.level === (await page.evaluate(() => window.__qf.state.player.level)), `patrol launched at the player's level (${JSON.stringify(patrol)})`);
-  const scaled = await page.evaluate(() => window.__qf.state.battle.monsters.every((m) => m.level === window.__qf.state.quest.patrol.level));
+  const scaled = await page.evaluate(() => window.__qf.state.battle.hostiles.every((m) => m.level === window.__qf.state.mission.patrol.level));
   check(scaled, 'patrol hostiles are scaled to the patrol level');
   const outcome = await page.evaluate(async () => {
     const qf = window.__qf;
-    for (let i = 0; i < 400 && qf.state.mode !== 'town' && qf.state.mode !== 'defeated'; i++) {
-      if (qf.state.mode === 'quest' && qf.state.quest.cleared === 2) break;
+    for (let i = 0; i < 400 && qf.state.mode !== 'ship' && qf.state.mode !== 'defeated'; i++) {
+      if (qf.state.mode === 'mission' && qf.state.mission.cleared === 2) break;
       await qf.botStep();
     }
     return qf.state.mode;
   });
-  if (outcome === 'quest') {
+  if (outcome === 'mission') {
     await page.evaluate(() => window.__qf.speed(1));
     await page.waitForTimeout(500);
     await page.screenshot({ path: `${OUT}/11-patrol-between-fights.png` });
@@ -257,21 +257,21 @@ try {
   }
   const finished = await page.evaluate(async () => {
     const qf = window.__qf;
-    for (let i = 0; i < 600 && qf.state.mode !== 'town'; i++) await qf.botStep();
-    return { mode: qf.state.mode, quest: qf.state.quest };
+    for (let i = 0; i < 600 && qf.state.mode !== 'ship'; i++) await qf.botStep();
+    return { mode: qf.state.mode, mission: qf.state.mission };
   });
-  check(finished.mode === 'town' && finished.quest === null, 'patrol runs its course and returns to the ship');
+  check(finished.mode === 'ship' && finished.mission === null, 'patrol runs its course and returns to the ship');
 
   // One screenshot per mission backdrop (state is injected via the debug hook; purely visual).
-  for (const areaId of ['veridia', 'kethra', 'glacies', 'void_rift', 'xenith']) {
-    await page.evaluate(async (areaId) => {
+  for (const missionId of ['veridia', 'kethra', 'glacies', 'void_rift', 'xenith']) {
+    await page.evaluate(async (missionId) => {
       const qf = window.__qf;
-      while (qf.state.mode !== 'town') await qf.botStep();
-      return qf.dispatch({ type: 'startQuest', areaId });
-    }, areaId);
+      while (qf.state.mode !== 'ship') await qf.botStep();
+      return qf.dispatch({ type: 'startMission', missionId });
+    }, missionId);
     await waitIdle(page);
     await page.waitForTimeout(400);
-    await page.screenshot({ path: `${OUT}/area-${areaId}.png` });
+    await page.screenshot({ path: `${OUT}/mission-${missionId}.png` });
     await page.evaluate(() => window.__qf.dispatch({ type: 'flee' }));
     await waitIdle(page);
   }
@@ -291,7 +291,7 @@ try {
   await mobile.waitForSelector('[data-ui="continue"]').catch(() => {});
   await mobile.click('#start-game');
   await mobile.click('[data-action*="veridia"]');
-  await mobile.waitForSelector('.monster-card');
+  await mobile.waitForSelector('.hostile-card');
   await waitIdle(mobile);
   await mobile.waitForTimeout(300);
   const overflow = await mobile.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
@@ -300,8 +300,8 @@ try {
   await mobile.evaluate(() => {
     const s = structuredClone(window.__qf.state);
     s.player.level = 16; s.mode = 'battle';
-    s.quest = { areaId: 'xenith', cleared: 1, earnedXp: 0, earnedGold: 0 };
-    s.battle = { monsters: ['hive_drone', 'brood_matriarch', 'hive_drone'].map((defId) => ({ defId, hp: 80, maxHp: 100, statuses: [] })), target: 1, playerStatuses: [], round: 1 };
+    s.mission = { missionId: 'xenith', cleared: 1, earnedXp: 0, earnedCredits: 0 };
+    s.battle = { hostiles: ['hive_drone', 'brood_matriarch', 'hive_drone'].map((defId) => ({ defId, hp: 80, maxHp: 100, statuses: [] })), target: 1, playerStatuses: [], round: 1 };
     return window.__qf.load(s);
   });
   await mobile.waitForTimeout(1500);

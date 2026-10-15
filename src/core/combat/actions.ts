@@ -3,13 +3,13 @@
  * hostile's attack. Each function mutates the (already cloned) state in `ctx`
  * and pushes events describing what happened.
  */
-import { getConsumable, getSpell, getWeapon, getMonster } from '../data';
+import { getConsumable, getAbility, getWeapon, getHostile } from '../data';
 import { derive, removeItem } from '../player';
 import { PLAYER_CRIT_MULT, healMultiplier } from '../stats';
 import type { Element, GameEvent, Player, StatusEffect } from '../types';
 import { aliveIndices, applyStatus, clamp, damageHostile, isAlive, statusPower } from './battle';
 import type { Ctx } from './battle';
-import { hostileHitChance, mitigate, monsterDamageTaken, resolveElement, strikeChance, strikeProfile } from './formulas';
+import { hostileHitChance, mitigate, hostileDamageTaken, resolveElement, strikeChance, strikeProfile } from './formulas';
 
 const HOSTILE_CRIT_MULT = 1.5;
 
@@ -35,8 +35,8 @@ interface Volley {
  */
 function strike(ctx: Ctx, foe: number, volley: Volley): boolean {
   const { player, battle, rng, events } = ctx;
-  const target = battle.monsters[foe]!;
-  const def = getMonster(target.defId);
+  const target = battle.hostiles[foe]!;
+  const def = getHostile(target.defId);
   let landed = false;
   for (let i = 0; i < volley.hits && isAlive(target); i++) {
     const raw = volley.roll();
@@ -46,7 +46,7 @@ function strike(ctx: Ctx, foe: number, volley: Volley): boolean {
       continue;
     }
     const crit = rng.chance(derive(player).critChance + (volley.extraCrit ?? 0));
-    const damage = mitigate(crit ? raw * PLAYER_CRIT_MULT : raw, monsterDamageTaken(def, volley.element), 0);
+    const damage = mitigate(crit ? raw * PLAYER_CRIT_MULT : raw, hostileDamageTaken(def, volley.element), 0);
     events.push({ ...base, hit: true, crit, damage });
     damageHostile(ctx, foe, damage);
     landed = true;
@@ -58,7 +58,7 @@ function strike(ctx: Ctx, foe: number, volley: Volley): boolean {
 export function playerAttack(ctx: Ctx): void {
   const { player, rng, battle, events } = ctx;
   const foe = battle.target;
-  const target = battle.monsters[foe]!;
+  const target = battle.hostiles[foe]!;
   const weapon = getWeapon(player.weapon);
   const power = derive(player).damage;
   const { proc } = weapon;
@@ -69,26 +69,26 @@ export function playerAttack(ctx: Ctx): void {
     roll: () => rng.int(...weapon.damage) * power,
     onLand: () => {
       if (proc && isAlive(target) && rng.chance(proc.chance)) {
-        applyStatus(target.statuses, 'monster', proc.status, proc.turns, Math.round(proc.power * power), events, foe);
+        applyStatus(target.statuses, 'hostile', proc.status, proc.turns, Math.round(proc.power * power), events, foe);
       }
     },
   });
 }
 
-export function playerCast(ctx: Ctx, spellId: string): void {
+export function playerUseAbility(ctx: Ctx, abilityId: string): void {
   const { player, rng, events, battle } = ctx;
-  const spell = getSpell(spellId);
+  const ability = getAbility(abilityId);
   const power = derive(player).damage;
-  player.mp -= spell.mp;
-  events.push({ type: 'cast', actor: 'player', spellId, name: spell.name });
+  player.energy -= ability.energy;
+  events.push({ type: 'abilityUsed', actor: 'player', abilityId: abilityId, name: ability.name });
 
   // Hostiles struck by the most recent damage effect; enemy status riders apply to these.
   let landedOn: number[] = [battle.target];
-  for (const effect of spell.effects) {
+  for (const effect of ability.effects) {
     if (effect.type === 'damage') {
       const dice = effect.useWeapon ? getWeapon(player.weapon).damage : effect.dice;
       const volley: Volley = {
-        name: spell.name,
+        name: ability.name,
         element: resolveElement(player, effect.element),
         ...strikeProfile(player, effect),
         extraCrit: effect.extraCrit ?? 0,
@@ -100,7 +100,7 @@ export function playerCast(ctx: Ctx, spellId: string): void {
       const amount = Math.round(rng.int(...effect.dice) * healMultiplier(player.level));
       const healed = Math.min(amount, derive(player).maxHp - player.hp);
       player.hp += healed;
-      events.push({ type: 'heal', actor: 'player', amount: healed, mana: 0 });
+      events.push({ type: 'heal', actor: 'player', amount: healed, energy: 0 });
     } else if (effect.target === 'self') {
       if (effect.chance !== undefined && !rng.chance(effect.chance)) continue;
       applyStatus(battle.playerStatuses, 'player', effect.status, effect.turns, effect.power, events);
@@ -108,10 +108,10 @@ export function playerCast(ctx: Ctx, spellId: string): void {
       // Damage-over-time riders scale with Power like direct damage.
       const dot = effect.status === 'burn' || effect.status === 'corrode';
       for (const foe of landedOn) {
-        const m = battle.monsters[foe]!;
+        const m = battle.hostiles[foe]!;
         if (!isAlive(m)) continue;
         if (effect.chance !== undefined && !rng.chance(effect.chance)) continue;
-        applyStatus(m.statuses, 'monster', effect.status, effect.turns, dot ? Math.round(effect.power * power) : effect.power, events, foe);
+        applyStatus(m.statuses, 'hostile', effect.status, effect.turns, dot ? Math.round(effect.power * power) : effect.power, events, foe);
       }
     }
   }
@@ -123,10 +123,10 @@ export function useConsumable(player: Player, itemId: string, statuses: StatusEf
   removeItem(player, itemId);
   const d = derive(player);
   const heal = Math.min(item.heal, d.maxHp - player.hp);
-  const mana = Math.min(item.mana, d.maxMp - player.mp);
+  const energy = Math.min(item.energy, d.maxEnergy - player.energy);
   player.hp += heal;
-  player.mp += mana;
-  events.push({ type: 'heal', actor: 'player', amount: heal, mana });
+  player.energy += energy;
+  events.push({ type: 'heal', actor: 'player', amount: heal, energy: energy });
   if (statuses && item.cures) {
     for (let i = statuses.length - 1; i >= 0; i--) {
       const s = statuses[i]!;
@@ -148,11 +148,11 @@ export function fleeChance(player: Player, hostileLvl: number): number {
 /** Hostile `foe` picks one of its attacks (weighted) and fires its strikes at the player. */
 export function hostileAct(ctx: Ctx, foe: number): void {
   const { player, battle, rng, events } = ctx;
-  const self = battle.monsters[foe]!;
-  const def = getMonster(self.defId);
+  const self = battle.hostiles[foe]!;
+  const def = getHostile(self.defId);
   const attack = rng.weighted(def.attacks, (a) => a.weight);
   const chance = hostileHitChance(player, battle, foe, attack);
-  const base = { type: 'attack', actor: 'monster', foe, name: attack.name, element: attack.element } as const;
+  const base = { type: 'attack', actor: 'hostile', foe, name: attack.name, element: attack.element } as const;
   for (let i = 0; i < (attack.hits ?? 1) && player.hp > 0; i++) {
     if (!rng.chance(chance)) {
       events.push({ ...base, hit: false, crit: false, damage: 0 });

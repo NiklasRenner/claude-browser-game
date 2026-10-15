@@ -1,9 +1,9 @@
 /** Reusable bits of UI: chips for damage types, hit chances, statuses and item stats. */
 import {
-  damageMultiplier, enduranceHp, getMonster, intellectEnergy, luckCrit, monsterDamageTaken, playerHitChance,
+  damageMultiplier, enduranceHp, getHostile, intellectEnergy, luckCrit, hostileDamageTaken, playerHitChance,
   resolveElement, speedBonus, strikeProfile,
 } from '../core';
-import type { BattleState, DamageEffect, Element, ItemDef, MonsterDef, Player, SpellDef, Stat, StatusEffect } from '../core';
+import type { BattleState, DamageEffect, Element, ItemDef, HostileDef, Player, AbilityDef, Stat, StatusEffect } from '../core';
 import { ELEMENT_ICONS, STATUS_ICONS } from '../game/elements';
 import { esc } from './html';
 
@@ -28,11 +28,11 @@ const STATUS_NAMES: Record<StatusEffect['id'], string> = {
  * Damage-type chip. With a foe, adds how well it works against them:
  * ▲ vulnerable, ▼ resisted, ✕ immune.
  */
-export function elementChip(el: Element, foe: MonsterDef | null, iconOnly = false): string {
+export function elementChip(el: Element, foe: HostileDef | null, iconOnly = false): string {
   let eff = '';
   let title = el;
   if (foe) {
-    const pct = monsterDamageTaken(foe, el);
+    const pct = hostileDamageTaken(foe, el);
     if (pct === 0) { eff = '<b class="eff eff-immune">✕</b>'; title += ` — ${foe.name} is immune`; }
     else if (pct > 100) { eff = '<b class="eff eff-good">▲</b>'; title += ` — ${foe.name} is vulnerable (${pct}%)`; }
     else if (pct < 100) { eff = '<b class="eff eff-bad">▼</b>'; title += ` — ${foe.name} resists (${pct}%)`; }
@@ -41,10 +41,10 @@ export function elementChip(el: Element, foe: MonsterDef | null, iconOnly = fals
 }
 
 /** Chips for everything an ability does: damage types, heals and status effects. */
-export function abilityTags(p: Player, spell: SpellDef, battle: BattleState | null): string {
-  const foe = battle ? getMonster(battle.monsters[battle.target]!.defId) : null;
+export function abilityTags(p: Player, ability: AbilityDef, battle: BattleState | null): string {
+  const foe = battle ? getHostile(battle.hostiles[battle.target]!.defId) : null;
   const tags: string[] = [];
-  for (const e of spell.effects) {
+  for (const e of ability.effects) {
     if (e.type === 'damage') {
       tags.push(elementChip(resolveElement(p, e.element), foe));
       tags.push(hitChip(p, battle, e));
@@ -95,7 +95,7 @@ export function itemStats(item: ItemDef): string {
   }
   if (item.kind === 'armor') {
     const res = Object.entries(item.resist).map(([el, v]) => `${ELEMENT_ICONS[el as keyof typeof ELEMENT_ICONS]}${v}%`).join(' ');
-    return `<span class="muted">🛡${item.block}${item.speed ? ` ${item.speed > 0 ? '+' : '−'}${Math.abs(item.speed)}% speed` : ''}${item.hp ? ` +${item.hp}HP` : ''}${item.mp ? ` +${item.mp}EN` : ''}${res ? ` ${res}` : ''}</span>`;
+    return `<span class="muted">🛡${item.block}${item.speed ? ` ${item.speed > 0 ? '+' : '−'}${Math.abs(item.speed)}% speed` : ''}${item.hp ? ` +${item.hp}HP` : ''}${item.energy ? ` +${item.energy}EN` : ''}${res ? ` ${res}` : ''}</span>`;
   }
   return '';
 }

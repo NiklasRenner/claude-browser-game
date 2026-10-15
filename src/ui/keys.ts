@@ -1,4 +1,4 @@
-import { knownSpells } from '../core';
+import { knownAbilities } from '../core';
 import type { Action, GameState } from '../core';
 
 /**
@@ -13,27 +13,27 @@ export function keyAction(s: GameState, key: string, shift = false): Action | nu
       if (k === 'tab') {
         // Cycle through living hostiles (Shift+Tab goes backwards).
         const b = s.battle!;
-        const n = b.monsters.length;
+        const n = b.hostiles.length;
         for (let step = 1; step < n; step++) {
           const i = (b.target + (shift ? n - step : step)) % n;
-          if (b.monsters[i]!.hp > 0) return { type: 'target', index: i };
+          if (b.hostiles[i]!.hp > 0) return { type: 'target', index: i };
         }
         return null;
       }
       if (k === 'a') return { type: 'attack' };
       if (k === 'f') return { type: 'flee' };
       if (/^[1-9]$/.test(k)) {
-        const spell = knownSpells(s.player!)[Number(k) - 1];
-        return spell ? { type: 'cast', spellId: spell.id } : null;
+        const ability = knownAbilities(s.player!)[Number(k) - 1];
+        return ability ? { type: 'useAbility', abilityId: ability.id } : null;
       }
       return null;
     }
-    case 'quest':
+    case 'mission':
       if (advance) return { type: 'continue' };
       if (k === 'r') return { type: 'retreat' };
       return null;
     case 'defeated':
-      return advance ? { type: 'returnToTown' } : null;
+      return advance ? { type: 'returnToShip' } : null;
     default:
       return null;
   }

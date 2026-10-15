@@ -3,13 +3,17 @@
  * the scene match a state, and `animate(events, ...)` plays a step's events.
  */
 import * as THREE from 'three';
-import { getMonster, getSpell, getWeapon, resolveElement } from '../core';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { getHostile, getAbility, getWeapon, resolveElement } from '../core';
 import type { GameEvent, GameState } from '../core';
 import { ELEMENT_COLORS, STATUS_COLORS, STATUS_ICONS } from '../game/elements';
 import { buildEnvironment } from './environment';
 import type { Environment } from './environment';
 import { Effects } from './fx';
-import { buildHero, buildMonster, disposeObject } from './models';
+import { buildHero, buildHostile, disposeObject } from './models';
 import type { Figure } from './models';
 import { Tweens, easeOutBack, easeOutCubic } from './tween';
 
@@ -35,6 +39,11 @@ const ACTION_HALF_WIDTH = 5.2;
 export class Stage {
   readonly tweens = new Tweens();
   private renderer: THREE.WebGLRenderer;
+  /** Render → soft bloom on glowing parts (eyes, energy, lava) → tone mapping. */
+  private composer: EffectComposer;
+  /** Bloom is dropped automatically on devices that can't keep up (see frame()). */
+  private bloomOn = true;
+  private slowFrames = 0;
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
   private fx: Effects;
@@ -44,9 +53,9 @@ export class Stage {
   private envKey = '';
   private hero: Figure | null = null;
   private heroKey = '';
-  /** One figure per lineup slot (same indices as battle.monsters). */
-  private monsters: Figure[] = [];
-  private monsterKey = '';
+  /** One figure per lineup slot (same indices as battle.hostiles). */
+  private hostiles: Figure[] = [];
+  private hostileKey = '';
   /** Lineup slot the player is targeting; the marker follows it. */
   private targetIdx = 0;
   private targetMarker = buildTargetMarker();
@@ -66,7 +75,7 @@ export class Stage {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.sun.position.set(-6, 10, 6);
@@ -77,6 +86,11 @@ export class Stage {
     this.scene.add(this.hemi, this.sun, this.rim, this.targetMarker);
     this.scene.fog = new THREE.Fog(0xffffff, 14, 45);
     this.fx = new Effects(this.scene, this.camera, overlay, this.tweens);
+    this.composer = new EffectComposer(this.renderer);
+    this.composer.addPass(new RenderPass(this.scene, this.camera));
+    // Only HDR-bright pixels (emissive materials, effects) bloom; lit surfaces stay crisp.
+    this.composer.addPass(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.55, 0.45, 1.05));
+    this.composer.addPass(new OutputPass());
     this.resize();
     window.addEventListener('resize', () => this.resize());
     this.renderer.setAnimationLoop(() => this.frame());
@@ -85,6 +99,8 @@ export class Stage {
   private resize() {
     const { clientWidth: w, clientHeight: h } = this.canvas.parentElement ?? this.canvas;
     this.renderer.setSize(w, h, false);
+    this.composer?.setPixelRatio(this.renderer.getPixelRatio());
+    this.composer?.setSize(w, h);
     this.camera.aspect = w / Math.max(1, h);
     // Pull the camera back on narrow (portrait) screens so both fighters stay in frame.
     this.updateCameraBase();
@@ -99,12 +115,21 @@ export class Stage {
   }
 
   private frame() {
-    const dt = Math.min(0.1, this.clock.getDelta());
+    const raw = this.clock.getDelta();
+    const dt = Math.min(0.1, raw);
+    // Adaptive quality: after ~2 s of sub-20 fps frames, render without bloom.
+    if (this.bloomOn) {
+      this.slowFrames = raw > 0.05 ? this.slowFrames + 1 : Math.max(0, this.slowFrames - 2);
+      if (this.slowFrames > 40) {
+        this.bloomOn = false;
+        console.info('Starward: slow frames, bloom disabled.');
+      }
+    }
     this.time += dt;
     this.tweens.tick(dt);
     this.env?.update(dt, this.time);
     this.hero?.idle(this.time);
-    this.monsters.forEach((m, i) => m.idle(this.time + 1.3 + i * 0.7));
+    this.hostiles.forEach((m, i) => m.idle(this.time + 1.3 + i * 0.7));
     this.updateTargetMarker();
     // Gentle camera sway plus impact shake.
     this.shake = Math.max(0, this.shake - dt * 3);
@@ -119,16 +144,17 @@ export class Stage {
       this.cameraPos.z,
     );
     this.camera.lookAt(this.cameraLook);
-    this.renderer.render(this.scene, this.camera);
+    if (this.bloomOn) this.composer.render(dt);
+    else this.renderer.render(this.scene, this.camera);
   }
 
   // ─── Scene sync ──────────────────────────────────────────────────────────
 
   /** Makes the scene match `state` immediately (no animation). */
   sync(state: GameState) {
-    const areaId = state.quest?.areaId;
-    const onMission = areaId && (state.mode === 'battle' || state.mode === 'quest');
-    this.setEnvironment(onMission ? areaId : 'ship');
+    const missionId = state.mission?.missionId;
+    const onMission = missionId && (state.mode === 'battle' || state.mode === 'mission');
+    this.setEnvironment(onMission ? missionId : 'ship');
     const view = onMission ? 'field' : 'ship';
     if (view !== this.cameraView) {
       this.cameraView = view;
@@ -137,10 +163,10 @@ export class Stage {
 
     const p = state.player;
     if (p) {
-      const heroKey = `${p.classId}|${p.weapon}|${p.armor}`;
+      const heroKey = `${p.divisionId}|${p.weapon}|${p.armor}`;
       if (heroKey !== this.heroKey) {
         const old = this.hero;
-        this.hero = buildHero(p.classId, p.weapon, p.armor);
+        this.hero = buildHero(p.divisionId, p.weapon, p.armor);
         this.heroKey = heroKey;
         if (old) {
           this.hero.root.position.copy(old.root.position);
@@ -150,7 +176,7 @@ export class Stage {
         this.scene.add(this.hero.root);
       }
       const hero = this.hero!;
-      const hx = state.mode === 'battle' ? HERO_BATTLE_X : state.mode === 'town' ? -1.2 : -0.6;
+      const hx = state.mode === 'battle' ? HERO_BATTLE_X : state.mode === 'ship' ? -1.2 : -0.6;
       hero.root.position.set(hx, 0, 0.6);
       hero.root.rotation.set(0, state.mode === 'battle' ? -0.35 : -0.9, state.mode === 'defeated' ? Math.PI / 2 : 0);
       hero.body.position.x = 0;
@@ -162,16 +188,16 @@ export class Stage {
     }
 
     const battle = state.battle;
-    const mKey = battle ? `${battle.monsters.map((m) => m.defId).join(',')}#${state.stats.battlesWon + state.stats.battlesLost}` : '';
-    if (mKey !== this.monsterKey) {
-      for (const m of this.monsters) this.removeFigure(m);
-      this.monsters = [];
-      this.monsterKey = mKey;
+    const mKey = battle ? `${battle.hostiles.map((m) => m.defId).join(',')}#${state.stats.battlesWon + state.stats.battlesLost}` : '';
+    if (mKey !== this.hostileKey) {
+      for (const m of this.hostiles) this.removeFigure(m);
+      this.hostiles = [];
+      this.hostileKey = mKey;
       if (battle) {
-        const slots = SLOTS[battle.monsters.length]!;
-        this.monsters = battle.monsters.map((inst, i) => {
-          const def = getMonster(inst.defId);
-          const fig = buildMonster(def.look, !!def.boss);
+        const slots = SLOTS[battle.hostiles.length]!;
+        this.hostiles = battle.hostiles.map((inst, i) => {
+          const def = getHostile(inst.defId);
+          const fig = buildHostile(def.look, !!def.boss);
           const [x, z] = slots[i]!;
           fig.root.position.set(x, 0, z);
           // Face the hero, turned slightly toward the camera.
@@ -183,8 +209,8 @@ export class Stage {
       }
     }
     if (battle) {
-      battle.monsters.forEach((inst, i) => {
-        const fig = this.monsters[i];
+      battle.hostiles.forEach((inst, i) => {
+        const fig = this.hostiles[i];
         if (fig) fig.root.visible = inst.hp > 0;
       });
       this.targetIdx = battle.target;
@@ -194,8 +220,8 @@ export class Stage {
   // ─── Targeting ─────────────────────────────────────────────────────────────
 
   private updateTargetMarker() {
-    const fig = this.monsters[this.targetIdx];
-    const show = this.monsters.length > 1 && !!fig?.root.visible;
+    const fig = this.hostiles[this.targetIdx];
+    const show = this.hostiles.length > 1 && !!fig?.root.visible;
     this.targetMarker.visible = show;
     if (!show || !fig) return;
     const { ring, arrow } = this.targetMarker.userData as { ring: THREE.Object3D; arrow: THREE.Object3D };
@@ -207,7 +233,7 @@ export class Stage {
 
   /** Screen (client) coordinates of a hostile's body centre — used by tests to click it. */
   hostileScreenPoint(slot: number): { x: number; y: number } | null {
-    const fig = this.monsters[slot];
+    const fig = this.hostiles[slot];
     if (!fig || !fig.root.visible) return null;
     const p = this.center(fig).project(this.camera);
     const rect = this.canvas.getBoundingClientRect();
@@ -219,7 +245,7 @@ export class Stage {
     const rect = this.canvas.getBoundingClientRect();
     const ndc = new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
     this.raycaster.setFromCamera(ndc, this.camera);
-    const roots = this.monsters.filter((m) => m.root.visible).map((m) => m.root);
+    const roots = this.hostiles.filter((m) => m.root.visible).map((m) => m.root);
     const hit = this.raycaster.intersectObjects(roots, true)[0];
     let o: THREE.Object3D | null = hit?.object ?? null;
     while (o && o.userData.slot === undefined) o = o.parent;
@@ -261,14 +287,14 @@ export class Stage {
   async animate(events: GameEvent[], before: GameState, after: GameState): Promise<void> {
     // Make sure the "before" scene is present (e.g. after loading a save).
     if (before.mode !== 'title') this.sync({ ...before });
-    let pendingSpell: string | null = null;
+    let pendingAbility: string | null = null;
     let prev: GameEvent | null = null;
     for (const e of events) {
       // Follow-up strikes of a multi-hit attack play as a quick burst.
       const followUp = e.type === 'attack' && prev?.type === 'attack' && prev.actor === e.actor && prev.foe === e.foe && prev.name === e.name;
-      await this.play(e, before, after, pendingSpell, followUp);
+      await this.play(e, before, after, pendingAbility, followUp);
       prev = e;
-      pendingSpell = e.type === 'cast' && e.actor === 'player' ? e.spellId : e.type === 'attack' ? null : pendingSpell;
+      pendingAbility = e.type === 'abilityUsed' && e.actor === 'player' ? e.abilityId : e.type === 'attack' ? null : pendingAbility;
     }
     this.tweens.flush();
     this.sync(after);
@@ -284,17 +310,17 @@ export class Stage {
     return f.root.position.clone().add(new THREE.Vector3(0, f.height * 0.55, 0));
   }
 
-  private figureFor(actor: 'player' | 'monster', foe?: number) {
-    return actor === 'player' ? this.hero : this.monsters[foe ?? this.targetIdx] ?? null;
+  private figureFor(actor: 'player' | 'hostile', foe?: number) {
+    return actor === 'player' ? this.hero : this.hostiles[foe ?? this.targetIdx] ?? null;
   }
 
   private async lunge(f: Figure, dir: number, distance = 1.3) {
-    await this.tweens.run(0.16, (t) => { f.body.position.x = t * distance * dir / f.body.scale.x; }, easeOutCubic);
+    await this.tweens.run(0.16, (t) => { f.body.position.x = t * distance * dir; f.attack(t); }, easeOutCubic);
   }
 
   private async recover(f: Figure) {
     const start = f.body.position.x;
-    await this.tweens.run(0.22, (t) => { f.body.position.x = start * (1 - t); });
+    await this.tweens.run(0.22, (t) => { f.body.position.x = start * (1 - t); f.attack(1 - t); });
   }
 
   /** Briefly tints a figure. Original emissive values are remembered once, so overlapping flashes are safe. */
@@ -314,29 +340,29 @@ export class Stage {
 
   /**
    * How an attack looks: abilities that aren't weapon-based fly as an orb, ranged weapons fire a bolt,
-   * monsters' elemental attacks are projectiles, everything else is a melee lunge.
+   * hostiles' elemental attacks are projectiles, everything else is a melee lunge.
    */
-  private attackStyle(actor: 'player' | 'monster', element: string, spellId: string | null, state: GameState): 'orb' | 'bolt' | 'melee' {
-    if (actor === 'monster') return element === 'kinetic' ? 'melee' : 'orb';
-    const spell = spellId ? getSpell(spellId) : null;
-    if (spell && !spell.effects.some((x) => x.type === 'damage' && x.useWeapon)) return 'orb';
+  private attackStyle(actor: 'player' | 'hostile', element: string, abilityId: string | null, state: GameState): 'orb' | 'bolt' | 'melee' {
+    if (actor === 'hostile') return element === 'kinetic' ? 'melee' : 'orb';
+    const ability = abilityId ? getAbility(abilityId) : null;
+    if (ability && !ability.effects.some((x) => x.type === 'damage' && x.useWeapon)) return 'orb';
     return state.player && getWeapon(state.player.weapon).style === 'ranged' ? 'bolt' : 'melee';
   }
 
   private async recoil(f: Figure, dir: number) {
-    await this.tweens.run(0.18, (t) => { f.body.position.x = -Math.sin(t * Math.PI) * 0.12 * dir / f.body.scale.x; });
+    await this.tweens.run(0.18, (t) => { f.body.position.x = -Math.sin(t * Math.PI) * 0.12 * dir; f.attack(Math.sin(t * Math.PI)); });
   }
 
   private async knockback(f: Figure, dir: number) {
-    await this.tweens.run(0.2, (t) => { f.body.position.x = Math.sin(t * Math.PI) * 0.35 * dir / f.body.scale.x; });
+    await this.tweens.run(0.2, (t) => { f.body.position.x = Math.sin(t * Math.PI) * 0.35 * dir; });
   }
 
-  private async play(e: GameEvent, before: GameState, after: GameState, pendingSpell: string | null, followUp = false) {
+  private async play(e: GameEvent, before: GameState, after: GameState, pendingAbility: string | null, followUp = false) {
     switch (e.type) {
       case 'battleStart': {
         this.sync(after);
         // Hostiles materialise one after another.
-        await Promise.all(this.monsters.map(async (m, i) => {
+        await Promise.all(this.hostiles.map(async (m, i) => {
           const scale = m.root.scale.clone();
           m.root.scale.setScalar(0.01);
           await this.tweens.wait(i * 0.15);
@@ -344,7 +370,7 @@ export class Stage {
           await this.tweens.run(0.5, (t) => m.root.scale.copy(scale).multiplyScalar(Math.max(0.01, t)), easeOutBack);
         }));
         if (e.boss) {
-          const boss = this.monsters[e.monsterIds.findIndex((id) => getMonster(id).boss)];
+          const boss = this.hostiles[e.hostileIds.findIndex((id) => getHostile(id).boss)];
           this.shake = 1;
           if (boss) this.fx.popText(this.head(boss), '⚠ WARNING', 'pop-boss');
         }
@@ -354,7 +380,7 @@ export class Stage {
         this.targetIdx = e.foe;
         return;
       case 'hostileDown': {
-        const m = this.monsters[e.foe];
+        const m = this.hostiles[e.foe];
         if (!m) return;
         void this.fx.burst(this.center(m), 0xfff1c2, 40, 3, 0.8, -1);
         await this.tweens.run(0.6, (t) => {
@@ -366,22 +392,23 @@ export class Stage {
       }
       case 'attack': {
         const attacker = this.figureFor(e.actor, e.foe);
-        const target = e.actor === 'player' ? this.figureFor('monster', e.foe) : this.hero;
+        const target = e.actor === 'player' ? this.figureFor('hostile', e.foe) : this.hero;
         if (!attacker || !target) return;
         const dir = e.actor === 'player' ? 1 : -1;
         const color = ELEMENT_COLORS[e.element];
-        const style = this.attackStyle(e.actor, e.element, pendingSpell, after);
+        const style = this.attackStyle(e.actor, e.element, pendingAbility, after);
         const from = this.center(attacker).add(new THREE.Vector3(0.6 * dir, 0.25, 0.3 * (e.actor === 'player' ? 1 : 0)));
         if (followUp) {
           // Burst: no wind-up, just a fast shot (or nothing extra for melee).
           if (style !== 'melee') await this.fx.bolt(from, this.center(target), color, 0.07);
         } else if (style === 'orb') {
+          void this.tweens.run(0.45, (t) => attacker.attack(Math.sin(t * Math.PI)));
           await this.fx.projectile(from, this.center(target), color);
         } else if (style === 'bolt') {
           void this.recoil(attacker, dir);
           await this.fx.bolt(from, this.center(target), color);
         } else {
-          await this.lunge(attacker, dir, e.actor === 'monster' ? 1.6 : 1.3);
+          await this.lunge(attacker, dir, e.actor === 'hostile' ? 1.6 : 1.3);
         }
         if (e.hit) {
           this.flash(target);
@@ -397,22 +424,22 @@ export class Stage {
         await this.tweens.wait(followUp ? 0.08 : 0.12);
         return;
       }
-      case 'cast': {
+      case 'abilityUsed': {
         const f = this.figureFor(e.actor);
         if (!f) return;
-        const spell = getSpell(e.spellId);
-        const dmg = spell.effects.find((x) => x.type === 'damage');
+        const ability = getAbility(e.abilityId);
+        const dmg = ability.effects.find((x) => x.type === 'damage');
         const element = dmg?.type === 'damage' ? resolveElement(after.player!, dmg.element) : 'photon';
-        this.fx.popText(this.head(f, 0.6), spell.name, 'pop-spell');
+        this.fx.popText(this.head(f, 0.6), ability.name, 'pop-ability');
         await this.fx.ring(f.root.position, ELEMENT_COLORS[element]);
         return;
       }
       case 'heal': {
         const f = this.figureFor(e.actor);
-        if (!f || (e.amount <= 0 && e.mana <= 0)) return;
+        if (!f || (e.amount <= 0 && e.energy <= 0)) return;
         void this.fx.burst(f.root.position.clone().setY(0.3), e.amount > 0 ? 0x7dff8a : 0x7ab8ff, 30, 1.2, 0.8, 3);
         if (e.amount > 0) this.fx.popText(this.head(f), `+${e.amount}`, 'pop-heal');
-        if (e.mana > 0) this.fx.popText(this.head(f, 0.7), `+${e.mana} EN`, 'pop-mana');
+        if (e.energy > 0) this.fx.popText(this.head(f, 0.7), `+${e.energy} EN`, 'pop-energy');
         await this.tweens.wait(0.35);
         return;
       }
@@ -440,7 +467,7 @@ export class Stage {
         return;
       }
       case 'victory': {
-        if (this.hero) this.fx.popText(this.head(this.hero), `+${e.gold} credits`, 'pop-gold');
+        if (this.hero) this.fx.popText(this.head(this.hero), `+${e.credits} credits`, 'pop-credits');
         await this.tweens.wait(0.3);
         return;
       }
@@ -473,7 +500,7 @@ export class Stage {
         if (this.hero) await this.fx.burst(this.center(this.hero), 0xfff1c2, 20, 1.5, 0.5, 0);
         return;
       }
-      case 'questComplete': {
+      case 'missionComplete': {
         if (!this.hero) return;
         this.fx.popText(this.head(this.hero, 1), 'MISSION COMPLETE', 'pop-level');
         const colors = [0xff6a2b, 0x6cc6ff, 0xffe14d, 0x72e05a, 0xa36bff];

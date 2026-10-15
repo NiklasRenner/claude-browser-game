@@ -5,14 +5,14 @@
  * player's turn is skipped automatically, so the UI only ever asks for input
  * when the player can actually act.
  */
-import { getMonster } from '../data';
+import { getHostile } from '../data';
 import { derive } from '../player';
 import type { Rng } from '../rng';
 import type { BattleState, Element, GameEvent, Player } from '../types';
 import { allDown, damageHostile, endTurn, fixTarget, hasStatus, isAlive, tickDots } from './battle';
 import type { Ctx } from './battle';
 import { hostileAct } from './actions';
-import { monsterDamageTaken } from './formulas';
+import { hostileDamageTaken } from './formulas';
 import { ensureTimeline, initTimeline, nextActor, spendTurn } from './timeline';
 
 export type TurnOutcome = 'continue' | 'allDown' | 'playerDied';
@@ -76,13 +76,13 @@ function playerTurnStarts({ player, battle, events }: Ctx): boolean {
 /** One hostile's turn: damage over time, then stun or attack. */
 function hostileTurn(ctx: Ctx, foe: number): void {
   const { player, battle, events } = ctx;
-  const m = battle.monsters[foe]!;
-  const def = getMonster(m.defId);
+  const m = battle.hostiles[foe]!;
+  const def = getHostile(m.defId);
   spendTurn(player, battle, foe);
   const atStart = new Set(m.statuses);
-  damageHostile(ctx, foe, tickDots(m.statuses, 'monster', (el) => monsterDamageTaken(def, el), events, foe));
+  damageHostile(ctx, foe, tickDots(m.statuses, 'hostile', (el) => hostileDamageTaken(def, el), events, foe));
   if (!isAlive(m)) return;
-  if (hasStatus(m.statuses, 'stun')) events.push({ type: 'stunned', actor: 'monster', foe });
+  if (hasStatus(m.statuses, 'stun')) events.push({ type: 'stunned', actor: 'hostile', foe });
   else hostileAct(ctx, foe);
-  endTurn(m.statuses, atStart, 'monster', events, foe);
+  endTurn(m.statuses, atStart, 'hostile', events, foe);
 }

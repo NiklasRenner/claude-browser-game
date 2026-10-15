@@ -1,13 +1,13 @@
 import { MAX_HOSTILES } from '../types';
-import type { AreaDef, ArmorDef, ClassDef, ClassId, ConsumableDef, ItemDef, MonsterDef, SpellDef, WeaponDef } from '../types';
-import { AREAS, AREA_ORDER } from './areas';
-import { CLASSES } from './classes';
-import { ITEMS, SHOP_STOCK } from './items';
-import { MONSTERS } from './monsters';
-import { SPELLS } from './spells';
+import type { MissionDef, ArmorDef, DivisionDef, DivisionId, ConsumableDef, ItemDef, HostileDef, AbilityDef, WeaponDef } from '../types';
+import { MISSIONS, MISSION_ORDER } from './missions';
+import { DIVISIONS } from './divisions';
+import { ITEMS, QUARTERMASTER_STOCK } from './items';
+import { HOSTILES } from './hostiles';
+import { ABILITIES } from './abilities';
 
-export { AREAS, AREA_ORDER, CLASSES, ITEMS, MONSTERS, SHOP_STOCK, SPELLS };
-export { FINAL_AREA } from './areas';
+export { MISSIONS, MISSION_ORDER, DIVISIONS, ITEMS, HOSTILES, QUARTERMASTER_STOCK, ABILITIES };
+export { FINAL_MISSION as FINAL_MISSION } from './missions';
 
 function lookup<T>(table: Record<string, T>, id: string, what: string): T {
   const value = table[id];
@@ -16,10 +16,10 @@ function lookup<T>(table: Record<string, T>, id: string, what: string): T {
 }
 
 export const getItem = (id: string): ItemDef => lookup(ITEMS, id, 'item');
-export const getMonster = (id: string): MonsterDef => lookup(MONSTERS, id, 'monster');
-export const getSpell = (id: string): SpellDef => lookup(SPELLS, id, 'spell');
-export const getArea = (id: string): AreaDef => lookup(AREAS, id, 'area');
-export const getClass = (id: ClassId): ClassDef => lookup(CLASSES, id, 'class');
+export const getHostile = (id: string): HostileDef => lookup(HOSTILES, id, 'hostile');
+export const getAbility = (id: string): AbilityDef => lookup(ABILITIES, id, 'ability');
+export const getMission = (id: string): MissionDef => lookup(MISSIONS, id, 'mission');
+export const getDivision = (id: DivisionId): DivisionDef => lookup(DIVISIONS, id, 'class');
 
 export function getWeapon(id: string): WeaponDef {
   const item = getItem(id);
@@ -37,9 +37,9 @@ export function getConsumable(id: string): ConsumableDef {
   return item;
 }
 
-/** Spells a class knows at a given level, in learning order. */
-export function spellsFor(classId: ClassId, level: number): SpellDef[] {
-  return Object.values(SPELLS).filter((s) => s.classId === classId && s.level <= level);
+/** Abilities a class knows at a given level, in learning order. */
+export function abilitiesFor(divisionId: DivisionId, level: number): AbilityDef[] {
+  return Object.values(ABILITIES).filter((s) => s.divisionId === divisionId && s.level <= level);
 }
 
 /** Checks every cross-reference and range in the content tables. Returns a list of problems. */
@@ -53,40 +53,40 @@ export function validateContent(): string[] {
     if (item.price < 0) problems.push(`${item.id}: negative price`);
     if (item.kind === 'weapon') range(item.id, item.damage);
   }
-  for (const cls of Object.values(CLASSES)) {
+  for (const cls of Object.values(DIVISIONS)) {
     if (ITEMS[cls.startWeapon]?.kind !== 'weapon') problems.push(`${cls.id}: bad startWeapon`);
     if (ITEMS[cls.startArmor]?.kind !== 'armor') problems.push(`${cls.id}: bad startArmor`);
-    if (!Object.values(SPELLS).some((s) => s.classId === cls.id && s.level === 1)) {
-      problems.push(`${cls.id}: no level-1 spell`);
+    if (!Object.values(ABILITIES).some((s) => s.divisionId === cls.id && s.level === 1)) {
+      problems.push(`${cls.id}: no level-1 ability`);
     }
   }
-  for (const spell of Object.values(SPELLS)) {
-    if (spell.mp <= 0) problems.push(`${spell.id}: mp must be positive`);
-    for (const e of spell.effects) if (e.type !== 'status') range(spell.id, e.dice);
+  for (const ability of Object.values(ABILITIES)) {
+    if (ability.energy <= 0) problems.push(`${ability.id}: energy must be positive`);
+    for (const e of ability.effects) if (e.type !== 'status') range(ability.id, e.dice);
   }
-  for (const m of Object.values(MONSTERS)) {
+  for (const m of Object.values(HOSTILES)) {
     if (m.hp <= 0) problems.push(`${m.id}: hp must be positive`);
     if (m.attacks.length === 0) problems.push(`${m.id}: no attacks`);
     for (const a of m.attacks) range(`${m.id}.${a.name}`, a.damage);
-    range(`${m.id}.gold`, m.gold);
+    range(`${m.id}.credits`, m.credits);
     for (const d of m.drops ?? []) if (!ITEMS[d.itemId]) problems.push(`${m.id}: unknown drop ${d.itemId}`);
   }
-  for (const id of AREA_ORDER) {
-    const area = AREAS[id]!;
-    for (const mid of [...area.monsters, area.boss]) if (!MONSTERS[mid]) problems.push(`${id}: unknown monster ${mid}`);
-    if (!MONSTERS[area.boss]?.boss) problems.push(`${id}: boss ${area.boss} is not flagged boss`);
-    if (area.requires && !AREAS[area.requires]) problems.push(`${id}: unknown requirement ${area.requires}`);
-    for (const group of area.groups ?? []) {
+  for (const id of MISSION_ORDER) {
+    const mission = MISSIONS[id]!;
+    for (const mid of [...mission.hostiles, mission.boss]) if (!HOSTILES[mid]) problems.push(`${id}: unknown hostile ${mid}`);
+    if (!HOSTILES[mission.boss]?.boss) problems.push(`${id}: boss ${mission.boss} is not flagged boss`);
+    if (mission.requires && !MISSIONS[mission.requires]) problems.push(`${id}: unknown requirement ${mission.requires}`);
+    for (const group of mission.groups ?? []) {
       if (group.length < 1 || group.length > MAX_HOSTILES) problems.push(`${id}: group size ${group.length}`);
       for (const mid of group) {
-        if (!MONSTERS[mid]) problems.push(`${id}: unknown monster ${mid} in group`);
-        else if (MONSTERS[mid]!.boss) problems.push(`${id}: boss ${mid} in a regular group`);
+        if (!HOSTILES[mid]) problems.push(`${id}: unknown hostile ${mid} in group`);
+        else if (HOSTILES[mid]!.boss) problems.push(`${id}: boss ${mid} in a regular group`);
       }
     }
-    const adds = area.bossAdds ?? [];
+    const adds = mission.bossAdds ?? [];
     if (adds.length > MAX_HOSTILES - 1) problems.push(`${id}: too many boss adds`);
-    for (const mid of adds) if (!MONSTERS[mid] || MONSTERS[mid]!.boss) problems.push(`${id}: bad boss add ${mid}`);
+    for (const mid of adds) if (!HOSTILES[mid] || HOSTILES[mid]!.boss) problems.push(`${id}: bad boss add ${mid}`);
   }
-  for (const id of SHOP_STOCK) if (!ITEMS[id]) problems.push(`shop: unknown item ${id}`);
+  for (const id of QUARTERMASTER_STOCK) if (!ITEMS[id]) problems.push(`shop: unknown item ${id}`);
   return problems;
 }

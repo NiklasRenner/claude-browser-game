@@ -2,10 +2,10 @@
  * Per-location backdrops: ground, sky, props, lighting and ambient particles.
  * Prop placement uses the core's seeded RNG so every location always looks the same.
  *
- * Keys: 'ship' (the hub, aboard the Meridian) or an area id.
+ * Keys: 'ship' (the hub, aboard the Meridian) or a mission id.
  */
 import * as THREE from 'three';
-import { Rng, getArea } from '../core';
+import { Rng, getMission } from '../core';
 
 export interface Lighting {
   hemiSky: number;
@@ -305,7 +305,7 @@ function buildShip(group: THREE.Group, rng: Rng, updaters: Updater[]) {
   group.add(stars(rng, 700, 0.9));
 }
 
-function buildArea(key: string, group: THREE.Group, rng: Rng, updaters: Updater[], addParticles: (s: ParticleSpec) => void) {
+function buildWorld(key: string, group: THREE.Group, rng: Rng, updaters: Updater[], addParticles: (s: ParticleSpec) => void) {
   switch (key) {
     case 'veridia': {
       for (let i = 0; i < 22; i++) {
@@ -473,7 +473,7 @@ const LIGHTING: Record<string, Lighting> = {
 };
 
 export function buildEnvironment(key: string): Environment {
-  const palette = key === 'ship' ? SHIP_PALETTE : getArea(key).palette;
+  const palette = key === 'ship' ? SHIP_PALETTE : getMission(key).palette;
   const rng = new Rng(Array.from(key).reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7));
   const group = new THREE.Group();
   const updaters: Updater[] = [];
@@ -490,7 +490,7 @@ export function buildEnvironment(key: string): Environment {
     addParticles({ count: 30, color: 0x9fe8ff, size: 0.05, velocity: [0.05, 0.05, 0], jitter: 0.2, additive: true });
   } else {
     group.add(ground(palette.ground, rng));
-    buildArea(key, group, rng, updaters, addParticles);
+    buildWorld(key, group, rng, updaters, addParticles);
   }
 
   return {

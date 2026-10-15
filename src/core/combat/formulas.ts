@@ -6,13 +6,13 @@
  * The hit rule is the same for both sides: the attack's hit chance minus the
  * defender's evasion, clamped to [MIN_HIT, MAX_HIT].
  */
-import { getArmor, getMonster, getWeapon } from '../data';
+import { getArmor, getHostile, getWeapon } from '../data';
 import { derive } from '../player';
 import { ABILITY_HIT, MAX_HIT, MIN_HIT, PLAYER_EVASION_CAP } from '../stats';
-import type { BattleState, Element, MonsterAttack, MonsterDef, MonsterInstance, Player, SpellEffect } from '../types';
+import type { BattleState, Element, HostileAttack, HostileDef, Hostile, Player, AbilityEffect } from '../types';
 import { clamp, hostileLevel, statusPower } from './battle';
 
-export type DamageEffect = Extract<SpellEffect, { type: 'damage' }>;
+export type DamageEffect = Extract<AbilityEffect, { type: 'damage' }>;
 
 /** Hit chance a patrol-scaled hostile gains per level above its definition (player evasion doesn't grow with level). */
 export const HOSTILE_ACCURACY_PER_LEVEL = 0.5;
@@ -24,25 +24,25 @@ export function hitChance(hit: number, evasion: number): number {
 // ─── Hostiles ──────────────────────────────────────────────────────────────
 
 /** Hit chance of a hostile's attack before the player's evasion (statuses included). */
-export function hostileHit(inst: MonsterInstance, attack?: MonsterAttack): number {
-  const def = getMonster(inst.defId);
+export function hostileHit(inst: Hostile, attack?: HostileAttack): number {
+  const def = getHostile(inst.defId);
   const base = attack?.hit ?? def.accuracy;
   return base + (hostileLevel(inst) - def.level) * HOSTILE_ACCURACY_PER_LEVEL - statusPower(inst.statuses, 'chill');
 }
 
 /** A hostile's evasion right now (statuses included). */
-export function hostileEvasion(inst: MonsterInstance): number {
-  return getMonster(inst.defId).evasion + statusPower(inst.statuses, 'evasive') - statusPower(inst.statuses, 'marked');
+export function hostileEvasion(inst: Hostile): number {
+  return getHostile(inst.defId).evasion + statusPower(inst.statuses, 'evasive') - statusPower(inst.statuses, 'marked');
 }
 
 /** Damage a hostile takes from an element, in percent (100 = normal). */
-export function monsterDamageTaken(m: MonsterDef, el: Element): number {
+export function hostileDamageTaken(m: HostileDef, el: Element): number {
   return m.resist[el] ?? 100;
 }
 
 /** Chance (%) that one strike of this hostile attack lands on the player right now. */
-export function hostileHitChance(player: Player, battle: BattleState, foe: number, attack?: MonsterAttack): number {
-  return hitChance(hostileHit(battle.monsters[foe]!, attack), playerEvasion(player, battle));
+export function hostileHitChance(player: Player, battle: BattleState, foe: number, attack?: HostileAttack): number {
+  return hitChance(hostileHit(battle.hostiles[foe]!, attack), playerEvasion(player, battle));
 }
 
 // ─── Player ────────────────────────────────────────────────────────────────
@@ -73,7 +73,7 @@ export function playerHitChance(player: Player, battle: BattleState, foe: number
 
 /** Chance (%) that a player strike with base hit `hit` lands on hostile `foe` (chill included). */
 export function strikeChance(battle: BattleState, foe: number, hit: number): number {
-  return hitChance(hit - statusPower(battle.playerStatuses, 'chill'), hostileEvasion(battle.monsters[foe]!));
+  return hitChance(hit - statusPower(battle.playerStatuses, 'chill'), hostileEvasion(battle.hostiles[foe]!));
 }
 
 /** The element a damage effect actually deals ('weapon' = the equipped weapon's). */
