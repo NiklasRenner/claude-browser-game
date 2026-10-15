@@ -14,7 +14,8 @@
  * order as the original single-hostile engine, so solo fights are unchanged.
  */
 import { getClass, getConsumable, getMonster, getSpell, getWeapon } from './data';
-import { derive, removeItem, statMultiplier } from './player';
+import { derive, removeItem } from './player';
+import { ABILITY_ACCURACY, PLAYER_BASE_HIT, PLAYER_CRIT_MULT, healMultiplier } from './stats';
 import type { Rng } from './rng';
 import type {
   Actor, BattleState, Element, GameEvent, MonsterDef, MonsterInstance, Player, SpellEffect, StatusEffect, StatusId,
@@ -23,13 +24,13 @@ import type {
 export const BASE_HIT = 82;
 export const MIN_HIT = 10;
 export const MAX_HIT = 97;
-export const PLAYER_CRIT_MULT = 1.75;
+export { PLAYER_CRIT_MULT } from './stats';
 export const MONSTER_CRIT_MULT = 1.5;
 
 export const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
-export function hitChance(accuracy: number, evasion: number): number {
-  return clamp(BASE_HIT + accuracy - evasion, MIN_HIT, MAX_HIT);
+export function hitChance(accuracy: number, evasion: number, base = BASE_HIT): number {
+  return clamp(base + accuracy - evasion, MIN_HIT, MAX_HIT);
 }
 
 // ─── Battle helpers ────────────────────────────────────────────────────────
@@ -158,12 +159,11 @@ export function mitigate(raw: number, damageTakenPct: number, shieldPct: number)
 
 /** Average outgoing damage for a damage effect before crits/resist (used by the bot). */
 export function averageEffectDamage(player: Player, effect: Extract<SpellEffect, { type: 'damage' }>): number {
-  const cls = getClass(player.classId);
   const weapon = getWeapon(player.weapon);
-  const stat = statMultiplier(player.stats[effect.scaling]);
+  const power = derive(player).damage;
   const mult = effect.mult ?? 1;
-  if (effect.useWeapon) return ((weapon.damage[0] + weapon.damage[1]) / 2) * cls.weaponMult * stat * mult;
-  return ((effect.dice[0] + effect.dice[1]) / 2) * stat * mult;
+  if (effect.useWeapon) return ((weapon.damage[0] + weapon.damage[1]) / 2) * power * mult;
+  return ((effect.dice[0] + effect.dice[1]) / 2) * power * mult;
 }
 
 export function resolveElement(player: Player, element: Element | 'weapon'): Element {
@@ -190,16 +190,13 @@ function damageMonster(ctx: Ctx, i: number, amount: number) {
 }
 
 function playerStrike(
-  ctx: Ctx, foe: number, name: string, element: Element, raw: number, opts: { canMiss: boolean; extraCrit?: number },
+  ctx: Ctx, foe: number, name: string, element: Element, raw: number, opts: { field?: boolean; extraCrit?: number },
 ): boolean {
   const { player, battle, rng, events } = ctx;
   const monster = defOf(ctx, foe);
   const d = derive(player);
-  let hit = true;
-  if (opts.canMiss) {
-    const acc = d.accuracy - statusPower(battle.playerStatuses, 'chill');
-    hit = rng.chance(hitChance(acc, monsterEvasion(monster, hostileLevel(battle.monsters[foe]!))));
-  }
+  const acc = d.accuracy + (opts.field ? ABILITY_ACCURACY : 0) - statusPower(battle.playerStatuses, 'chill');
+  const hit = rng.chance(hitChance(acc, monsterEvasion(monster, hostileLevel(battle.monsters[foe]!)), PLAYER_BASE_HIT));
   if (!hit) {
     events.push({ type: 'attack', actor: 'player', foe, name, element, hit: false, crit: false, damage: 0 });
     return false;
@@ -214,13 +211,13 @@ function playerStrike(
 export function playerAttack(ctx: Ctx): void {
   const { player, rng, battle } = ctx;
   const foe = battle.target;
-  const cls = getClass(player.classId);
   const weapon = getWeapon(player.weapon);
-  const raw = rng.int(...weapon.damage) * cls.weaponMult * statMultiplier(player.stats[cls.attackStat]);
-  const hit = playerStrike(ctx, foe, weapon.name, weapon.element, raw, { canMiss: true });
+  const power = derive(player).damage;
+  const raw = rng.int(...weapon.damage) * power;
+  const hit = playerStrike(ctx, foe, weapon.name, weapon.element, raw, {});
   if (hit && weapon.proc && isAlive(battle.monsters[foe]!) && rng.chance(weapon.proc.chance)) {
-    const power = Math.round(weapon.proc.power * statMultiplier(player.stats[cls.attackStat]));
-    applyStatus(battle.monsters[foe]!.statuses, 'monster', weapon.proc.status, weapon.proc.turns, power, ctx.events, foe);
+    const dot = Math.round(weapon.proc.power * power);
+    applyStatus(battle.monsters[foe]!.statuses, 'monster', weapon.proc.status, weapon.proc.turns, dot, ctx.events, foe);
   }
 }
 
@@ -232,7 +229,7 @@ export function isAreaSpell(spellId: string): boolean {
 export function playerCast(ctx: Ctx, spellId: string): void {
   const { player, rng, events, battle } = ctx;
   const spell = getSpell(spellId);
-  const cls = getClass(player.classId);
+  const power = derive(player).damage;
   player.mp -= spell.mp;
   events.push({ type: 'cast', actor: 'player', spellId, name: spell.name });
 
@@ -247,21 +244,21 @@ export function playerCast(ctx: Ctx, spellId: string): void {
         let raw: number;
         if (effect.useWeapon) {
           const weapon = getWeapon(player.weapon);
-          raw = rng.int(...weapon.damage) * cls.weaponMult;
+          raw = rng.int(...weapon.damage);
         } else {
           raw = rng.int(...effect.dice);
         }
-        raw *= statMultiplier(player.stats[effect.scaling]) * (effect.mult ?? 1);
-        // Weapon techniques can miss; pure field science always lands.
+        raw *= power * (effect.mult ?? 1);
+        // Field abilities (not weapon techniques) get a small accuracy bonus.
         const hit = playerStrike(ctx, foe, spell.name, element, raw, {
-          canMiss: !!effect.useWeapon,
+          field: !effect.useWeapon,
           ...(effect.extraCrit !== undefined ? { extraCrit: effect.extraCrit } : {}),
         });
         if (hit) landedOn.push(foe);
       }
     } else if (effect.type === 'heal') {
       const d = derive(player);
-      const amount = Math.round(rng.int(...effect.dice) * statMultiplier(player.stats[effect.scaling]) * (1 + player.level * 0.05));
+      const amount = Math.round(rng.int(...effect.dice) * healMultiplier(player.level));
       const healed = Math.min(amount, d.maxHp - player.hp);
       player.hp += healed;
       events.push({ type: 'heal', actor: 'player', amount: healed, mana: 0 });
@@ -274,18 +271,12 @@ export function playerCast(ctx: Ctx, spellId: string): void {
         if (!isAlive(m)) continue;
         if (effect.chance !== undefined && !rng.chance(effect.chance)) continue;
         const scaled = effect.status === 'burn' || effect.status === 'corrode'
-          ? Math.round(effect.power * statMultiplier(player.stats[spellScaling(spellId)]))
+          ? Math.round(effect.power * power)
           : effect.power;
         applyStatus(m.statuses, 'monster', effect.status, effect.turns, scaled, events, foe);
       }
     }
   }
-}
-
-function spellScaling(spellId: string) {
-  const spell = getSpell(spellId);
-  for (const e of spell.effects) if (e.type !== 'status') return e.scaling;
-  return getClass(spell.classId).attackStat;
 }
 
 /** Uses a consumable. Works in and out of battle; `statuses` is null outside battle. */
@@ -311,7 +302,7 @@ export function useConsumable(player: Player, itemId: string, statuses: StatusEf
 
 /** Escape chance against a hostile of the given level (use the toughest living one). */
 export function fleeChance(player: Player, hostileLvl: number): number {
-  return clamp(50 + (player.level - hostileLvl) * 6 + player.stats.luk * 0.5 + player.stats.dex * 0.5, 20, 90);
+  return clamp(50 + (player.level - hostileLvl) * 6 + player.stats.agi, 20, 90);
 }
 
 /** Highest effective level among living hostiles. */

@@ -17,10 +17,11 @@ import {
 } from './player';
 import { Rng } from './rng';
 import { STATS } from './types';
+import { ENERGY_RECOVERY } from './stats';
 import { PATROL_CONTACTS, patrolBoss, patrolContact, patrolReward, patrolWorlds } from './patrol';
 import type { Action, ClassId, GameEvent, GameState, Player, QuestState, StepResult } from './types';
 
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 export const DEFEAT_GOLD_PENALTY = 0.1;
 
 export function initialState(seed = 1): GameState {
@@ -349,7 +350,7 @@ function onVictory(state: GameState, rng: Rng, events: GameEvent[]) {
   const drops: string[] = [];
   for (const [i, monster] of defs.entries()) {
     const scale = lineup[i]!.reward; // patrol hostiles only; missions use the plain numbers
-    const rolled = rng.int(...monster.gold) * (1 + player.stats.luk * 0.01);
+    const rolled = rng.int(...monster.gold);
     gold += Math.round(scale === undefined ? rolled : rolled * scale);
     xp += scale === undefined ? monster.xp : Math.round(monster.xp * scale);
     for (const drop of monster.drops ?? []) {
@@ -366,6 +367,12 @@ function onVictory(state: GameState, rng: Rng, events: GameEvent[]) {
   state.stats.battlesWon += 1;
   state.battle = null;
   events.push({ type: 'victory', xp, gold, drops });
+  // Catch your breath: some energy comes back after every won fight.
+  const recovered = Math.min(Math.round(derive(player).maxMp * ENERGY_RECOVERY), derive(player).maxMp - player.mp);
+  if (recovered > 0) {
+    player.mp += recovered;
+    events.push({ type: 'heal', actor: 'player', amount: 0, mana: recovered });
+  }
   grantXp(player, xp, events);
 
   if (!defs.some((m) => m.boss)) {

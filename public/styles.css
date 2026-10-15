@@ -143,7 +143,7 @@ h3 { font-size: 13px; margin-top: 10px; text-transform: uppercase; letter-spacin
 }
 .class-card strong { font-family: var(--display); font-size: 17px; letter-spacing: 0.04em; }
 .class-card .desc { color: var(--muted); font-size: 13px; }
-.class-card .stats { display: flex; gap: 8px; font-size: 11px; color: var(--accent); flex-wrap: wrap; }
+.class-card .stats { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--accent); }
 .class-card.selected { background: rgba(95, 214, 255, 0.1); border-color: var(--accent); border-left-color: var(--division); box-shadow: 0 0 0 1px var(--accent), 0 0 18px rgba(95, 214, 255, 0.2); }
 
 /* ─── Town / lists ───────────────────────────────────────────────────────── */
@@ -247,3 +247,5 @@ h3 { font-size: 13px; margin-top: 10px; text-transform: uppercase; letter-spacin
 .patrol-row { border-left-color: var(--gold); background: rgba(255, 184, 74, 0.06); }
 .patrol-row .badge { background: #6b4a12; }
 .tab-body > h3:first-child { margin-top: 0; }
+
+.stat-effect { font-size: 11px; color: var(--muted); margin-left: 8px; }

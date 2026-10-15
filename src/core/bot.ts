@@ -6,7 +6,8 @@
 import { aliveIndices, averageEffectDamage, hostileLevel, hitChance, monsterDamageTaken, monsterEvasion, resolveElement, statusPower } from './combat';
 import { AREA_ORDER, CLASSES, ITEMS, getArea, getClass, getMonster } from './data';
 import { checkAction, initialState, legalActions, questEncounters, step } from './game';
-import { countItem, derive, knownSpells, statMultiplier } from './player';
+import { countItem, derive, knownSpells } from './player';
+import { ABILITY_ACCURACY, BASE_STAT, PLAYER_BASE_HIT } from './stats';
 import type { Action, ArmorDef, ClassId, GameState, MonsterDef, Player, StatusEffect, WeaponDef } from './types';
 
 const ok = (s: GameState, a: Action) => checkAction(s, a) === null;
@@ -42,7 +43,7 @@ function areaMonsters(areaId: string): MonsterDef[] {
 /** Expected weapon damage per swing against the given monsters. */
 function weaponScore(p: Player, w: WeaponDef, monsters: MonsterDef[]): number {
   const cls = getClass(p.classId);
-  const avg = ((w.damage[0] + w.damage[1]) / 2) * cls.weaponMult * statMultiplier(p.stats[cls.attackStat]);
+  const avg = ((w.damage[0] + w.damage[1]) / 2) * derive(p).damage;
   const resist = monsters.reduce((sum, m) => sum + monsterDamageTaken(m, w.element), 0) / monsters.length;
   return avg * (resist / 100) * (1 + w.bonus / 100);
 }
@@ -55,7 +56,7 @@ function townAction(state: GameState, p: Player): Action {
   // 1. Spend stat points following the class pattern.
   if (p.statPoints > 0) {
     const cls = CLASSES[p.classId];
-    const spent = Object.entries(p.stats).reduce((s, [k, v]) => s + v - cls.baseStats[k as keyof typeof p.stats], 0);
+    const spent = Object.values(p.stats).reduce((s, v) => s + v - BASE_STAT, 0);
     return { type: 'allocateStat', stat: cls.statPriority[spent % cls.statPriority.length]! };
   }
 
@@ -168,11 +169,12 @@ function battleAction(state: GameState, p: Player): Action {
 
   // Otherwise pick the highest expected damage option.
   const accuracy = d.accuracy - statusPower(battle.playerStatuses, 'chill');
-  const hit = hitChance(accuracy, monsterEvasion(monster, hostileLevel(target))) / 100;
+  const hit = hitChance(accuracy, monsterEvasion(monster, hostileLevel(target)), PLAYER_BASE_HIT) / 100;
+  const fieldHit = hitChance(accuracy + ABILITY_ACCURACY, monsterEvasion(monster, hostileLevel(target)), PLAYER_BASE_HIT) / 100;
   const cls = getClass(p.classId);
   let best: Action = { type: 'attack' };
   const weapon = ITEMS[p.weapon] as WeaponDef;
-  let bestScore = averageEffectDamage(p, { type: 'damage', element: 'weapon', dice: [0, 0], scaling: cls.attackStat, useWeapon: true })
+  let bestScore = averageEffectDamage(p, { type: 'damage', element: 'weapon', dice: [0, 0], useWeapon: true })
     * (monsterDamageTaken(monster, weapon.element) / 100) * hit;
 
   // Keep enough MP for an emergency heal unless the monster is almost dead.
@@ -186,7 +188,7 @@ function battleAction(state: GameState, p: Player): Action {
       if (e.type === 'damage') {
         const element = resolveElement(p, e.element);
         const hitList = e.aoe ? others : [monster];
-        for (const m of hitList) score += averageEffectDamage(p, e) * (monsterDamageTaken(m, element) / 100) * (e.useWeapon ? hit : 1);
+        for (const m of hitList) score += averageEffectDamage(p, e) * (monsterDamageTaken(m, element) / 100) * (e.useWeapon ? hit : fieldHit);
       } else if (e.type === 'status' && e.target === 'enemy' && (e.status === 'corrode' || e.status === 'burn')) {
         if (!target.statuses.some((s) => s.id === e.status)) score += e.power * e.turns * ((e.chance ?? 100) / 100);
       }

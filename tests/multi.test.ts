@@ -40,7 +40,7 @@ describe('targeting', () => {
 
   it('attacks hit the selected target, and an attack can carry its own target', () => {
     const s = sturdy(lineup(['hive_drone', 'hive_drone', 'hive_drone']));
-    s.player!.stats.dex = 300;
+    s.player!.stats.pre = 300;
     const r = act(s, { type: 'attack', target: 1 });
     const hit = r.events.find((e) => e.type === 'attack' && e.actor === 'player');
     assert.ok(hit && hit.type === 'attack' && hit.foe === 1);
@@ -51,7 +51,7 @@ describe('targeting', () => {
 
   it('when the target goes down, it moves to the next living hostile (wrapping)', () => {
     const s = sturdy(lineup(['hive_drone', 'hive_drone', 'hive_drone']));
-    s.player!.stats.dex = 300;
+    s.player!.stats.pre = 300;
     s.battle!.target = 2;
     s.battle!.monsters[2]!.hp = 1;
     const r = act(s, { type: 'attack' });
@@ -74,7 +74,7 @@ describe('turn order', () => {
 
   it('the fight is won only when every hostile is down, with rewards from all of them', () => {
     let s = sturdy(lineup(['hive_drone', 'hive_spitter']));
-    s.player!.stats.dex = 300;
+    s.player!.stats.pre = 300;
     s.battle!.monsters[0]!.hp = 1;
     s.battle!.monsters[1]!.hp = 1;
     let r = act(s, { type: 'attack' });

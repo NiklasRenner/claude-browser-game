@@ -8,7 +8,7 @@ describe('keyboard shortcuts', () => {
   it('advance to the next fight with Enter, Space or C, and return to ship with R', () => {
     let s = act(newGame('security', 4), { type: 'startQuest', areaId: 'veridia' }).state;
     s.battle!.monsters[0]!.hp = 1;
-    s.player!.stats.dex = 300;
+    s.player!.stats.pre = 300;
     s = act(s, { type: 'attack' }).state;
     assert.equal(s.mode, 'quest');
     for (const key of ['Enter', ' ', 'c', 'C']) assert.deepEqual(keyAction(s, key), { type: 'continue' }, key);

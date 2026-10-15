@@ -50,7 +50,7 @@ describe('save / load', () => {
       (s) => { s.player!.weapon = 'excalibur'; },
       (s) => { s.player!.inventory.excalibur = 1; },
       (s) => { s.player!.gold = -5; },
-      (s) => { s.player!.stats.str = 1.5; },
+      (s) => { s.player!.stats.pow = 1.5; },
       (s) => { s.mode = 'battle'; },
       (s) => { s.clearedAreas.push('atlantis'); },
     ];
@@ -103,5 +103,31 @@ describe('save / load', () => {
     assert.equal(s.battle!.playerStatuses[0]!.id, 'shield');
     assert.equal(s.player!.level, 12);
     assert.equal(s.player!.gold, 1913);
+  });
+
+  it('converts v3 class-coupled stats to the generic six, keeping every point', () => {
+    const cases = [
+      // Security: +12 str, +4 dex, +6 end spent.
+      { classId: 'security', old: { str: 21, dex: 9, int: 2, end: 15, luk: 5 }, statPoints: 2,
+        expect: { pow: 17, agi: 7, pre: 7, int: 5, end: 11, luk: 5 } },
+      // Science: +14 int spent → half power, half intellect.
+      { classId: 'science', old: { str: 2, dex: 5, int: 24, end: 9, luk: 6 }, statPoints: 0,
+        expect: { pow: 12, agi: 5, pre: 5, int: 12, end: 7, luk: 5 } },
+      // Engineer: +8 dex → 4 power, 2 precision, 2 agility; +3 luk.
+      { classId: 'engineer', old: { str: 5, dex: 18, int: 2, end: 6, luk: 10 }, statPoints: 4,
+        expect: { pow: 9, agi: 7, pre: 7, int: 5, end: 5, luk: 8 } },
+    ] as const;
+    for (const c of cases) {
+      const s = newGame(c.classId) as unknown as Record<string, any>;
+      s.player.stats = { ...c.old };
+      s.player.statPoints = c.statPoints;
+      s.version = 3;
+      const r = deserialize(JSON.stringify({ format: 'questforge-save', version: 3, state: s }));
+      assert.ok(r.ok, r.ok ? '' : r.error);
+      assert.deepEqual(r.state.player!.stats, c.expect, c.classId);
+      const oldTotal = Object.values(c.old).reduce((a, b) => a + b, 0) + c.statPoints;
+      const newTotal = Object.values(r.state.player!.stats).reduce((a, b) => a + b, 0) + r.state.player!.statPoints;
+      assert.equal(newTotal, oldTotal, `${c.classId}: no points lost or gained`);
+    }
   });
 });

@@ -10,3 +10,4 @@ export { Rng, hashSeed } from './rng';
 export * from './patrol';
 export { describeEvent, describeStep, hostileLabels } from './describe';
 export type { DescribeContext } from './describe';
+export * from './stats';

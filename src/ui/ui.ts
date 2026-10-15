@@ -5,7 +5,8 @@
  */
 import {
   AREA_ORDER, CLASSES, ELEMENTS, SHOP_STOCK, STATS, checkAction, countItem, derive, getArea, getClass,
-  PATROL_CONTACTS, getItem, getMonster, getWeapon, hostileLabels, hostileLevel, isAreaUnlocked, patrolReward, patrolWorlds, questEncounters, isEquipped, knownSpells, monsterDamageTaken, resolveElement, restCost,
+  PATROL_CONTACTS, STAT_INFO, agilityEvasion, damageMultiplier, enduranceHp, intellectEnergy, luckCrit, precisionBonus, spellsFor,
+  getItem, getMonster, getWeapon, hostileLabels, hostileLevel, isAreaUnlocked, patrolReward, patrolWorlds, questEncounters, isEquipped, knownSpells, monsterDamageTaken, resolveElement, restCost,
   sellPrice, xpToNext,
 } from '../core';
 import type { Action, ClassId, Element, GameState, ItemDef, MonsterDef, Player, SpellDef, Stat, StatusEffect } from '../core';
@@ -18,16 +19,17 @@ export const GAME_TITLE = 'STARWARD';
 type TownTab = 'quests' | 'shop' | 'inventory' | 'character' | 'inn';
 type BattleMenu = 'main' | 'skills' | 'items' | 'gear';
 
-const STAT_NAMES: Record<Stat, string> = {
-  str: 'Strength', dex: 'Agility', int: 'Intellect', end: 'Endurance', luk: 'Luck',
-};
-const STAT_HELP: Record<Stat, string> = {
-  str: 'Security Officer damage. Slight accuracy.',
-  dex: 'Accuracy & evasion. Engineer damage.',
-  int: 'Science Officer damage. Max energy.',
-  end: 'Max HP.',
-  luk: 'Critical hits, credits and emergency beam-outs.',
-};
+/** What a stat value currently gives, in plain numbers. */
+function statEffect(stat: Stat, v: number): string {
+  switch (stat) {
+    case 'pow': return `+${Math.round((damageMultiplier(v) - 1) * 100)}% damage`;
+    case 'agi': return `+${agilityEvasion(v).toFixed(1)} evasion`;
+    case 'pre': return `+${precisionBonus(v).toFixed(0)} hit chance`;
+    case 'int': return `+${intellectEnergy(v)} max energy`;
+    case 'end': return `+${enduranceHp(v)} max HP`;
+    case 'luk': return `+${luckCrit(v).toFixed(1)}% crit chance`;
+  }
+}
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const actionAttr = (a: Action) => `data-action='${esc(JSON.stringify(a))}'`;
@@ -222,14 +224,15 @@ export class UI {
   private titleScreen() {
     const cards = (Object.keys(CLASSES) as ClassId[]).map((id) => {
       const c = CLASSES[id];
-      const stats = STATS.map((k) => `<span>${k.toUpperCase()} ${c.baseStats[k]}</span>`).join('');
+      const kit = spellsFor(id, 7).map((sp) => sp.name).join(' · ');
+      const stats = `<span>${getItem(c.startWeapon).name}</span><span class="muted">${kit}</span>`;
       return `<button class="class-card ${id === this.titleClass ? 'selected' : ''}" data-ui="class:${id}" style="--division:#${c.color.toString(16).padStart(6, '0')}">
         <strong>${c.name}</strong><span class="desc">${c.description}</span><span class="stats">${stats}</span></button>`;
     }).join('');
     return `
       <div class="title-screen">
         <h1>${GAME_TITLE}</h1>
-        <p class="tagline">Four worlds. One starship. Report for duty, Ensign.</p>
+        <p class="tagline">Five worlds. One starship. Report for duty, Ensign.</p>
         ${this.game.hasSave() ? '<button class="btn primary big" data-ui="continue">Resume duty</button><div class="or">or enlist a new officer</div>' : ''}
         <label class="name-field">Officer name <input id="hero-name" maxlength="20" placeholder="Hero" autocomplete="off"></label>
         <div class="class-cards">${cards}</div>
@@ -307,8 +310,9 @@ export class UI {
 
   private character(p: Player, btn: BtnFn) {
     const d = derive(p);
-    const stats = STATS.map((k) => `<div class="row"><div class="row-main"><strong>${STAT_NAMES[k]}</strong> <span class="stat-val">${p.stats[k]}</span>
-      <div class="muted small">${STAT_HELP[k]}</div></div>${p.statPoints ? btn({ type: 'allocateStat', stat: k }, '+1') : ''}</div>`).join('');
+    const stats = STATS.map((k) => `<div class="row"><div class="row-main"><strong>${STAT_INFO[k].name}</strong> <span class="stat-val">${p.stats[k]}</span>
+      <span class="stat-effect">${statEffect(k, p.stats[k])}</span>
+      <div class="muted small">${STAT_INFO[k].help}</div></div>${p.statPoints ? btn({ type: 'allocateStat', stat: k }, '+1') : ''}</div>`).join('');
     const resist = ELEMENTS.filter((el) => d.damageTaken[el] !== 100).map((el) => `${ELEMENT_ICONS[el]} ${100 - d.damageTaken[el]}%`).join(', ');
     const spells = knownSpells(p).map((sp) => `<div class="row"><div class="row-main"><strong>${sp.name}</strong> <span class="mp-cost">${sp.mp} EN</span>${abilityTags(p, sp, null)}<div class="muted small">${sp.description}</div></div></div>`).join('');
     return `

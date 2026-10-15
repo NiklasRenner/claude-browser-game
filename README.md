@@ -22,14 +22,17 @@ npm run dev        # http://localhost:5173 with live reload
 | `npm test` | Unit, property/fuzz, playthrough and golden tests (~4 s) |
 | `npm run test:e2e` | Builds, then drives the real UI in headless Chromium; screenshots in `test-results/` |
 | `npm run test:update-golden` | Re-record golden files after an *intentional* gameplay change |
-| `npm run sim` | Balance report: the bot plays full games for every class, then runs patrols at several levels and post-game (`npm run sim -- 100` for more seeds) |
+| `npm run sim` | Balance report: full bot playthroughs per class, patrols at several levels and post-game, and **stat weights** (`npm run sim -- 100` for more seeds) |
 | `npm run check` | typecheck + tests + e2e (run before committing) |
 
 The e2e test needs a Playwright Chromium (`npx playwright install chromium` once).
 
 ## Gameplay
 
-- **Divisions:** Security Officer (STR, most HP), Science Officer (INT, field-science abilities never miss, fragile), Engineer (DEX, high crit, corrosive nanites).
+- **Divisions:** Security Officer, Science Officer and Engineer differ only in their ability kits and starting gear. Stats are generic and shared.
+- **Stats** (`src/core/stats.ts`, every officer starts at 5 in each; +4 points per level). Each has one job:
+  **Power** → all damage (weapons, abilities, damage over time) · **Agility** → evasion (diminishing) · **Precision** → hit chance · **Intellect** → max energy · **Endurance** → max HP · **Luck** → crit chance (diminishing; crits deal ×2).
+  You recover 15% of max energy after each won fight. The Personnel File shows what each stat currently gives.
 - **Loop:** Ship → Mission Board → beam down → hostile contacts + a priority target → beam back up. HP carries over between fights, so medkits, returning to the ship and sickbay matter.
 - **Missions:** Veridia Prime (jungle colony) → Kethra Mining Moon (volcanic) → Glacies IV (ice world) → The Void Rift (derelict fleet) → Xenith Hive World (5 contacts fought in packs, and the Brood Matriarch with two escorts; the finale).
 - **Patrols (random runs):** launch from the top of the Mission Board, any time. A patrol picks a random unlocked world and runs 4 random contacts (solo hostiles or packs of 2–3), then that world's priority target, sometimes with escorts. Every hostile is scaled to your level when the patrol starts (HP, damage, accuracy and rewards follow the story's own level curve; pack members are individually weaker). Patrols are repeatable, don't count as clearing missions, and stay a fair fight after the finale up to the level cap.
@@ -80,6 +83,14 @@ Key design rules:
 - **E2E** (`scripts/e2e.mjs`): real clicks through title → town → battle, a 400-action bot run through the real UI and renderer, a HUD/state sync check, a non-blank canvas check, reload/continue, a mobile layout check, and zero console errors.
 
 The browser build exposes `window.__qf` (`state`, `legal()`, `dispatch(action)`, `botStep()`, `speed(n)`, `load(state)`, `hostileScreenPoint(slot)`) for debugging and tests. `load` jumps straight to any (validated) state, e.g. a specific fight.
+
+## Balancing
+
+`npm run sim` ends with a **stat-weights** table: for bot characters at levels 5, 10 and 15, it adds +5 points to one stat at a time, replays the same missions 300 times and reports how much each point raises a combat score:
+
+    score = (damage dealt per turn) × max HP ÷ (damage taken per turn)     ≈ "damage per turn × effective HP"
+
+Aim for every stat in roughly the same band (currently about 1–4.5% per point). If one stat dominates or one is near zero, adjust its knob in `src/core/stats.ts` and re-run. The campaign and patrol tables above it show the overall difficulty (deaths per playthrough / per patrol).
 
 ## Adding content
 

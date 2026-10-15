@@ -2,10 +2,10 @@
   {
     "classId": "security",
     "seed": 1,
-    "steps": 428,
+    "steps": 454,
     "completed": true,
     "level": 17,
-    "gold": 3642,
+    "gold": 3362,
     "cleared": [
       "veridia",
       "kethra",
@@ -13,33 +13,16 @@
       "void_rift",
       "xenith"
     ],
-    "battlesWon": 49,
-    "battlesLost": 1
+    "battlesWon": 52,
+    "battlesLost": 2
   },
   {
     "classId": "security",
     "seed": 2,
-    "steps": 562,
+    "steps": 451,
     "completed": true,
     "level": 17,
-    "gold": 3541,
-    "cleared": [
-      "veridia",
-      "kethra",
-      "glacies",
-      "void_rift",
-      "xenith"
-    ],
-    "battlesWon": 57,
-    "battlesLost": 5
-  },
-  {
-    "classId": "science",
-    "seed": 1,
-    "steps": 455,
-    "completed": true,
-    "level": 17,
-    "gold": 4207,
+    "gold": 3708,
     "cleared": [
       "veridia",
       "kethra",
@@ -49,14 +32,31 @@
     ],
     "battlesWon": 49,
     "battlesLost": 1
+  },
+  {
+    "classId": "science",
+    "seed": 1,
+    "steps": 412,
+    "completed": true,
+    "level": 16,
+    "gold": 4098,
+    "cleared": [
+      "veridia",
+      "kethra",
+      "glacies",
+      "void_rift",
+      "xenith"
+    ],
+    "battlesWon": 46,
+    "battlesLost": 0
   },
   {
     "classId": "science",
     "seed": 2,
-    "steps": 455,
+    "steps": 432,
     "completed": true,
-    "level": 17,
-    "gold": 3944,
+    "level": 16,
+    "gold": 3839,
     "cleared": [
       "veridia",
       "kethra",
@@ -64,16 +64,16 @@
       "void_rift",
       "xenith"
     ],
-    "battlesWon": 49,
-    "battlesLost": 1
+    "battlesWon": 46,
+    "battlesLost": 0
   },
   {
     "classId": "engineer",
     "seed": 1,
-    "steps": 364,
+    "steps": 351,
     "completed": true,
     "level": 16,
-    "gold": 4443,
+    "gold": 3961,
     "cleared": [
       "veridia",
       "kethra",
@@ -87,10 +87,10 @@
   {
     "classId": "engineer",
     "seed": 2,
-    "steps": 486,
+    "steps": 559,
     "completed": true,
     "level": 17,
-    "gold": 4494,
+    "gold": 3969,
     "cleared": [
       "veridia",
       "kethra",

@@ -1,16 +1,16 @@
 import type { ClassDef, ClassId } from '../types';
 
+/**
+ * Divisions differ only in their ability kits and starting gear. Stats are
+ * generic and every officer starts with the same ones (see stats.ts).
+ * `statPriority` is just how the autoplayer likes to build each division.
+ */
 export const CLASSES: Record<ClassId, ClassDef> = {
   security: {
     id: 'security',
     name: 'Security Officer',
-    description: 'Front-line protector with the most health. Strength drives both weapons and combat tactics.',
-    baseStats: { str: 9, dex: 5, int: 2, end: 9, luk: 5 },
-    attackStat: 'str',
-    weaponMult: 1.1,
-    critBonus: 0,
-    hpMult: 1.1,
-    statPriority: ['str', 'end', 'str', 'dex', 'str', 'end'],
+    description: 'Front-line protector. Overcharged shots, personal shields, combat stims and suppressive fire.',
+    statPriority: ['pow', 'end', 'pre', 'pow', 'end', 'agi'],
     startWeapon: 'sidearm_mk1',
     startArmor: 'duty_uniform',
     color: 0xc8382e,
@@ -18,13 +18,8 @@ export const CLASSES: Record<ClassId, ClassDef> = {
   science: {
     id: 'science',
     name: 'Science Officer',
-    description: 'Fragile but devastating. Turns field equipment into plasma, cryo and ion attacks that exploit weaknesses.',
-    baseStats: { str: 2, dex: 5, int: 10, end: 7, luk: 6 },
-    attackStat: 'int',
-    weaponMult: 0.75,
-    critBonus: 0,
-    hpMult: 0.85,
-    statPriority: ['int', 'end', 'int', 'dex', 'int', 'end'],
+    description: 'Field scientist. Precise plasma, cryo and ion abilities that exploit weaknesses, plus deflectors and orbital strikes.',
+    statPriority: ['pow', 'int', 'end', 'pow', 'int', 'end'],
     startWeapon: 'sonic_emitter',
     startArmor: 'duty_uniform',
     color: 0x2e7fd8,
@@ -32,13 +27,8 @@ export const CLASSES: Record<ClassId, ClassDef> = {
   engineer: {
     id: 'engineer',
     name: 'Engineer',
-    description: 'Quick and resourceful. Finds weak points for critical hits and wears enemies down with nanites.',
-    baseStats: { str: 5, dex: 10, int: 2, end: 6, luk: 7 },
-    attackStat: 'dex',
-    weaponMult: 0.95,
-    critBonus: 8,
-    hpMult: 1.0,
-    statPriority: ['dex', 'end', 'luk', 'dex', 'end', 'dex'],
+    description: 'Resourceful tinkerer. Corrosive nanites, holo-decoys, cryo grenades and precision overloads that hunt for weak points.',
+    statPriority: ['pow', 'luk', 'pre', 'end', 'pow', 'agi'],
     startWeapon: 'mag_wrench',
     startArmor: 'duty_uniform',
     color: 0xd89a2e,

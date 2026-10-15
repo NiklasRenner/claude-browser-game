@@ -128,7 +128,7 @@ describe('quest flow', () => {
     assert.equal(s.mode, 'battle');
     assert.equal(s.quest!.areaId, 'veridia');
     s.battle!.monsters[0]!.hp = 1;
-    s.player!.stats.dex = 300;
+    s.player!.stats.pre = 300;
     s = act(s, { type: 'attack' }).state;
     assert.equal(s.mode, 'quest');
     assert.equal(act(s, { type: 'retreat' }).state.mode, 'town');
@@ -140,7 +140,7 @@ describe('quest flow', () => {
     let s = act(newGame('security', 12), { type: 'startQuest', areaId: 'veridia' }).state;
     for (let i = 0; i < 3; i++) {
       s.battle!.monsters[0]!.hp = 1;
-      s.player!.stats.dex = 300;
+      s.player!.stats.pre = 300;
       s.player!.hp = 999;
       s = act(s, { type: 'attack' }).state;
       const r = act(s, { type: 'continue' });

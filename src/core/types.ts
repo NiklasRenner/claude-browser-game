@@ -5,7 +5,8 @@
 export const ELEMENTS = ['kinetic', 'plasma', 'cryo', 'ion', 'photon', 'void', 'corrosive'] as const;
 export type Element = (typeof ELEMENTS)[number];
 
-export const STATS = ['str', 'dex', 'int', 'end', 'luk'] as const;
+/** Power, Agility, Precision, Intellect, Endurance, Luck — see stats.ts. */
+export const STATS = ['pow', 'agi', 'pre', 'int', 'end', 'luk'] as const;
 export type Stat = (typeof STATS)[number];
 export type Stats = Record<Stat, number>;
 
@@ -84,7 +85,6 @@ export type SpellEffect =
       type: 'damage';
       element: Element | 'weapon';
       dice: [number, number];
-      scaling: Stat;
       /** Multiplier applied to the rolled dice (e.g. 1.6 for a power attack). */
       mult?: number;
       /** If true, rolls the equipped weapon's damage instead of `dice`. */
@@ -93,7 +93,7 @@ export type SpellEffect =
       aoe?: boolean;
       extraCrit?: number;
     }
-  | { type: 'heal'; dice: [number, number]; scaling: Stat }
+  | { type: 'heal'; dice: [number, number] }
   | { type: 'status'; target: 'self' | 'enemy'; status: StatusId; turns: number; power: number; chance?: number };
 
 export interface SpellDef {
@@ -110,15 +110,6 @@ export interface ClassDef {
   id: ClassId;
   name: string;
   description: string;
-  baseStats: Stats;
-  /** Stat that amplifies weapon damage for this class. */
-  attackStat: Stat;
-  /** Multiplier on weapon damage (mages hit softer with weapons). */
-  weaponMult: number;
-  /** Extra innate crit chance in percent. */
-  critBonus: number;
-  /** Multiplier on max HP. */
-  hpMult: number;
   /** Repeating pattern the bot (and auto-allocate) uses to spend stat points. */
   statPriority: Stat[];
   startWeapon: string;
@@ -147,7 +138,8 @@ export interface MonsterDef {
   name: string;
   level: number;
   hp: number;
-  stats: Pick<Stats, 'dex' | 'luk'>;
+  /** Hostile-only numbers: dex feeds accuracy/evasion, luk crit chance. */
+  stats: { dex: number; luk: number };
   /** Natural evasion bonus. */
   evasion: number;
   resist: Resistances;

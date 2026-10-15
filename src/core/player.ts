@@ -1,5 +1,8 @@
 import { getArmor, getClass, getWeapon, spellsFor } from './data';
 import { ELEMENTS } from './types';
+import {
+  agilityEvasion, baseStats, damageMultiplier, enduranceHp, intellectEnergy, luckCrit, precisionBonus,
+} from './stats';
 import type { ClassId, Element, GameEvent, Player, Resistances, SpellDef, Stat } from './types';
 
 export const MAX_LEVEL = 30;
@@ -18,21 +21,23 @@ export interface DerivedStats {
   /** Subtracted from the enemy's to-hit chance. */
   evasion: number;
   critChance: number;
+  /** Multiplier on all outgoing damage (from Power). */
+  damage: number;
   /** Damage taken per element in percent (100 = normal). */
   damageTaken: Record<Element, number>;
 }
 
 export function derive(player: Player): DerivedStats {
-  const cls = getClass(player.classId);
   const weapon = getWeapon(player.weapon);
   const armor = getArmor(player.armor);
-  const { str, dex, int, end, luk } = player.stats;
+  const { pow, agi, pre, int, end, luk } = player.stats;
   return {
-    maxHp: Math.round((40 + player.level * 12 + end * 5) * cls.hpMult) + armor.hp,
-    maxMp: 15 + player.level * 4 + int * 2 + armor.mp,
-    accuracy: weapon.bonus + dex * 0.5 + player.level * 0.5 + str * 0.1,
-    evasion: armor.block + dex * 0.3,
-    critChance: 5 + luk * 0.5 + weapon.crit + cls.critBonus,
+    maxHp: 40 + player.level * 12 + enduranceHp(end) + armor.hp,
+    maxMp: 15 + player.level * 4 + intellectEnergy(int) + armor.mp,
+    accuracy: weapon.bonus + player.level * 0.5 + precisionBonus(pre),
+    evasion: armor.block + agilityEvasion(agi),
+    critChance: 5 + luckCrit(luk) + weapon.crit,
+    damage: damageMultiplier(pow),
     damageTaken: resistTable(armor.resist),
   };
 }
@@ -41,11 +46,6 @@ function resistTable(resist: Resistances): Record<Element, number> {
   const table = Object.fromEntries(ELEMENTS.map((el) => [el, 100])) as Record<Element, number>;
   for (const [el, pct] of Object.entries(resist) as [Element, number][]) table[el] = 100 - pct;
   return table;
-}
-
-/** Damage multiplier from a stat (each point = +4%). */
-export function statMultiplier(value: number): number {
-  return 1 + value * 0.04;
 }
 
 export function createPlayer(name: string, classId: ClassId): Player {
@@ -58,7 +58,7 @@ export function createPlayer(name: string, classId: ClassId): Player {
     gold: 50,
     hp: 1,
     mp: 1,
-    stats: { ...cls.baseStats },
+    stats: baseStats(),
     statPoints: 0,
     weapon: cls.startWeapon,
     armor: cls.startArmor,

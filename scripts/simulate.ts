@@ -5,7 +5,7 @@
  *   npm run sim            # 20 seeds per class
  *   npm run sim -- 100     # 100 seeds per class
  */
-import { AREA_ORDER, CLASSES, chooseAction, initialState, runBot, step } from '../src/core';
+import { AREA_ORDER, CLASSES, STATS, STAT_INFO, chooseAction, derive, fullRestore, initialState, runBot, step } from '../src/core';
 import type { Action, ClassId, GameState } from '../src/core';
 
 const seeds = Number(process.argv[2] ?? 20);
@@ -89,4 +89,63 @@ for (const classId of Object.keys(CLASSES) as ClassId[]) {
   console.log(rows.join('\n'));
   const n = Math.min(seeds, 10);
   console.log(`${classId.padEnd(8)} post-game (from level ~16): level ${(post.levels / n).toFixed(1)} after 40 patrols, deaths ${post.deaths}/${post.patrols} (${(100 * post.deaths / post.patrols).toFixed(0)}%)`);
+}
+
+// ─── Stat weights ──────────────────────────────────────────────────────────
+// How much is +1 point in each stat worth? For bot characters snapshotted at a
+// few levels, add +BUMP to one stat, replay the same missions many times and
+// compare a combat score:
+//   score = (damage dealt per turn) × maxHP ÷ (damage taken per turn)
+// i.e. "damage per turn × effective HP". Reported as % score per point.
+
+const WEIGHT_LEVELS = [5, 10, 15];
+const BUMP = 5;
+const RUNS = 300;
+
+function missionScore(start: GameState, runs: number): number {
+  let dealt = 0, taken = 0, turns = 0;
+  const maxHp = derive(start.player!).maxHp;
+  for (let r = 0; r < runs; r++) {
+    let s = structuredClone(start);
+    s.rng = (r * 2654435761) >>> 0;
+    let steps = 0;
+    // Play exactly one mission (from launch back to the ship or sickbay).
+    while (steps++ < 600) {
+      const action = chooseAction(s);
+      const res = step(s, action);
+      if (s.mode === 'battle' && ['attack', 'cast', 'useItem', 'equip', 'flee'].includes(action.type)) turns++;
+      for (const e of res.events) {
+        if (e.type === 'attack') { if (e.actor === 'player') dealt += e.damage; else taken += e.damage; }
+        if (e.type === 'statusTick') { if (e.target === 'monster') dealt += e.damage; else taken += e.damage; }
+      }
+      s = res.state;
+      if (action.type === 'startQuest') continue;
+      if (s.mode === 'town' || s.mode === 'defeated') break;
+    }
+  }
+  return (dealt / turns) * maxHp / Math.max(1, taken / turns);
+}
+
+console.log(`\nStat weights — % combat score per +1 point (+${BUMP} points, ${RUNS} missions each)`);
+console.log(`class    level  ${STATS.map((k) => STAT_INFO[k].short.padStart(6)).join('')}`);
+for (const classId of Object.keys(CLASSES) as ClassId[]) {
+  let s = step(initialState(11), { type: 'newGame', name: 'Bot', classId, seed: 11 }).state;
+  const pending = [...WEIGHT_LEVELS];
+  for (let i = 0; i < 30000 && pending.length; i++) {
+    const a = chooseAction(s);
+    // Snapshot at the moment the bot launches a mission at/after the target level.
+    if (a.type === 'startQuest' && s.player!.level >= pending[0]!) {
+      const level = pending.shift()!;
+      const base = missionScore(s, RUNS);
+      const cells = STATS.map((stat) => {
+        const v = structuredClone(s);
+        v.player!.stats[stat] += BUMP;
+        fullRestore(v.player!);
+        const pct = ((missionScore(v, RUNS) / base - 1) * 100) / BUMP;
+        return pct.toFixed(1).padStart(6);
+      });
+      console.log(`${classId.padEnd(8)} ${String(level).padStart(5)}  ${cells.join('')}`);
+    }
+    s = step(s, a).state;
+  }
 }

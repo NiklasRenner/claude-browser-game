@@ -16,7 +16,7 @@ const patrolAction = (s: GameState): Action => {
 function winFight(s: GameState): GameState {
   const t = structuredClone(s);
   t.player!.hp = 100_000;
-  t.player!.stats.dex = 500;
+  t.player!.stats.pre = 500;
   for (const m of t.battle!.monsters) m.hp = Math.min(m.hp, 1);
   let r = act(t, { type: 'attack' });
   while (r.state.mode === 'battle') r = act(r.state, { type: 'attack' });
@@ -60,7 +60,7 @@ describe('patrols', () => {
     const before = s;
     const t = structuredClone(s);
     t.player!.hp = 100_000;
-    t.player!.stats.dex = 500;
+    t.player!.stats.pre = 500;
     for (const m of t.battle!.monsters) m.hp = 1;
     let r = act(t, { type: 'attack' });
     while (r.state.mode === 'battle') r = act(r.state, { type: 'attack' });

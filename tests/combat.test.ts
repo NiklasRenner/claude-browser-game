@@ -99,7 +99,7 @@ describe('battle outcomes', () => {
   it('awards XP and gold on victory and returns to the quest', () => {
     const s = inBattle(newGame('security', 5), 'protoplasm');
     s.battle!.monsters[0]!.hp = 1;
-    s.player!.stats.dex = 200; // guarantee the hit
+    s.player!.stats.pre = 200; // guarantee the hit
     const { state, events } = act(s, { type: 'attack' });
     const victory = events.find((e) => e.type === 'victory');
     assert.ok(victory && victory.type === 'victory');
@@ -113,7 +113,7 @@ describe('battle outcomes', () => {
   it('completes the quest and unlocks the next area when the boss falls', () => {
     const s = inBattle(newGame('security', 5), 'thornhide_behemoth');
     s.battle!.monsters[0]!.hp = 1;
-    s.player!.stats.dex = 200;
+    s.player!.stats.pre = 200;
     const { state, events } = act(s, { type: 'attack' });
     assert.ok(events.some((e) => e.type === 'questComplete' && e.firstClear));
     assert.equal(state.mode, 'town');
@@ -125,7 +125,7 @@ describe('battle outcomes', () => {
     const s = inBattle(newGame('science', 6), 'raider');
     s.player!.hp = 1;
     s.player!.gold = 100;
-    s.player!.stats.dex = -200; // guarantee our attack misses and theirs lands
+    s.player!.stats.pre = -200; // guarantee our attack misses and theirs lands
     let r = act(s, { type: 'attack' });
     // The bandit might miss a few times; keep swinging until we fall.
     while (r.state.mode === 'battle') r = act(r.state, { type: 'attack' });
