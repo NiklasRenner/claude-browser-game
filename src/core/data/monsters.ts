@@ -2,7 +2,7 @@ import type { MonsterDef } from '../types';
 
 const monsters: MonsterDef[] = [
   // ── Veridia Prime (jungle colony world) ──
-  { id: 'protoplasm', name: 'Protoplasm', level: 1, hp: 26, accuracy: 80, evasion: 0, crit: 3,
+  { id: 'protoplasm', name: 'Protoplasm', level: 1, hp: 26, accuracy: 70, evasion: 0, crit: 3, speed: 85,
     resist: { plasma: 150, cryo: 75, corrosive: 50 },
     attacks: [
       { name: 'Engulf', element: 'kinetic', damage: [3, 6], weight: 3 },
@@ -10,7 +10,7 @@ const monsters: MonsterDef[] = [
     ],
     xp: 14, gold: [6, 12], drops: [{ itemId: 'medkit', chance: 10 }],
     look: { body: 'blob', color: 0x45d8c0, accent: 0x1a6b7a, scale: 0.9 } },
-  { id: 'razorback_hound', name: 'Razorback Hound', level: 2, hp: 34, accuracy: 90, evasion: 12, crit: 4,
+  { id: 'razorback_hound', name: 'Razorback Hound', level: 2, hp: 34, accuracy: 80, evasion: 12, crit: 4, speed: 115,
     resist: { plasma: 125 },
     attacks: [
       { name: 'Bite', element: 'kinetic', damage: [4, 7], weight: 3 },
@@ -18,7 +18,7 @@ const monsters: MonsterDef[] = [
     ],
     xp: 20, gold: [8, 15],
     look: { body: 'beast', color: 0x6e5a8a, accent: 0x2e2440, scale: 1 } },
-  { id: 'raider', name: 'Raider', level: 3, hp: 42, accuracy: 90, evasion: 5, crit: 5,
+  { id: 'raider', name: 'Raider', level: 3, hp: 42, accuracy: 80, evasion: 5, crit: 5, speed: 100,
     resist: {},
     attacks: [
       { name: 'Shock Baton', element: 'kinetic', damage: [5, 8], weight: 3 },
@@ -26,7 +26,7 @@ const monsters: MonsterDef[] = [
     ],
     xp: 26, gold: [15, 30], drops: [{ itemId: 'medkit', chance: 25 }],
     look: { body: 'humanoid', color: 0x6b6f78, accent: 0xff7a1a, scale: 1 } },
-  { id: 'thornhide_behemoth', name: 'Thornhide Behemoth', level: 4, hp: 115, accuracy: 90, evasion: 1, crit: 4, boss: true,
+  { id: 'thornhide_behemoth', name: 'Thornhide Behemoth', level: 4, hp: 115, accuracy: 80, evasion: 1, crit: 4, speed: 90, boss: true,
     resist: { kinetic: 85, plasma: 125 },
     attacks: [
       { name: 'Gore', element: 'kinetic', damage: [7, 11], weight: 3 },
@@ -37,7 +37,7 @@ const monsters: MonsterDef[] = [
     look: { body: 'beast', color: 0x4a3a5e, accent: 0xc8f04a, scale: 1.55 } },
 
   // ── Kethra Mining Moon (volcanic) ──
-  { id: 'cave_glider', name: 'Cave Glider', level: 4, hp: 26, accuracy: 92, evasion: 35, crit: 5,
+  { id: 'cave_glider', name: 'Cave Glider', level: 4, hp: 26, accuracy: 82, evasion: 35, crit: 5, speed: 125,
     resist: { photon: 150, void: 50 },
     attacks: [
       { name: 'Raking Claws', element: 'kinetic', damage: [3, 4], hits: 2, weight: 3 },
@@ -45,7 +45,7 @@ const monsters: MonsterDef[] = [
     ],
     xp: 40, gold: [12, 21],
     look: { body: 'flyer', color: 0x4b3b5c, accent: 0xd94a4a, scale: 0.8 } },
-  { id: 'plasma_sprite', name: 'Plasma Sprite', level: 5, hp: 48, accuracy: 94, evasion: 15, crit: 5,
+  { id: 'plasma_sprite', name: 'Plasma Sprite', level: 5, hp: 48, accuracy: 84, evasion: 15, crit: 5, speed: 110,
     resist: { plasma: 25, cryo: 160 },
     attacks: [
       { name: 'Plasma Spit', element: 'plasma', damage: [7, 11], weight: 3, effect: { status: 'burn', chance: 25, turns: 3, power: 3 } },
@@ -53,7 +53,7 @@ const monsters: MonsterDef[] = [
     ],
     xp: 50, gold: [15, 27], drops: [{ itemId: 'energy_cell', chance: 20 }],
     look: { body: 'humanoid', color: 0xe0482b, accent: 0xffb000, scale: 0.75 } },
-  { id: 'nanite_husk', name: 'Nanite Husk', level: 6, hp: 62, accuracy: 90, evasion: 0, crit: 4,
+  { id: 'nanite_husk', name: 'Nanite Husk', level: 6, hp: 62, accuracy: 80, evasion: 0, crit: 4, speed: 90,
     resist: { kinetic: 80, corrosive: 0, photon: 175, void: 50 },
     attacks: [
       { name: 'Drill Arm', element: 'kinetic', damage: [8, 12], weight: 3 },
@@ -61,7 +61,7 @@ const monsters: MonsterDef[] = [
     ],
     xp: 60, gold: [21, 36], drops: [{ itemId: 'medkit', chance: 25 }],
     look: { body: 'humanoid', color: 0x8a929c, accent: 0x3fe0ff, scale: 1 } },
-  { id: 'magma_colossus', name: 'Magma Colossus', level: 8, hp: 250, accuracy: 90, evasion: 0, crit: 4, boss: true,
+  { id: 'magma_colossus', name: 'Magma Colossus', level: 8, hp: 250, accuracy: 80, evasion: 0, crit: 4, speed: 80, boss: true,
     resist: { plasma: 0, kinetic: 70, cryo: 175, corrosive: 50 },
     attacks: [
       { name: 'Molten Fist', element: 'plasma', damage: [12, 17], weight: 3, effect: { status: 'burn', chance: 30, turns: 3, power: 4 } },
@@ -72,7 +72,7 @@ const monsters: MonsterDef[] = [
     look: { body: 'golem', color: 0x3a2a24, accent: 0xff5a1f, scale: 1.6 } },
 
   // ── Glacies IV (ice world) ──
-  { id: 'frost_serpent', name: 'Frost Serpent', level: 8, hp: 72, accuracy: 98, evasion: 8, crit: 5,
+  { id: 'frost_serpent', name: 'Frost Serpent', level: 8, hp: 72, accuracy: 88, evasion: 8, crit: 5, speed: 105,
     resist: { cryo: 25, plasma: 160 },
     attacks: [
       { name: 'Frost Breath', element: 'cryo', damage: [10, 15], weight: 2, effect: { status: 'chill', chance: 30, turns: 2, power: 15 } },
@@ -80,7 +80,7 @@ const monsters: MonsterDef[] = [
     ],
     xp: 85, gold: [30, 48],
     look: { body: 'dragon', color: 0x7fc8f8, accent: 0xeaf6ff, scale: 0.85 } },
-  { id: 'tundra_brute', name: 'Tundra Brute', level: 9, hp: 98, accuracy: 78, evasion: 0, crit: 4,
+  { id: 'tundra_brute', name: 'Tundra Brute', level: 9, hp: 98, accuracy: 68, evasion: 0, crit: 4, speed: 90,
     resist: { cryo: 50, plasma: 140 },
     attacks: [
       { name: 'Pummel', element: 'kinetic', damage: [16, 23], weight: 3 },
@@ -88,7 +88,7 @@ const monsters: MonsterDef[] = [
     ],
     xp: 95, gold: [36, 54], drops: [{ itemId: 'trauma_kit', chance: 20 }],
     look: { body: 'beast', color: 0xf2f2f2, accent: 0x7a9cc6, scale: 1.3 } },
-  { id: 'cryo_phantom', name: 'Cryo Phantom', level: 10, hp: 64, accuracy: 104, evasion: 30, crit: 5,
+  { id: 'cryo_phantom', name: 'Cryo Phantom', level: 10, hp: 64, accuracy: 94, evasion: 30, crit: 5, speed: 110,
     resist: { kinetic: 60, cryo: 0, photon: 175, plasma: 140, void: 50 },
     attacks: [
       { name: 'Cryo Touch', element: 'cryo', damage: [10, 15], weight: 3, effect: { status: 'chill', chance: 30, turns: 2, power: 15 } },
@@ -96,7 +96,7 @@ const monsters: MonsterDef[] = [
     ],
     xp: 105, gold: [39, 60], drops: [{ itemId: 'energy_cell', chance: 30 }],
     look: { body: 'wraith', color: 0xbfe6ff, accent: 0x3b7bbf, scale: 1.1 } },
-  { id: 'glacius', name: 'Glacius, the Ice Wyrm', level: 12, hp: 440, accuracy: 104, evasion: 5, crit: 5, boss: true,
+  { id: 'glacius', name: 'Glacius, the Ice Wyrm', level: 12, hp: 440, accuracy: 94, evasion: 5, crit: 5, speed: 95, boss: true,
     resist: { cryo: 0, plasma: 165, kinetic: 85 },
     attacks: [
       { name: 'Glacial Breath', element: 'cryo', damage: [18, 26], weight: 2, effect: { status: 'chill', chance: 40, turns: 2, power: 20 } },
@@ -107,7 +107,7 @@ const monsters: MonsterDef[] = [
     look: { body: 'dragon', color: 0x5aa9e6, accent: 0xe6f7ff, scale: 1.7 } },
 
   // ── The Void Rift (derelict fleet) ──
-  { id: 'void_shade', name: 'Void Shade', level: 12, hp: 72, accuracy: 108, evasion: 40, crit: 5,
+  { id: 'void_shade', name: 'Void Shade', level: 12, hp: 72, accuracy: 98, evasion: 40, crit: 5, speed: 115,
     resist: { void: 0, photon: 180, kinetic: 70, corrosive: 0 },
     attacks: [
       { name: 'Void Claw', element: 'void', damage: [13, 18], weight: 3 },
@@ -115,7 +115,7 @@ const monsters: MonsterDef[] = [
     ],
     xp: 140, gold: [48, 72], drops: [{ itemId: 'energy_cell', chance: 30 }],
     look: { body: 'wraith', color: 0x45346a, accent: 0xc49bff, scale: 1.15 } },
-  { id: 'phase_wisp', name: 'Phase Wisp', level: 12, hp: 34, accuracy: 104, evasion: 70, crit: 8,
+  { id: 'phase_wisp', name: 'Phase Wisp', level: 12, hp: 34, accuracy: 94, evasion: 70, crit: 8, speed: 130,
     resist: { void: 0, photon: 150 },
     attacks: [
       { name: 'Phase Sting', element: 'void', damage: [9, 13], weight: 3 },
@@ -123,7 +123,7 @@ const monsters: MonsterDef[] = [
     ],
     xp: 110, gold: [40, 60], drops: [{ itemId: 'energy_cell', chance: 25 }],
     look: { body: 'wraith', color: 0x9fe8ff, accent: 0xffffff, scale: 0.6 } },
-  { id: 'rift_marauder', name: 'Rift Marauder', level: 13, hp: 145, accuracy: 115, evasion: 4, crit: 5,
+  { id: 'rift_marauder', name: 'Rift Marauder', level: 13, hp: 145, accuracy: 105, evasion: 4, crit: 5, speed: 100,
     resist: { kinetic: 70, void: 50, photon: 150, ion: 125 },
     attacks: [
       { name: 'Rift Blade', element: 'kinetic', damage: [16, 22], weight: 3 },
@@ -131,7 +131,7 @@ const monsters: MonsterDef[] = [
     ],
     xp: 160, gold: [60, 90], drops: [{ itemId: 'trauma_kit', chance: 30 }],
     look: { body: 'humanoid', color: 0x1e1e26, accent: 0xb3122e, scale: 1.25 } },
-  { id: 'void_leech', name: 'Void Leech', level: 14, hp: 124, accuracy: 110, evasion: 12, crit: 6,
+  { id: 'void_leech', name: 'Void Leech', level: 14, hp: 124, accuracy: 100, evasion: 12, crit: 6, speed: 100,
     resist: { void: 25, photon: 175, plasma: 140, corrosive: 0 },
     attacks: [
       { name: 'Life Drain', element: 'void', damage: [15, 21], weight: 3 },
@@ -139,7 +139,7 @@ const monsters: MonsterDef[] = [
     ],
     xp: 175, gold: [66, 99], drops: [{ itemId: 'nano_restorer', chance: 10 }],
     look: { body: 'humanoid', color: 0x2b0a14, accent: 0xd8d8e8, scale: 1.05 } },
-  { id: 'hollow_admiral', name: 'The Hollow Admiral', level: 16, hp: 720, accuracy: 111, evasion: 7, crit: 6, boss: true,
+  { id: 'hollow_admiral', name: 'The Hollow Admiral', level: 16, hp: 720, accuracy: 101, evasion: 7, crit: 6, speed: 100, boss: true,
     resist: { void: 0, photon: 160, kinetic: 80, corrosive: 25 },
     attacks: [
       { name: 'Void Cannon', element: 'void', damage: [22, 30], weight: 3 },
@@ -150,7 +150,7 @@ const monsters: MonsterDef[] = [
     look: { body: 'humanoid', color: 0x101018, accent: 0xffd34d, scale: 1.7 } },
 
   // ── Xenith Hive World (packs) ──
-  { id: 'hive_drone', name: 'Hive Drone', level: 14, hp: 85, accuracy: 109, evasion: 15, crit: 5,
+  { id: 'hive_drone', name: 'Hive Drone', level: 14, hp: 85, accuracy: 99, evasion: 15, crit: 5, speed: 120,
     resist: { plasma: 150, corrosive: 50 },
     attacks: [
       { name: 'Mandibles', element: 'kinetic', damage: [16, 21], weight: 3 },
@@ -158,15 +158,15 @@ const monsters: MonsterDef[] = [
     ],
     xp: 60, gold: [10, 16], drops: [{ itemId: 'medkit', chance: 10 }],
     look: { body: 'beast', color: 0x2e2a1c, accent: 0xffb000, scale: 0.72 } },
-  { id: 'hive_spitter', name: 'Hive Spitter', level: 15, hp: 90, accuracy: 110, evasion: 7, crit: 5,
+  { id: 'hive_spitter', name: 'Hive Spitter', level: 15, hp: 90, accuracy: 100, evasion: 7, crit: 5, speed: 100,
     resist: { corrosive: 0, cryo: 150, kinetic: 90 },
     attacks: [
       { name: 'Acid Spray', element: 'corrosive', damage: [17, 22], weight: 3, effect: { status: 'corrode', chance: 30, turns: 3, power: 8 } },
-      { name: 'Spine Volley', element: 'kinetic', damage: [4, 6], hits: 3, hit: 98, weight: 2 },
+      { name: 'Spine Volley', element: 'kinetic', damage: [4, 6], hits: 3, hit: 88, weight: 2 },
     ],
     xp: 75, gold: [12, 20], drops: [{ itemId: 'energy_cell', chance: 15 }],
     look: { body: 'flyer', color: 0x5a6b2a, accent: 0xc8ff3a, scale: 0.9 } },
-  { id: 'hive_guardian', name: 'Hive Guardian', level: 16, hp: 280, accuracy: 109, evasion: 0, crit: 4,
+  { id: 'hive_guardian', name: 'Hive Guardian', level: 16, hp: 280, accuracy: 99, evasion: 0, crit: 4, speed: 85,
     resist: { kinetic: 60, ion: 150, plasma: 125, corrosive: 50 },
     attacks: [
       { name: 'Crushing Claw', element: 'kinetic', damage: [26, 34], weight: 3 },
@@ -174,7 +174,7 @@ const monsters: MonsterDef[] = [
     ],
     xp: 170, gold: [30, 45], drops: [{ itemId: 'trauma_kit', chance: 25 }],
     look: { body: 'golem', color: 0x3a3020, accent: 0xffb000, scale: 1.25 } },
-  { id: 'brood_matriarch', name: 'The Brood Matriarch', level: 18, hp: 1250, accuracy: 114, evasion: 6, crit: 6, boss: true,
+  { id: 'brood_matriarch', name: 'The Brood Matriarch', level: 18, hp: 1250, accuracy: 104, evasion: 6, crit: 6, speed: 105, boss: true,
     resist: { corrosive: 25, kinetic: 80, plasma: 140, cryo: 125 },
     attacks: [
       { name: 'Brood Lash', element: 'kinetic', damage: [28, 38], weight: 3 },

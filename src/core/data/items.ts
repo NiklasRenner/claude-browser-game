@@ -25,9 +25,9 @@ const armors: ArmorDef[] = [
   { kind: 'armor', id: 'duty_uniform', name: 'Duty Uniform', block: 0, resist: {}, hp: 0, mp: 0, level: 1, price: 0, description: 'Smart, comfortable, not remotely armored.' },
   { kind: 'armor', id: 'field_jacket', name: 'Padded Field Jacket', block: 4, resist: { kinetic: 5 }, hp: 10, mp: 0, level: 1, price: 60, description: 'Standard away-team outerwear.' },
   { kind: 'armor', id: 'composite_vest', name: 'Composite Armor Vest', block: 7, resist: { kinetic: 10 }, hp: 25, mp: 0, level: 4, price: 220, description: 'Ceramic plates over a ballistic weave.' },
-  { kind: 'armor', id: 'thermal_envirosuit', name: 'Thermal Envirosuit', block: 5, resist: { plasma: 30 }, hp: 20, mp: 25, level: 6, price: 360, description: 'Rated for walking on lava. Briefly.' },
+  { kind: 'armor', id: 'thermal_envirosuit', name: 'Thermal Envirosuit', block: 5, speed: 4, resist: { plasma: 30 }, hp: 20, mp: 25, level: 6, price: 360, description: 'Rated for walking on lava. Briefly. Light enough to move fast in.' },
   { kind: 'armor', id: 'arctic_hardsuit', name: 'Arctic Hardsuit', block: 9, resist: { kinetic: 10, cryo: 35 }, hp: 45, mp: 0, level: 8, price: 600, description: 'Heated plating and a very good seal.' },
-  { kind: 'armor', id: 'aegis_power_armor', name: 'Aegis Power Armor', block: 12, resist: { kinetic: 15, void: 35 }, hp: 70, mp: 15, level: 12, price: 1200, description: 'Powered plate with a void-dampening field.' },
+  { kind: 'armor', id: 'aegis_power_armor', name: 'Aegis Power Armor', block: 12, speed: -4, resist: { kinetic: 15, void: 35 }, hp: 70, mp: 15, level: 12, price: 1200, description: 'Powered plate with a void-dampening field. Heavy: −4% speed.' },
 ];
 
 const consumables: ConsumableDef[] = [

@@ -63,7 +63,8 @@ describe('targeting', () => {
 
 describe('turn order', () => {
   it('every living hostile acts once per round, in order; downed ones do not', () => {
-    const s = sturdy(lineup(['hive_drone', 'hive_drone', 'hive_drone']));
+    // Rift Marauders have speed 100, like the player, so every round is one turn each.
+    const s = sturdy(lineup(['rift_marauder', 'rift_marauder', 'rift_marauder']));
     s.battle!.monsters[1]!.hp = 0;
     s.battle!.target = 0;
     const events: GameEvent[] = [];
@@ -117,8 +118,10 @@ describe('encounters and log text', () => {
   it('boss fights put the boss between its escorts', () => {
     let s = newGame('security', 2);
     s.player!.level = 16;
+    s.player!.hp = 100_000;
     s.clearedAreas = ['veridia', 'kethra', 'glacies', 'void_rift'];
     s = act(s, { type: 'startQuest', areaId: 'xenith' }).state;
+    s.player!.hp = 100_000;
     s.quest!.cleared = getArea('xenith').encounters;
     s.mode = 'quest';
     s.battle = null;

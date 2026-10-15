@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-  MAX_HIT, MIN_HIT, Rng, applyStatus, fleeChance, getMonster, hitChance, mitigate, runRound, step,
+  MAX_HIT, MIN_HIT, Rng, applyStatus, beginBattle, fleeChance, getMonster, hitChance, mitigate, runRound, step,
 } from '../src/core';
 import type { GameEvent, GameState } from '../src/core';
 import { act, inBattle, newGame, sureHit } from './helpers';
@@ -77,14 +77,14 @@ describe('status effects', () => {
   });
 
   it('a stunned player has their turn skipped automatically', () => {
-    const s = sturdyBattle();
+    const s = sturdyBattle('raider'); // same speed as the player, so turns alternate
     s.battle!.playerStatuses.push({ id: 'stun', turns: 1, power: 0 });
     const events: GameEvent[] = [];
-    // The stun is "discovered" at the start of the player's next turn, after the monster acts.
-    runRound(s.player!, s.battle!, new Rng(4), events, null);
-    const monsterAttacks = events.filter((e) => e.type === 'attack' && e.actor === 'monster').length;
+    // The player would act first, but is stunned: that turn is skipped, the raider acts, then it's the player's turn.
+    assert.equal(beginBattle(s.player!, s.battle!, new Rng(4), events), 'continue');
+    const monsterTurns = events.filter((e) => e.type === 'attack' && e.actor === 'monster').length;
     assert.ok(events.some((e) => e.type === 'stunned' && e.actor === 'player'));
-    assert.equal(monsterAttacks, 2, 'monster acts twice: its own turn plus the skipped player turn');
+    assert.ok(monsterTurns >= 1, 'the raider used the skipped turn');
     assert.ok(!s.battle!.playerStatuses.some((x) => x.id === 'stun'), 'stun is consumed');
   });
 

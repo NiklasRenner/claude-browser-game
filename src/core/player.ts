@@ -1,7 +1,7 @@
 import { getArmor, getClass, getWeapon, spellsFor } from './data';
 import { ELEMENTS } from './types';
 import {
-  agilityEvasion, baseStats, damageMultiplier, enduranceHp, intellectEnergy, luckCrit,
+  PLAYER_EVASION_CAP, baseStats, damageMultiplier, enduranceHp, intellectEnergy, luckCrit, speedBonus,
 } from './stats';
 import type { ClassId, Element, GameEvent, Player, Resistances, SpellDef, Stat } from './types';
 
@@ -16,9 +16,11 @@ export function xpToNext(level: number): number {
 export interface DerivedStats {
   maxHp: number;
   maxMp: number;
-  /** Subtracted from the enemy's to-hit chance. */
+  /** Subtracted from the enemy's to-hit chance (armor only here; abilities add in battle, capped). */
   evasion: number;
   critChance: number;
+  /** Turn speed, 100 = normal. */
+  speed: number;
   /** Multiplier on all outgoing damage (from Power). */
   damage: number;
   /** Damage taken per element in percent (100 = normal). */
@@ -28,13 +30,14 @@ export interface DerivedStats {
 export function derive(player: Player): DerivedStats {
   const weapon = getWeapon(player.weapon);
   const armor = getArmor(player.armor);
-  const { pow, agi, int, end, luk } = player.stats;
+  const { pow, spd, int, end, luk } = player.stats;
   return {
     maxHp: 40 + player.level * 12 + enduranceHp(end) + armor.hp,
     maxMp: 15 + player.level * 4 + intellectEnergy(int) + armor.mp,
-    evasion: armor.block + agilityEvasion(agi),
+    evasion: Math.min(PLAYER_EVASION_CAP, armor.block),
     critChance: 5 + luckCrit(luk) + weapon.crit,
     damage: damageMultiplier(pow),
+    speed: 100 + speedBonus(spd) + (armor.speed ?? 0),
     damageTaken: resistTable(armor.resist),
   };
 }

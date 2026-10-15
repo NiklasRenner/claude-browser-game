@@ -166,6 +166,15 @@ function battleAction(state: GameState, p: Player): Action {
     return { type: 'useItem', itemId: 'energy_cell' };
   }
 
+  // Wrong tool for this hostile (e.g. plasma against a magma creature)? Swap to a much better owned weapon.
+  if (target.hp > d.maxHp * 0.5) {
+    const owned = Object.values(ITEMS).filter((i): i is WeaponDef => i.kind === 'weapon' && countItem(p, i.id) > 0);
+    const current = weaponScore(p, ITEMS[p.weapon] as WeaponDef, [monster]);
+    const better = owned.filter((w) => w.id !== p.weapon && weaponScore(p, w, [monster]) > current * 1.6)
+      .sort((x, y) => weaponScore(p, y, [monster]) - weaponScore(p, x, [monster]))[0];
+    if (better && ok(state, { type: 'equip', itemId: better.id })) return { type: 'equip', itemId: better.id };
+  }
+
   // Otherwise pick the highest expected damage option.
   let best: Action = { type: 'attack' };
   const weapon = ITEMS[p.weapon] as WeaponDef;

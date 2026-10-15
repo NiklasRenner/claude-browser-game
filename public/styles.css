@@ -36,12 +36,26 @@ body.no-webgl #scene { background: radial-gradient(circle at 50% 30%, #3a2f52, v
   display: grid; gap: 12px;
   grid-template-columns: minmax(240px, 300px) 1fr minmax(240px, 300px);
   grid-template-rows: auto 1fr auto;
-  grid-template-areas: "hud . monster" ". . ." "log main main";
+  grid-template-areas: "hud turns monster" ". . ." "log main main";
 }
 #ui > * { pointer-events: auto; }
 .hud { grid-area: hud; align-self: start; }
 .monster-card { grid-area: monster; align-self: start; }
 .log { grid-area: log; align-self: end; }
+.turn-order {
+  grid-area: turns; align-self: start; justify-self: center; display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
+  padding: 6px 10px; font-size: 12px; max-width: 100%;
+}
+.turn-label { color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; font-size: 10px; margin-right: 4px; }
+.turn { padding: 1px 7px; border-radius: 2px; white-space: nowrap; border: 1px solid transparent; }
+.turn-now { box-shadow: 0 0 0 1px currentColor; }
+.turn-you { color: #8fe6ff; background: rgba(95, 214, 255, 0.12); }
+.turn-foe { color: #ff9a8a; background: rgba(216, 67, 95, 0.12); }
+.turn-target { border-color: rgba(255, 154, 138, 0.5); }
+.turn-again { font-weight: 700; }
+.turn-again::before { content: '»'; margin-right: 3px; }
+.turn-sep { color: var(--muted); font-size: 10px; }
+@media (max-width: 760px) { .turn-order { align-self: start; font-size: 11px; padding: 4px 8px; } .turn-order .turn-far { display: none; } }
 .main-panel { grid-area: main; align-self: end; justify-self: center; width: min(760px, 100%); }
 
 .panel, .main-panel {
@@ -69,7 +83,7 @@ body.no-webgl #scene { background: radial-gradient(circle at 50% 30%, #3a2f52, v
     padding: 8px; gap: 8px;
     grid-template-columns: 1fr 1fr;
     grid-template-rows: auto 1fr auto auto;
-    grid-template-areas: "hud monster" ". ." "log log" "main main";
+    grid-template-areas: "hud monster" "turns turns" "log log" "main main";
   }
   .hud, .monster-card { font-size: 12px; padding: 8px; }
   .log { max-height: 76px; overflow: hidden; font-size: 12px; }

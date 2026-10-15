@@ -74,6 +74,15 @@ const MIGRATIONS: Record<number, (state: any) => void> = {
     p.statPoints = (p.statPoints ?? 0) + Math.max(0, Math.round(p.stats.pre - 5));
     delete p.stats.pre;
   },
+  // 5 → 6: Agility (evasion) became Speed (turn order). The points carry over 1:1;
+  // evasion now only comes from armor and abilities. A battle in progress has no
+  // timeline data, which means: player's turn now, each hostile one delay later.
+  5: (s) => {
+    const p = s.player;
+    if (!p?.stats || !('agi' in p.stats)) return;
+    p.stats.spd = p.stats.agi;
+    delete p.stats.agi;
+  },
 };
 
 /** v3 starting stats per class (needed to tell starting stats from spent points). */
@@ -170,10 +179,12 @@ function validateState(s: any): string | null {
     for (const m of b.monsters) {
       if (!(m?.defId in MONSTERS) || !isInt(m.hp) || !isInt(m.maxHp, 1) || m.hp > m.maxHp || !Array.isArray(m.statuses)) return 'bad hostile';
       if (m.level !== undefined && !isInt(m.level, 1)) return 'bad hostile level';
+      if (m.next !== undefined && !(typeof m.next === 'number' && Number.isFinite(m.next) && m.next >= 0)) return 'bad hostile timeline';
       for (const k of ['power', 'reward'] as const) {
         if (m[k] !== undefined && !(typeof m[k] === 'number' && Number.isFinite(m[k]) && m[k] > 0)) return `bad hostile ${k}`;
       }
     }
+    if (b.playerNext !== undefined && !(typeof b.playerNext === 'number' && Number.isFinite(b.playerNext) && b.playerNext >= 0)) return 'bad timeline';
     if (!isInt(b.target) || b.target >= b.monsters.length || b.monsters[b.target].hp <= 0) return 'bad target';
   }
   return null;

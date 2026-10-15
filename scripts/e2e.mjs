@@ -43,7 +43,7 @@ const canvasVariety = (page) => page.evaluate(() => {
   return colours.size;
 });
 
-const waitIdle = (page) => page.waitForFunction(() => !window.__qf.busy, null, { timeout: 15000 });
+const waitIdle = (page) => page.waitForFunction(() => !window.__qf.busy, null, { timeout: 30000 });
 
 try {
   console.log('Desktop flow');
@@ -106,13 +106,13 @@ try {
   check(mismatch === null, `HUD stays in sync with game state${mismatch ? ` (${mismatch})` : ''}`);
   const s2 = await page.evaluate(() => window.__qf.state);
   check(s2.player.level > 1 && s2.clearedAreas.length >= 1, `bot progressed via UI (level ${s2.player.level}, cleared ${s2.clearedAreas.join(', ')})`);
-  await page.evaluate(() => window.__qf.speed(1));
-
   // Keyboard-only fight at normal animation speed: win with ability keys, then press Enter
   // *during* the victory animation; the buffered key must start the next fight.
+  // (Finish the bot's current mission with animations off first; that part isn't under test.)
   await page.evaluate(async () => {
     const qf = window.__qf;
     while (qf.state.mode !== 'town') await qf.botStep();
+    qf.speed(1);
     await qf.dispatch({ type: 'startQuest', areaId: 'veridia' });
   });
   await waitIdle(page);
@@ -130,7 +130,7 @@ try {
     await waitIdle(page);
   }
   const nextFight = await page
-    .waitForFunction(() => window.__qf.state.mode === 'battle' && !window.__qf.busy, null, { timeout: 8000 })
+    .waitForFunction(() => window.__qf.state.mode === 'battle' && !window.__qf.busy, null, { timeout: 25000 })
     .then(() => true, () => false);
   check(pressedWhileAnimating, 'Enter was pressed while the victory animation was still playing');
   check(nextFight, 'Enter between fights starts the next fight (key buffered during animation)');

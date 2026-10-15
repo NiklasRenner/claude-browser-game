@@ -5,8 +5,8 @@
 export const ELEMENTS = ['kinetic', 'plasma', 'cryo', 'ion', 'photon', 'void', 'corrosive'] as const;
 export type Element = (typeof ELEMENTS)[number];
 
-/** Power, Agility, Intellect, Endurance, Luck — see stats.ts. (Hit chance is per weapon / ability, not a stat.) */
-export const STATS = ['pow', 'agi', 'int', 'end', 'luk'] as const;
+/** Power, Speed, Intellect, Endurance, Luck — see stats.ts. (Hit chance and evasion come from gear and abilities, not stats.) */
+export const STATS = ['pow', 'spd', 'int', 'end', 'luk'] as const;
 export type Stat = (typeof STATS)[number];
 export type Stats = Record<Stat, number>;
 
@@ -64,8 +64,10 @@ export interface ArmorDef {
   kind: 'armor';
   id: string;
   name: string;
-  /** Reduces enemy to-hit chance. */
+  /** Evasion it grants (fixed; the player's total evasion is capped, see PLAYER_EVASION_CAP). */
   block: number;
+  /** Speed bonus or penalty in percent (light suits +, heavy armor −). */
+  speed?: number;
   /** Percentage points subtracted from damage taken per element. */
   resist: Resistances;
   hp: number;
@@ -173,6 +175,8 @@ export interface MonsterDef {
   evasion: number;
   /** Critical-hit chance in percent. */
   crit: number;
+  /** Turn speed; 100 = normal. 120 acts 1.2× as often as a speed-100 opponent. */
+  speed: number;
   resist: Resistances;
   attacks: MonsterAttack[];
   xp: number;
@@ -228,6 +232,8 @@ export interface MonsterInstance {
   hp: number;
   maxHp: number;
   statuses: StatusEffect[];
+  /** Battle timeline: time of this hostile's next turn (unset = fresh battle, see combat.ts). */
+  next?: number;
   /** Patrol scaling (absent in regular missions): effective level, damage and reward multipliers. */
   level?: number;
   power?: number;
@@ -242,6 +248,8 @@ export interface BattleState {
   /** Index of the hostile the player is targeting (always a living one while the battle lasts). */
   target: number;
   playerStatuses: StatusEffect[];
+  /** Battle timeline: time of the player's next turn (unset = fresh battle, see combat.ts). */
+  playerNext?: number;
   round: number;
 }
 

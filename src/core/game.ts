@@ -7,7 +7,7 @@
  *   what the UI, the bot and the fuzz tests all use.
  */
 import {
-  aliveIndices, fleeChance, isAlive, playerAttack, playerCast, runRound, toughestAliveLevel, useConsumable,
+  aliveIndices, beginBattle, fleeChance, isAlive, playerAttack, playerCast, runRound, toughestAliveLevel, useConsumable,
 } from './combat';
 import {
   AREA_ORDER, CLASSES, FINAL_AREA, SHOP_STOCK, getArea, getItem, getMonster, getSpell,
@@ -21,7 +21,7 @@ import { ENERGY_RECOVERY } from './stats';
 import { PATROL_CONTACTS, patrolBoss, patrolContact, patrolReward, patrolWorlds } from './patrol';
 import type { Action, ClassId, GameEvent, GameState, Player, QuestState, StepResult } from './types';
 
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 export const DEFEAT_GOLD_PENALTY = 0.1;
 
 export function initialState(seed = 1): GameState {
@@ -307,6 +307,7 @@ function startNextBattle(state: GameState, rng: Rng, events: GameEvent[]) {
     state.battle = { monsters, target: 0, playerStatuses: [], round: 1 };
     state.mode = 'battle';
     events.push({ type: 'battleStart', monsterIds: monsters.map((m) => m.defId), boss: isBoss });
+    openBattle(state, rng, events);
     return;
   }
   let lineup: string[];
@@ -328,6 +329,13 @@ function startNextBattle(state: GameState, rng: Rng, events: GameEvent[]) {
   };
   state.mode = 'battle';
   events.push({ type: 'battleStart', monsterIds: lineup, boss: isBoss });
+  openBattle(state, rng, events);
+}
+
+/** Lets faster hostiles take their opening turns before the player's first one. */
+function openBattle(state: GameState, rng: Rng, events: GameEvent[]) {
+  const outcome = beginBattle(state.player!, state.battle!, rng, events);
+  if (outcome === 'playerDied') onDefeat(state, events);
 }
 
 /** `act` = the player's action for this round, or null if the turn was lost (failed flee). */

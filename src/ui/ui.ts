@@ -5,8 +5,8 @@
  */
 import {
   AREA_ORDER, CLASSES, ELEMENTS, SHOP_STOCK, STATS, checkAction, countItem, derive, getArea, getClass,
-  PATROL_CONTACTS, STAT_INFO, agilityEvasion, damageMultiplier, enduranceHp, intellectEnergy, luckCrit, spellsFor,
-  hostileEvasion, hostileHitChance, playerHitChance, strikeProfile,
+  PATROL_CONTACTS, STAT_INFO, speedBonus, damageMultiplier, enduranceHp, intellectEnergy, luckCrit, spellsFor,
+  hostileEvasion, hostileHitChance, playerHitChance, strikeProfile, upcomingTurns, PLAYER_EVASION_CAP,
   getItem, getMonster, getWeapon, hostileLabels, hostileLevel, isAreaUnlocked, patrolReward, patrolWorlds, questEncounters, isEquipped, knownSpells, monsterDamageTaken, resolveElement, restCost,
   sellPrice, xpToNext,
 } from '../core';
@@ -24,7 +24,7 @@ type BattleMenu = 'main' | 'skills' | 'items' | 'gear';
 function statEffect(stat: Stat, v: number): string {
   switch (stat) {
     case 'pow': return `+${Math.round((damageMultiplier(v) - 1) * 100)}% damage`;
-    case 'agi': return `+${agilityEvasion(v).toFixed(1)} evasion`;
+    case 'spd': return `+${speedBonus(v).toFixed(1)}% speed`;
     case 'int': return `+${intellectEnergy(v)} max energy`;
     case 'end': return `+${enduranceHp(v)} max HP`;
     case 'luk': return `+${luckCrit(v).toFixed(1)}% crit chance`;
@@ -159,6 +159,7 @@ export class UI {
     this.root.innerHTML = `
       ${s.player ? this.hud(s.player, s.battle?.playerStatuses ?? []) : ''}
       ${s.battle ? this.monsterCard(s) : ''}
+      ${s.battle ? this.turnOrder(s) : ''}
       <div class="main-panel mode-${s.mode}">${main}</div>
       ${s.mode !== 'title' ? this.logPanel() : ''}
       ${this.showVictoryModal ? this.victoryModal(s) : ''}
@@ -179,6 +180,21 @@ export class UI {
         <div class="hud-row"><span class="gold" title="Credits">◈ ${p.gold}</span><span class="muted small">XP ${p.xp}/${xpToNext(p.level)}</span>${p.statPoints ? `<span class="badge">+${p.statPoints} stat pts</span>` : ''}
         ${statusChips(statuses)}</div>
       </div>`;
+  }
+
+  /** The next few turns on the battle timeline (deterministic, from core). */
+  private turnOrder(s: GameState) {
+    const b = s.battle!;
+    const labels = hostileLabels(b.monsters.map((m) => m.defId));
+    const turns = upcomingTurns(s.player!, b, 7);
+    const chips = turns.map((who, i) => {
+      const you = who === 'player';
+      const again = i > 0 && turns[i - 1] === who;
+      const name = you ? 'You' : labels[who]!;
+      const cls = `turn ${you ? 'turn-you' : 'turn-foe'}${i === 0 ? ' turn-now' : ''}${i >= 5 ? ' turn-far' : ''}${again ? ' turn-again' : ''}${!you && who === b.target ? ' turn-target' : ''}`;
+      return `${i ? `<span class="turn-sep${i >= 5 ? ' turn-far' : ''}">›</span>` : ''}<span class="${cls}" title="${esc(name)}${again ? ' — again before anyone else' : ''}">${esc(name)}</span>`;
+    }).join('');
+    return `<div class="turn-order panel" aria-label="Turn order"><span class="turn-label">Next</span>${chips}</div>`;
   }
 
   private monsterCard(s: GameState) {
@@ -209,7 +225,7 @@ export class UI {
         <div class="hud-name"><strong>${esc(labels[b.target]!)}</strong> <span class="muted">Lv ${hostileLevel(target)}${def.boss ? ' · PRIORITY TARGET' : ''}</span></div>
         ${bar('hp enemy', target.hp, target.maxHp, 'HP')}
         <div class="hud-row">${statusChips(target.statuses)}</div>
-        <div class="res profile">Evasion <b>${Math.round(hostileEvasion(target))}</b> · Hits you <b>${Math.round(hostileHitChance(s.player!, b, b.target))}%</b></div>
+        <div class="res profile">Speed <b>${def.speed}</b> · Evasion <b>${Math.round(hostileEvasion(target))}</b> · Hits you <b>${Math.round(hostileHitChance(s.player!, b, b.target))}%</b></div>
         ${weak.length ? `<div class="res">Vulnerable: ${chips(weak)}</div>` : ''}
         ${strong.length ? `<div class="res">Resists: ${chips(strong)}</div>` : ''}
       </div>`;
@@ -320,7 +336,8 @@ export class UI {
       <div class="two-col">
         <div><h3>Attributes ${p.statPoints ? `<span class="badge">${p.statPoints} to spend</span>` : ''}</h3><div class="list">${stats}</div></div>
         <div><h3>Combat</h3>
-          <div class="kv"><span>Weapon hit chance</span><b>${weaponHitText(p)}</b><span>Evasion</span><b>${d.evasion.toFixed(0)}</b>
+          <div class="kv"><span>Weapon hit chance</span><b>${weaponHitText(p)}</b><span>Speed</span><b>${Math.round(d.speed * 10) / 10}</b>
+          <span>Evasion (armor)</span><b title="Armor and abilities; never above ${PLAYER_EVASION_CAP}">${d.evasion.toFixed(0)}</b>
           <span>Critical chance</span><b>${d.critChance.toFixed(0)}%</b><span>Resistances</span><b>${resist || '—'}</b></div>
           <h3>Abilities</h3><div class="list">${spells}</div>
         </div>
@@ -512,7 +529,7 @@ function itemStats(item: ItemDef): string {
   }
   if (item.kind === 'armor') {
     const res = Object.entries(item.resist).map(([el, v]) => `${ELEMENT_ICONS[el as keyof typeof ELEMENT_ICONS]}${v}%`).join(' ');
-    return `<span class="muted">🛡${item.block}${item.hp ? ` +${item.hp}HP` : ''}${item.mp ? ` +${item.mp}EN` : ''}${res ? ` ${res}` : ''}</span>`;
+    return `<span class="muted">🛡${item.block}${item.speed ? ` ${item.speed > 0 ? '+' : '−'}${Math.abs(item.speed)}% speed` : ''}${item.hp ? ` +${item.hp}HP` : ''}${item.mp ? ` +${item.mp}EN` : ''}${res ? ` ${res}` : ''}</span>`;
   }
   return '';
 }

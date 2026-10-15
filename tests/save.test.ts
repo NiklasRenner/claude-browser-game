@@ -109,13 +109,13 @@ describe('save / load', () => {
     const cases = [
       // Security: +12 str, +4 dex, +6 end spent.
       { classId: 'security', old: { str: 21, dex: 9, int: 2, end: 15, luk: 5 }, statPoints: 2,
-        expect: { pow: 17, agi: 7, int: 5, end: 11, luk: 5 } },
+        expect: { pow: 17, spd: 7, int: 5, end: 11, luk: 5 } },
       // Science: +14 int spent → half power, half intellect.
       { classId: 'science', old: { str: 2, dex: 5, int: 24, end: 9, luk: 6 }, statPoints: 0,
-        expect: { pow: 12, agi: 5, int: 12, end: 7, luk: 5 } },
+        expect: { pow: 12, spd: 5, int: 12, end: 7, luk: 5 } },
       // Engineer: +8 dex → 4 power, 2 precision (refunded), 2 agility; +3 luk.
       { classId: 'engineer', old: { str: 5, dex: 18, int: 2, end: 6, luk: 10 }, statPoints: 4,
-        expect: { pow: 9, agi: 7, int: 5, end: 5, luk: 8 } },
+        expect: { pow: 9, spd: 7, int: 5, end: 5, luk: 8 } },
     ] as const;
     for (const c of cases) {
       const s = newGame(c.classId) as unknown as Record<string, any>;
@@ -139,7 +139,16 @@ describe('save / load', () => {
     s.version = 4;
     const r = deserialize(JSON.stringify({ format: 'questforge-save', version: 4, state: s }));
     assert.ok(r.ok, r.ok ? '' : r.error);
-    assert.deepEqual(r.state.player!.stats, { pow: 12, agi: 6, int: 5, end: 9, luk: 7 });
+    assert.deepEqual(r.state.player!.stats, { pow: 12, spd: 6, int: 5, end: 9, luk: 7 });
     assert.equal(r.state.player!.statPoints, 7);
+  });
+
+  it('turns v5 Agility into Speed, point for point', () => {
+    const s = newGame('security') as unknown as Record<string, any>;
+    s.player.stats = { pow: 12, agi: 9, int: 5, end: 9, luk: 7 };
+    s.version = 5;
+    const r = deserialize(JSON.stringify({ format: 'questforge-save', version: 5, state: s }));
+    assert.ok(r.ok, r.ok ? '' : r.error);
+    assert.deepEqual(r.state.player!.stats, { pow: 12, spd: 9, int: 5, end: 9, luk: 7 });
   });
 });

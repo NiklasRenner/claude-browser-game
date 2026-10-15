@@ -13,9 +13,9 @@
  * Determinism note: with a single hostile, dice are rolled in exactly the same
  * order as the original single-hostile engine, so solo fights are unchanged.
  */
-import { getClass, getConsumable, getMonster, getSpell, getWeapon } from './data';
+import { getArmor, getConsumable, getMonster, getSpell, getWeapon } from './data';
 import { derive, removeItem } from './player';
-import { ABILITY_HIT, MAX_HIT, MIN_HIT, PLAYER_CRIT_MULT, healMultiplier } from './stats';
+import { ABILITY_HIT, MAX_HIT, MIN_HIT, PLAYER_CRIT_MULT, PLAYER_EVASION_CAP, healMultiplier, turnDelay } from './stats';
 import type { Rng } from './rng';
 import type {
   Actor, BattleState, Element, GameEvent, MonsterAttack, MonsterDef, MonsterInstance, Player, SpellEffect, StatusEffect,
@@ -137,8 +137,8 @@ export function hostileLevel(inst: MonsterInstance): number {
   return inst.level ?? getMonster(inst.defId).level;
 }
 
-/** Hit chance a patrol-scaled hostile gains per level above its definition (keeps pace with player evasion). */
-export const HOSTILE_ACCURACY_PER_LEVEL = 1.5;
+/** Hit chance a patrol-scaled hostile gains per level above its definition (player evasion no longer grows with level, so this is small). */
+export const HOSTILE_ACCURACY_PER_LEVEL = 0.5;
 
 /** Hit chance of a hostile's attack before the player's evasion (statuses included). */
 export function hostileHit(inst: MonsterInstance, attack?: MonsterAttack): number {
@@ -152,9 +152,10 @@ export function hostileEvasion(inst: MonsterInstance): number {
   return getMonster(inst.defId).evasion + statusPower(inst.statuses, 'evasive') - statusPower(inst.statuses, 'marked');
 }
 
-/** The player's evasion right now (statuses included). */
+/** The player's evasion right now: armor + evasive, capped at PLAYER_EVASION_CAP, minus marked. */
 export function playerEvasion(player: Player, battle: BattleState): number {
-  return derive(player).evasion + statusPower(battle.playerStatuses, 'evasive') - statusPower(battle.playerStatuses, 'marked');
+  const raw = getArmor(player.armor).block + statusPower(battle.playerStatuses, 'evasive');
+  return Math.min(PLAYER_EVASION_CAP, raw) - statusPower(battle.playerStatuses, 'marked');
 }
 
 type DamageEffect = Extract<SpellEffect, { type: 'damage' }>;
@@ -342,9 +343,9 @@ export function useConsumable(player: Player, itemId: string, statuses: StatusEf
   }
 }
 
-/** Escape chance against a hostile of the given level (use the toughest living one). */
+/** Escape chance against a hostile of the given level (use the toughest living one). Faster officers get away more often. */
 export function fleeChance(player: Player, hostileLvl: number): number {
-  return clamp(50 + (player.level - hostileLvl) * 6 + player.stats.agi, 20, 90);
+  return clamp(50 + (player.level - hostileLvl) * 6 + (derive(player).speed - 100), 20, 90);
 }
 
 /** Highest effective level among living hostiles. */
@@ -382,52 +383,141 @@ function monsterAct(ctx: Ctx, foe: number): void {
 
 export type TurnOutcome = 'continue' | 'allDown' | 'playerDied';
 
+// ─── Battle timeline ───────────────────────────────────────────────────────
+//
+// Every combatant has a "next turn" time. Whoever's comes first acts, then
+// waits turnDelay(speed) before acting again. A speed-110 officer facing a
+// speed-100 hostile takes 11 turns for every 10 of theirs, so roughly every
+// 10th turn they act twice in a row — on a fixed, predictable beat, no dice.
+// Ties go to the player, then to hostiles in lineup order. A new battle starts
+// everyone one delay away (initTimeline), so faster combatants go first and with
+// equal speed the player does. A battle without timeline data (an older save
+// or a hand-made test state) is at the player's turn, and reads as a fresh
+// battle right after any opening hostile turns (see hostileNextTime).
+
+export function hostileSpeed(inst: MonsterInstance): number {
+  return getMonster(inst.defId).speed;
+}
+
+/** Time of the player's next turn. */
+export function playerNextTime(_player: Player, battle: BattleState): number {
+  return battle.playerNext ?? 0;
+}
+
+/** Sets up a brand-new battle's timeline: everyone is one turn-delay away from acting. */
+export function initTimeline(player: Player, battle: BattleState): void {
+  battle.playerNext = turnDelay(derive(player).speed);
+  for (const m of battle.monsters) m.next = turnDelay(hostileSpeed(m));
+}
+
 /**
- * Wraps a player action: runs it, ends the player's turn, then lets every
- * living hostile act (and auto-skips stunned player turns) until the player
- * can act again or one side is defeated.
+ * Time of a hostile's next turn. Without timeline data: where a fresh battle
+ * would have it once the player is up (its first multiple of its delay at or
+ * after the player's first turn), shifted so the player is due at 0.
+ */
+export function hostileNextTime(player: Player, battle: BattleState, inst: MonsterInstance): number {
+  if (inst.next !== undefined) return inst.next;
+  const dp = turnDelay(derive(player).speed);
+  const dm = turnDelay(hostileSpeed(inst));
+  return playerNextTime(player, battle) + Math.ceil(dp / dm - 1e-9) * dm - dp;
+}
+
+/** Writes any missing timeline data into the battle (see hostileNextTime) so it can be advanced. */
+function ensureTimeline(player: Player, battle: BattleState): void {
+  for (const m of battle.monsters) m.next = hostileNextTime(player, battle, m);
+  battle.playerNext = playerNextTime(player, battle);
+}
+
+/** Who acts next: 'player' or a hostile index. */
+export function nextActor(player: Player, battle: BattleState): 'player' | number {
+  let who: 'player' | number = 'player';
+  let at = playerNextTime(player, battle);
+  battle.monsters.forEach((m, i) => {
+    if (!isAlive(m)) return;
+    const t = hostileNextTime(player, battle, m);
+    if (t < at) { who = i; at = t; }
+  });
+  return who;
+}
+
+/**
+ * The next `n` turns as things stand (ignores stuns and deaths that haven't
+ * happened yet). Used by the turn-order strip in the UI.
+ */
+export function upcomingTurns(player: Player, battle: BattleState, n: number): ('player' | number)[] {
+  const sim: BattleState = { ...battle, monsters: battle.monsters.map((m) => ({ ...m })) };
+  ensureTimeline(player, sim);
+  const out: ('player' | number)[] = [];
+  for (let i = 0; i < n; i++) {
+    const who = nextActor(player, sim);
+    out.push(who);
+    if (who === 'player') sim.playerNext! += turnDelay(derive(player).speed);
+    else sim.monsters[who]!.next! += turnDelay(hostileSpeed(sim.monsters[who]!));
+  }
+  return out;
+}
+
+function spendPlayerTurn(player: Player, battle: BattleState) {
+  battle.playerNext = playerNextTime(player, battle) + turnDelay(derive(player).speed);
+}
+
+/**
+ * Runs the player's action (null = the turn is lost, e.g. a failed escape),
+ * ends their turn, then plays out the timeline until the player can act
+ * again or one side is defeated.
  */
 export function runRound(
   player: Player, battle: BattleState, rng: Rng, events: GameEvent[], act: ((ctx: Ctx) => void) | null,
 ): TurnOutcome {
   const ctx: Ctx = { player, battle, rng, events };
+  ensureTimeline(player, battle);
+  const atStart = new Set(battle.playerStatuses);
+  act?.(ctx);
+  endTurn(battle.playerStatuses, atStart, 'player', events);
+  spendPlayerTurn(player, battle);
+  if (aliveIndices(battle).length === 0) return 'allDown';
+  fixTarget(battle, events);
+  return advance(ctx);
+}
+
+/** Start of a battle: sets up the timeline; hostiles faster than the player act before the player's first turn. */
+export function beginBattle(player: Player, battle: BattleState, rng: Rng, events: GameEvent[]): TurnOutcome {
+  initTimeline(player, battle);
+  return advance({ player, battle, rng, events });
+}
+
+/** Plays hostile turns (and auto-skips stunned player turns) until the player can act. */
+function advance(ctx: Ctx): TurnOutcome {
+  const { player, battle, events } = ctx;
   const playerDamageTaken = (el: Element) => derive(player).damageTaken[el];
-  const allDown = () => aliveIndices(battle).length === 0;
-
-  if (act) {
-    const atStart = new Set(battle.playerStatuses);
-    act(ctx);
-    endTurn(battle.playerStatuses, atStart, 'player', events);
-    if (allDown()) return 'allDown';
-    fixTarget(battle, events);
-  }
-
   // Safety cap: chained stuns can never loop forever.
-  for (let guard = 0; guard < 20; guard++) {
-    // Hostile turns, in order.
-    battle.round += 1;
-    for (let foe = 0; foe < battle.monsters.length; foe++) {
-      const m = battle.monsters[foe]!;
-      if (!isAlive(m)) continue;
-      const def = getMonster(m.defId);
-      const mStart = new Set(m.statuses);
-      damageMonster(ctx, foe, tickDots(m.statuses, 'monster', (el) => monsterDamageTaken(def, el), events, foe));
-      if (!isAlive(m)) continue;
-      if (hasStatus(m.statuses, 'stun')) events.push({ type: 'stunned', actor: 'monster', foe });
-      else monsterAct(ctx, foe);
-      endTurn(m.statuses, mStart, 'monster', events, foe);
+  for (let guard = 0; guard < 200; guard++) {
+    if (aliveIndices(battle).length === 0) return 'allDown';
+    const who = nextActor(player, battle);
+    if (who === 'player') {
+      battle.round += 1;
+      const pStart = new Set(battle.playerStatuses);
+      player.hp = Math.max(0, player.hp - tickDots(battle.playerStatuses, 'player', playerDamageTaken, events));
       if (player.hp <= 0) return 'playerDied';
+      if (!hasStatus(battle.playerStatuses, 'stun')) return 'continue';
+      events.push({ type: 'stunned', actor: 'player' });
+      endTurn(battle.playerStatuses, pStart, 'player', events);
+      spendPlayerTurn(player, battle);
+      continue;
     }
-    if (allDown()) return 'allDown';
-    fixTarget(battle, events);
-
-    // Start of player turn.
-    const pStart = new Set(battle.playerStatuses);
-    player.hp = Math.max(0, player.hp - tickDots(battle.playerStatuses, 'player', playerDamageTaken, events));
+    const m = battle.monsters[who]!;
+    const def = getMonster(m.defId);
+    m.next = hostileNextTime(player, battle, m) + turnDelay(def.speed);
+    const mStart = new Set(m.statuses);
+    damageMonster(ctx, who, tickDots(m.statuses, 'monster', (el) => monsterDamageTaken(def, el), events, who));
+    if (isAlive(m)) {
+      if (hasStatus(m.statuses, 'stun')) events.push({ type: 'stunned', actor: 'monster', foe: who });
+      else monsterAct(ctx, who);
+      endTurn(m.statuses, mStart, 'monster', events, who);
+    }
     if (player.hp <= 0) return 'playerDied';
-    if (!hasStatus(battle.playerStatuses, 'stun')) return 'continue';
-    events.push({ type: 'stunned', actor: 'player' });
-    endTurn(battle.playerStatuses, pStart, 'player', events);
+    if (aliveIndices(battle).length === 0) return 'allDown';
+    fixTarget(battle, events);
   }
   return 'continue';
 }

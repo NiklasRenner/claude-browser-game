@@ -265,8 +265,12 @@ export class Stage {
     // Make sure the "before" scene is present (e.g. after loading a save).
     if (before.mode !== 'title') this.sync({ ...before });
     let pendingSpell: string | null = null;
+    let prev: GameEvent | null = null;
     for (const e of events) {
-      await this.play(e, before, after, pendingSpell);
+      // Follow-up strikes of a multi-hit attack play as a quick burst.
+      const followUp = e.type === 'attack' && prev?.type === 'attack' && prev.actor === e.actor && prev.foe === e.foe && prev.name === e.name;
+      await this.play(e, before, after, pendingSpell, followUp);
+      prev = e;
       pendingSpell = e.type === 'cast' && e.actor === 'player' ? e.spellId : e.type === 'attack' ? null : pendingSpell;
     }
     this.tweens.flush();
@@ -330,7 +334,7 @@ export class Stage {
     await this.tweens.run(0.2, (t) => { f.body.position.x = Math.sin(t * Math.PI) * 0.35 * dir / f.body.scale.x; });
   }
 
-  private async play(e: GameEvent, before: GameState, after: GameState, pendingSpell: string | null) {
+  private async play(e: GameEvent, before: GameState, after: GameState, pendingSpell: string | null, followUp = false) {
     switch (e.type) {
       case 'battleStart': {
         this.sync(after);
@@ -371,7 +375,10 @@ export class Stage {
         const color = ELEMENT_COLORS[e.element];
         const style = this.attackStyle(e.actor, e.element, pendingSpell, after);
         const from = this.center(attacker).add(new THREE.Vector3(0.6 * dir, 0.25, 0.3 * (e.actor === 'player' ? 1 : 0)));
-        if (style === 'orb') {
+        if (followUp) {
+          // Burst: no wind-up, just a fast shot (or nothing extra for melee).
+          if (style !== 'melee') await this.fx.bolt(from, this.center(target), color, 0.07);
+        } else if (style === 'orb') {
           await this.fx.projectile(from, this.center(target), color);
         } else if (style === 'bolt') {
           void this.recoil(attacker, dir);
@@ -389,8 +396,8 @@ export class Stage {
         } else {
           this.fx.popText(this.head(target), 'MISS', 'pop-miss');
         }
-        if (style === 'melee') await this.recover(attacker);
-        await this.tweens.wait(0.12);
+        if (style === 'melee' && !followUp) await this.recover(attacker);
+        await this.tweens.wait(followUp ? 0.08 : 0.12);
         return;
       }
       case 'cast': {

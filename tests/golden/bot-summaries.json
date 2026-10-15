@@ -2,10 +2,10 @@
   {
     "classId": "security",
     "seed": 1,
-    "steps": 474,
+    "steps": 422,
     "completed": true,
-    "level": 17,
-    "gold": 2899,
+    "level": 16,
+    "gold": 2509,
     "cleared": [
       "veridia",
       "kethra",
@@ -13,50 +13,50 @@
       "void_rift",
       "xenith"
     ],
-    "battlesWon": 52,
-    "battlesLost": 2
+    "battlesWon": 46,
+    "battlesLost": 0
   },
   {
     "classId": "security",
     "seed": 2,
-    "steps": 414,
-    "completed": true,
-    "level": 17,
-    "gold": 3099,
-    "cleared": [
-      "veridia",
-      "kethra",
-      "glacies",
-      "void_rift",
-      "xenith"
-    ],
-    "battlesWon": 46,
-    "battlesLost": 0
-  },
-  {
-    "classId": "science",
-    "seed": 1,
-    "steps": 479,
-    "completed": true,
-    "level": 16,
-    "gold": 2676,
-    "cleared": [
-      "veridia",
-      "kethra",
-      "glacies",
-      "void_rift",
-      "xenith"
-    ],
-    "battlesWon": 46,
-    "battlesLost": 0
-  },
-  {
-    "classId": "science",
-    "seed": 2,
     "steps": 437,
     "completed": true,
+    "level": 17,
+    "gold": 2029,
+    "cleared": [
+      "veridia",
+      "kethra",
+      "glacies",
+      "void_rift",
+      "xenith"
+    ],
+    "battlesWon": 49,
+    "battlesLost": 1
+  },
+  {
+    "classId": "science",
+    "seed": 1,
+    "steps": 480,
+    "completed": true,
     "level": 16,
-    "gold": 2514,
+    "gold": 3021,
+    "cleared": [
+      "veridia",
+      "kethra",
+      "glacies",
+      "void_rift",
+      "xenith"
+    ],
+    "battlesWon": 46,
+    "battlesLost": 0
+  },
+  {
+    "classId": "science",
+    "seed": 2,
+    "steps": 449,
+    "completed": true,
+    "level": 16,
+    "gold": 2705,
     "cleared": [
       "veridia",
       "kethra",
@@ -70,10 +70,10 @@
   {
     "classId": "engineer",
     "seed": 1,
-    "steps": 459,
+    "steps": 951,
     "completed": true,
-    "level": 17,
-    "gold": 3559,
+    "level": 20,
+    "gold": 1719,
     "cleared": [
       "veridia",
       "kethra",
@@ -81,16 +81,16 @@
       "void_rift",
       "xenith"
     ],
-    "battlesWon": 49,
-    "battlesLost": 1
+    "battlesWon": 92,
+    "battlesLost": 12
   },
   {
     "classId": "engineer",
     "seed": 2,
-    "steps": 480,
+    "steps": 445,
     "completed": true,
-    "level": 17,
-    "gold": 2978,
+    "level": 16,
+    "gold": 2606,
     "cleared": [
       "veridia",
       "kethra",
@@ -98,7 +98,7 @@
       "void_rift",
       "xenith"
     ],
-    "battlesWon": 49,
-    "battlesLost": 1
+    "battlesWon": 46,
+    "battlesLost": 0
   }
 ]
