@@ -216,7 +216,11 @@ h3 { font-size: 13px; margin-top: 10px; text-transform: uppercase; letter-spacin
 .tag-heal { color: #7dff8a; }
 .tag-status { color: #c9d6e8; }
 .tag-burn { color: #ff8a55; } .tag-corrode { color: #9eec5a; } .tag-chill { color: #8ae0ff; }
-.tag-stun { color: #ffe36a; } .tag-shield { color: #8fd8ff; } .tag-evasive { color: #d8e2f0; }
+.tag-stun { color: #ffe36a; } .tag-shield { color: #8fd8ff; } .tag-evasive { color: #d8e2f0; } .tag-marked { color: #ff8095; }
+/* Hit chance: neutral when it's a base value, coloured against a live target. */
+.tag-hit { color: #b8c6d8; }
+.tag-hit.hit-high { color: #9fe8c0; } .tag-hit.hit-mid { color: #ffd27a; } .tag-hit.hit-low { color: #ff9a7a; }
+.res.profile b { color: #e6f6ff; font-weight: 600; }
 .eff { font-size: 10px; margin-left: 2px; }
 .eff-good { color: #7dff8a; } .eff-bad { color: #ff9a7a; } .eff-immune { color: #ff5a4a; }
 .actions.grid .btn.skill { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; text-align: left; white-space: normal; }

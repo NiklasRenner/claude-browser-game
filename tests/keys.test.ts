@@ -2,13 +2,13 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { checkAction, initialState } from '../src/core';
 import { keyAction } from '../src/ui/ui';
-import { act, inBattle, newGame } from './helpers';
+import { act, inBattle, newGame, sureHit } from './helpers';
 
 describe('keyboard shortcuts', () => {
   it('advance to the next fight with Enter, Space or C, and return to ship with R', () => {
     let s = act(newGame('security', 4), { type: 'startQuest', areaId: 'veridia' }).state;
     s.battle!.monsters[0]!.hp = 1;
-    s.player!.stats.pre = 300;
+    sureHit(s);
     s = act(s, { type: 'attack' }).state;
     assert.equal(s.mode, 'quest');
     for (const key of ['Enter', ' ', 'c', 'C']) assert.deepEqual(keyAction(s, key), { type: 'continue' }, key);

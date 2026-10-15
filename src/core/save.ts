@@ -66,6 +66,14 @@ const MIGRATIONS: Record<number, (state: any) => void> = {
     p.statPoints = (p.statPoints ?? 0) + Math.max(0, oldTotal - newTotal);
     p.stats = next;
   },
+  // 4 → 5: Precision is no longer a stat (hit chance comes from weapons and
+  // abilities). Points spent in it are refunded as unspent stat points.
+  4: (s) => {
+    const p = s.player;
+    if (!p?.stats || !('pre' in p.stats)) return;
+    p.statPoints = (p.statPoints ?? 0) + Math.max(0, Math.round(p.stats.pre - 5));
+    delete p.stats.pre;
+  },
 };
 
 /** v3 starting stats per class (needed to tell starting stats from spent points). */

@@ -31,7 +31,9 @@ The e2e test needs a Playwright Chromium (`npx playwright install chromium` once
 
 - **Divisions:** Security Officer, Science Officer and Engineer differ only in their ability kits and starting gear. Stats are generic and shared.
 - **Stats** (`src/core/stats.ts`, every officer starts at 5 in each; +4 points per level). Each has one job:
-  **Power** → all damage (weapons, abilities, damage over time) · **Agility** → evasion (diminishing) · **Precision** → hit chance · **Intellect** → max energy · **Endurance** → max HP · **Luck** → crit chance (diminishing; crits deal ×2).
+  **Power** → all damage (weapons, abilities, damage over time) · **Agility** → evasion (diminishing) · **Intellect** → max energy · **Endurance** → max HP · **Luck** → crit chance (diminishing; crits deal ×2).
+- **Hit chance is gear, not a stat.** Every weapon, ability and hostile attack has its own hit chance (◎), and the defender's evasion is subtracted from it (final chance clamped to 5–100%, one rule for both sides). Values above 100 still matter: they keep landing against evasive targets. Weapons and abilities can strike several times (×N), each strike rolling hit, crit, damage and procs on its own, so a 3-shot 71% flechette pistol plays very differently from a 59% mass driver. Weapon techniques (Overcharge, Exploit Weakness…) use the weapon's hit and strikes, plus their own accuracy modifier. In battle, chips show the real chance against the current target.
+- **Hostiles have combat profiles** (`src/core/data/monsters.ts`): HP, accuracy, evasion, crit and resistances, authored directly in those output units. The player's diminishing curves are only the price list for turning stat points into those numbers, so hostiles aren't bound by them: the Phase Wisp has 70 evasion and 34 HP, the Tundra Brute hits hard but only has 78 accuracy. Patrol scaling raises accuracy by 1.5 per level. The target card shows the current hostile's evasion and its chance to hit you.
   You recover 15% of max energy after each won fight. The Personnel File shows what each stat currently gives.
 - **Loop:** Ship → Mission Board → beam down → hostile contacts + a priority target → beam back up. HP carries over between fights, so medkits, returning to the ship and sickbay matter.
 - **Missions:** Veridia Prime (jungle colony) → Kethra Mining Moon (volcanic) → Glacies IV (ice world) → The Void Rift (derelict fleet) → Xenith Hive World (5 contacts fought in packs, and the Brood Matriarch with two escorts; the finale).
@@ -39,7 +41,7 @@ The e2e test needs a Playwright Chromium (`npx playwright install chromium` once
 - **Multiple hostiles:** fights can have up to 3 hostiles. You attack your current target (shown on the status card, a ring and an arrow in the scene). Switch with `Tab` / `Shift+Tab`, by clicking a name in the target list, or by clicking the hostile itself; switching is free. When your target goes down, targeting moves to the next living hostile. Area abilities (marked ⇶ all: Suppressive Fire, Ion Storm, Cryo Grenade) hit every hostile. You can't beam out while a priority target is standing.
 - **Selling:** everything sells for half its price, minimum 1 credit (so starter kit can be cleared out); equipped gear can't be sold.
 - **Damage types:** kinetic, plasma, cryo, ion, photon, void, corrosive. Hostiles show what they're vulnerable to and what they resist; buy weapons to exploit that, or swap weapons mid-fight (costs your turn).
-- **Status effects:** burn, corrode, stun, chill (−accuracy), shield (−damage taken), evasive.
+- **Status effects** (same on both sides): burn, corrode, stun, chill (−hit chance), shield (−damage taken), evasive (+evasion), marked (−evasion; the Engineer's Target Painter).
 - **Progression:** XP levels grant 4 stat points; abilities unlock by level; going down costs 10% credits.
 - **Saves:** autosaved to `localStorage` after every action; *Resume duty* on the title screen. Older saves are migrated (see `src/core/save.ts`).
 - **Keys:** Combat `A` attack · `1–9` abilities · `Tab`/`Shift+Tab` switch target · `F` beam out · `Esc` back. Between fights `Enter`/`Space` advance · `R` return to ship. Keys pressed during an animation are queued.
@@ -90,7 +92,7 @@ The browser build exposes `window.__qf` (`state`, `legal()`, `dispatch(action)`,
 
     score = (damage dealt per turn) × max HP ÷ (damage taken per turn)     ≈ "damage per turn × effective HP"
 
-Aim for every stat in roughly the same band (currently about 1–4.5% per point). If one stat dominates or one is near zero, adjust its knob in `src/core/stats.ts` and re-run. The campaign and patrol tables above it show the overall difficulty (deaths per playthrough / per patrol).
+Aim for every stat in roughly the same band (currently about 1–6% per point). If one stat dominates or one is near zero, adjust its knob in `src/core/stats.ts` and re-run. The campaign and patrol tables above it show the overall difficulty (deaths per playthrough / per patrol).
 
 ## Adding content
 

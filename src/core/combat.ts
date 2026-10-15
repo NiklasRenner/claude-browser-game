@@ -15,22 +15,24 @@
  */
 import { getClass, getConsumable, getMonster, getSpell, getWeapon } from './data';
 import { derive, removeItem } from './player';
-import { ABILITY_ACCURACY, PLAYER_BASE_HIT, PLAYER_CRIT_MULT, healMultiplier } from './stats';
+import { ABILITY_HIT, MAX_HIT, MIN_HIT, PLAYER_CRIT_MULT, healMultiplier } from './stats';
 import type { Rng } from './rng';
 import type {
-  Actor, BattleState, Element, GameEvent, MonsterDef, MonsterInstance, Player, SpellEffect, StatusEffect, StatusId,
+  Actor, BattleState, Element, GameEvent, MonsterAttack, MonsterDef, MonsterInstance, Player, SpellEffect, StatusEffect,
+  StatusId,
 } from './types';
 
-export const BASE_HIT = 82;
-export const MIN_HIT = 10;
-export const MAX_HIT = 97;
-export { PLAYER_CRIT_MULT } from './stats';
+export { MAX_HIT, MIN_HIT, PLAYER_CRIT_MULT } from './stats';
 export const MONSTER_CRIT_MULT = 1.5;
 
 export const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
-export function hitChance(accuracy: number, evasion: number, base = BASE_HIT): number {
-  return clamp(base + accuracy - evasion, MIN_HIT, MAX_HIT);
+/**
+ * The one hit rule, for both sides: the attack's hit chance minus the
+ * defender's evasion, clamped to [MIN_HIT, MAX_HIT].
+ */
+export function hitChance(hit: number, evasion: number): number {
+  return clamp(hit - evasion, MIN_HIT, MAX_HIT);
 }
 
 // ─── Battle helpers ────────────────────────────────────────────────────────
@@ -135,15 +137,52 @@ export function hostileLevel(inst: MonsterInstance): number {
   return inst.level ?? getMonster(inst.defId).level;
 }
 
-export function monsterAccuracy(m: MonsterDef, level = m.level): number {
-  return level * 1.5 + m.stats.dex * 0.5;
+/** Hit chance a patrol-scaled hostile gains per level above its definition (keeps pace with player evasion). */
+export const HOSTILE_ACCURACY_PER_LEVEL = 1.5;
+
+/** Hit chance of a hostile's attack before the player's evasion (statuses included). */
+export function hostileHit(inst: MonsterInstance, attack?: MonsterAttack): number {
+  const def = getMonster(inst.defId);
+  const base = attack?.hit ?? def.accuracy;
+  return base + (hostileLevel(inst) - def.level) * HOSTILE_ACCURACY_PER_LEVEL - statusPower(inst.statuses, 'chill');
 }
-export function monsterEvasion(m: MonsterDef, level = m.level): number {
-  return m.evasion + m.stats.dex * 0.3 + level * 0.5;
+
+/** A hostile's evasion right now (statuses included). */
+export function hostileEvasion(inst: MonsterInstance): number {
+  return getMonster(inst.defId).evasion + statusPower(inst.statuses, 'evasive') - statusPower(inst.statuses, 'marked');
 }
-export function monsterCrit(m: MonsterDef): number {
-  return 3 + m.stats.luk * 0.4;
+
+/** The player's evasion right now (statuses included). */
+export function playerEvasion(player: Player, battle: BattleState): number {
+  return derive(player).evasion + statusPower(battle.playerStatuses, 'evasive') - statusPower(battle.playerStatuses, 'marked');
 }
+
+type DamageEffect = Extract<SpellEffect, { type: 'damage' }>;
+
+/**
+ * Base hit chance and strike count of a player attack: the equipped weapon
+ * (no effect), or an ability's damage effect. Weapon techniques inherit the
+ * weapon's numbers unless the ability overrides them.
+ */
+export function strikeProfile(player: Player, effect?: DamageEffect): { hit: number; hits: number } {
+  const weapon = getWeapon(player.weapon);
+  if (!effect) return { hit: weapon.hit, hits: weapon.hits ?? 1 };
+  const base = effect.hit ?? (effect.useWeapon ? weapon.hit : ABILITY_HIT);
+  const hits = effect.hits ?? (effect.useWeapon ? weapon.hits ?? 1 : 1);
+  return { hit: base + (effect.accuracy ?? 0), hits };
+}
+
+/** Chance (%) that one strike of the weapon (or ability effect) lands on hostile `foe` right now. */
+export function playerHitChance(player: Player, battle: BattleState, foe: number, effect?: DamageEffect): number {
+  const hit = strikeProfile(player, effect).hit - statusPower(battle.playerStatuses, 'chill');
+  return hitChance(hit, hostileEvasion(battle.monsters[foe]!));
+}
+
+/** Chance (%) that one strike of this hostile attack lands on the player right now. */
+export function hostileHitChance(player: Player, battle: BattleState, foe: number, attack?: MonsterAttack): number {
+  return hitChance(hostileHit(battle.monsters[foe]!, attack), playerEvasion(player, battle));
+}
+
 export function monsterDamageTaken(m: MonsterDef, el: Element): number {
   return m.resist[el] ?? 100;
 }
@@ -158,7 +197,8 @@ export function mitigate(raw: number, damageTakenPct: number, shieldPct: number)
 }
 
 /** Average outgoing damage for a damage effect before crits/resist (used by the bot). */
-export function averageEffectDamage(player: Player, effect: Extract<SpellEffect, { type: 'damage' }>): number {
+/** Average damage of ONE strike of a damage effect, before hit, crits and resist (used by the bot). */
+export function averageEffectDamage(player: Player, effect: DamageEffect): number {
   const weapon = getWeapon(player.weapon);
   const power = derive(player).damage;
   const mult = effect.mult ?? 1;
@@ -189,19 +229,18 @@ function damageMonster(ctx: Ctx, i: number, amount: number) {
   if (!isAlive(m)) ctx.events.push({ type: 'hostileDown', foe: i });
 }
 
+/** One strike at hostile `foe` with the given base hit chance. Returns true if it landed. */
 function playerStrike(
-  ctx: Ctx, foe: number, name: string, element: Element, raw: number, opts: { field?: boolean; extraCrit?: number },
+  ctx: Ctx, foe: number, name: string, element: Element, raw: number, baseHit: number, extraCrit = 0,
 ): boolean {
   const { player, battle, rng, events } = ctx;
   const monster = defOf(ctx, foe);
-  const d = derive(player);
-  const acc = d.accuracy + (opts.field ? ABILITY_ACCURACY : 0) - statusPower(battle.playerStatuses, 'chill');
-  const hit = rng.chance(hitChance(acc, monsterEvasion(monster, hostileLevel(battle.monsters[foe]!)), PLAYER_BASE_HIT));
+  const hit = rng.chance(hitChance(baseHit - statusPower(battle.playerStatuses, 'chill'), hostileEvasion(battle.monsters[foe]!)));
   if (!hit) {
     events.push({ type: 'attack', actor: 'player', foe, name, element, hit: false, crit: false, damage: 0 });
     return false;
   }
-  const crit = rng.chance(d.critChance + (opts.extraCrit ?? 0));
+  const crit = rng.chance(derive(player).critChance + extraCrit);
   const dmg = mitigate(crit ? raw * PLAYER_CRIT_MULT : raw, monsterDamageTaken(monster, element), 0);
   events.push({ type: 'attack', actor: 'player', foe, name, element, hit: true, crit, damage: dmg });
   damageMonster(ctx, foe, dmg);
@@ -213,11 +252,14 @@ export function playerAttack(ctx: Ctx): void {
   const foe = battle.target;
   const weapon = getWeapon(player.weapon);
   const power = derive(player).damage;
-  const raw = rng.int(...weapon.damage) * power;
-  const hit = playerStrike(ctx, foe, weapon.name, weapon.element, raw, {});
-  if (hit && weapon.proc && isAlive(battle.monsters[foe]!) && rng.chance(weapon.proc.chance)) {
-    const dot = Math.round(weapon.proc.power * power);
-    applyStatus(battle.monsters[foe]!.statuses, 'monster', weapon.proc.status, weapon.proc.turns, dot, ctx.events, foe);
+  const { hit: baseHit, hits } = strikeProfile(player);
+  for (let i = 0; i < hits && isAlive(battle.monsters[foe]!); i++) {
+    const raw = rng.int(...weapon.damage) * power;
+    const hit = playerStrike(ctx, foe, weapon.name, weapon.element, raw, baseHit);
+    if (hit && weapon.proc && isAlive(battle.monsters[foe]!) && rng.chance(weapon.proc.chance)) {
+      const dot = Math.round(weapon.proc.power * power);
+      applyStatus(battle.monsters[foe]!.statuses, 'monster', weapon.proc.status, weapon.proc.turns, dot, ctx.events, foe);
+    }
   }
 }
 
@@ -240,21 +282,21 @@ export function playerCast(ctx: Ctx, spellId: string): void {
       const element = resolveElement(player, effect.element);
       const targets = effect.aoe ? aliveIndices(battle) : [battle.target];
       landedOn = [];
+      const { hit: baseHit, hits } = strikeProfile(player, effect);
       for (const foe of targets) {
-        let raw: number;
-        if (effect.useWeapon) {
-          const weapon = getWeapon(player.weapon);
-          raw = rng.int(...weapon.damage);
-        } else {
-          raw = rng.int(...effect.dice);
+        let landed = false;
+        for (let i = 0; i < hits && isAlive(battle.monsters[foe]!); i++) {
+          let raw: number;
+          if (effect.useWeapon) {
+            const weapon = getWeapon(player.weapon);
+            raw = rng.int(...weapon.damage);
+          } else {
+            raw = rng.int(...effect.dice);
+          }
+          raw *= power * (effect.mult ?? 1);
+          if (playerStrike(ctx, foe, spell.name, element, raw, baseHit, effect.extraCrit ?? 0)) landed = true;
         }
-        raw *= power * (effect.mult ?? 1);
-        // Field abilities (not weapon techniques) get a small accuracy bonus.
-        const hit = playerStrike(ctx, foe, spell.name, element, raw, {
-          field: !effect.useWeapon,
-          ...(effect.extraCrit !== undefined ? { extraCrit: effect.extraCrit } : {}),
-        });
-        if (hit) landedOn.push(foe);
+        if (landed) landedOn.push(foe);
       }
     } else if (effect.type === 'heal') {
       const d = derive(player);
@@ -318,22 +360,23 @@ function monsterAct(ctx: Ctx, foe: number): void {
   const self = battle.monsters[foe]!;
   const attack = rng.weighted(monster.attacks, (a) => a.weight);
   const d = derive(player);
-  const acc = monsterAccuracy(monster, hostileLevel(self)) - statusPower(self.statuses, 'chill');
-  const eva = d.evasion + statusPower(battle.playerStatuses, 'evasive');
-  if (!rng.chance(hitChance(acc, eva))) {
-    events.push({ type: 'attack', actor: 'monster', foe, name: attack.name, element: attack.element, hit: false, crit: false, damage: 0 });
-    return;
-  }
-  const crit = rng.chance(monsterCrit(monster));
-  // `power` only exists on patrol-scaled hostiles; missions keep the exact original arithmetic.
-  let raw = rng.int(...attack.damage) * (crit ? MONSTER_CRIT_MULT : 1);
-  if (self.power !== undefined) raw *= self.power;
-  const dmg = mitigate(raw, d.damageTaken[attack.element], statusPower(battle.playerStatuses, 'shield'));
-  player.hp = Math.max(0, player.hp - dmg);
-  events.push({ type: 'attack', actor: 'monster', foe, name: attack.name, element: attack.element, hit: true, crit, damage: dmg });
-  if (attack.effect && player.hp > 0 && rng.chance(attack.effect.chance)) {
-    const power = self.power !== undefined ? Math.round(attack.effect.power * self.power) : attack.effect.power;
-    applyStatus(battle.playerStatuses, 'player', attack.effect.status, attack.effect.turns, power, events);
+  const chance = hostileHitChance(player, battle, foe, attack);
+  for (let i = 0; i < (attack.hits ?? 1) && player.hp > 0; i++) {
+    if (!rng.chance(chance)) {
+      events.push({ type: 'attack', actor: 'monster', foe, name: attack.name, element: attack.element, hit: false, crit: false, damage: 0 });
+      continue;
+    }
+    const crit = rng.chance(monster.crit);
+    // `power` only exists on patrol-scaled hostiles.
+    let raw = rng.int(...attack.damage) * (crit ? MONSTER_CRIT_MULT : 1);
+    if (self.power !== undefined) raw *= self.power;
+    const dmg = mitigate(raw, d.damageTaken[attack.element], statusPower(battle.playerStatuses, 'shield'));
+    player.hp = Math.max(0, player.hp - dmg);
+    events.push({ type: 'attack', actor: 'monster', foe, name: attack.name, element: attack.element, hit: true, crit, damage: dmg });
+    if (attack.effect && player.hp > 0 && rng.chance(attack.effect.chance)) {
+      const power = self.power !== undefined ? Math.round(attack.effect.power * self.power) : attack.effect.power;
+      applyStatus(battle.playerStatuses, 'player', attack.effect.status, attack.effect.turns, power, events);
+    }
   }
 }
 

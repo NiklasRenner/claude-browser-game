@@ -4,7 +4,7 @@ import {
   MAX_HIT, MIN_HIT, Rng, applyStatus, fleeChance, getMonster, hitChance, mitigate, runRound, step,
 } from '../src/core';
 import type { GameEvent, GameState } from '../src/core';
-import { act, inBattle, newGame } from './helpers';
+import { act, inBattle, newGame, sureHit } from './helpers';
 
 /** A battle where the player cannot die, for observing many monster turns. */
 function sturdyBattle(monsterId = 'protoplasm'): GameState {
@@ -18,7 +18,8 @@ describe('combat formulas', () => {
   it('clamps hit chance', () => {
     assert.equal(hitChance(1000, 0), MAX_HIT);
     assert.equal(hitChance(-1000, 0), MIN_HIT);
-    assert.equal(hitChance(0, 0), 82);
+    assert.equal(hitChance(88, 20), 68, 'hit chance minus evasion');
+    assert.equal(hitChance(120, 30), 90, 'hit above 100 still pays off against evasion');
   });
 
   it('mitigates damage by resistance and guard, with a floor of 1 unless immune', () => {
@@ -99,7 +100,7 @@ describe('battle outcomes', () => {
   it('awards XP and gold on victory and returns to the quest', () => {
     const s = inBattle(newGame('security', 5), 'protoplasm');
     s.battle!.monsters[0]!.hp = 1;
-    s.player!.stats.pre = 200; // guarantee the hit
+    sureHit(s);
     const { state, events } = act(s, { type: 'attack' });
     const victory = events.find((e) => e.type === 'victory');
     assert.ok(victory && victory.type === 'victory');
@@ -113,7 +114,7 @@ describe('battle outcomes', () => {
   it('completes the quest and unlocks the next area when the boss falls', () => {
     const s = inBattle(newGame('security', 5), 'thornhide_behemoth');
     s.battle!.monsters[0]!.hp = 1;
-    s.player!.stats.pre = 200;
+    sureHit(s);
     const { state, events } = act(s, { type: 'attack' });
     assert.ok(events.some((e) => e.type === 'questComplete' && e.firstClear));
     assert.equal(state.mode, 'town');
@@ -125,7 +126,9 @@ describe('battle outcomes', () => {
     const s = inBattle(newGame('science', 6), 'raider');
     s.player!.hp = 1;
     s.player!.gold = 100;
-    s.player!.stats.pre = -200; // guarantee our attack misses and theirs lands
+    // Make our attacks (almost) always miss and theirs always land.
+    s.battle!.monsters[0]!.statuses.push({ id: 'evasive', turns: 99, power: 1000 });
+    s.battle!.playerStatuses.push({ id: 'marked', turns: 99, power: 1000 });
     let r = act(s, { type: 'attack' });
     // The bandit might miss a few times; keep swinging until we fall.
     while (r.state.mode === 'battle') r = act(r.state, { type: 'attack' });

@@ -32,7 +32,7 @@ const CAMERA = {
 /** Half-width of the action that must stay on screen (fighters + some margin). */
 const ACTION_HALF_WIDTH = 5.2;
 const STATUS_COLORS: Record<string, number> = {
-  burn: 0xff6a2b, corrode: 0x8ee84a, stun: 0xffe14d, shield: 0x6cc6ff, evasive: 0xc9d6ff, chill: 0x6cd6ff,
+  burn: 0xff6a2b, corrode: 0x8ee84a, stun: 0xffe14d, shield: 0x6cc6ff, evasive: 0xc9d6ff, chill: 0x6cd6ff, marked: 0xff4d6d,
 };
 
 export class Stage {

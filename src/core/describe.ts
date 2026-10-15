@@ -3,7 +3,7 @@ import { getArea, getItem, getMonster } from './data';
 import type { GameEvent, GameState, StepResult } from './types';
 
 const STATUS_TEXT: Record<string, string> = {
-  burn: 'burning', corrode: 'corroding', stun: 'stunned', shield: 'shielded', evasive: 'evasive', chill: 'chilled',
+  burn: 'burning', corrode: 'corroding', stun: 'stunned', shield: 'shielded', evasive: 'evasive', chill: 'chilled', marked: 'marked',
 };
 
 export interface DescribeContext {

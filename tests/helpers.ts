@@ -33,6 +33,18 @@ export function inBattle(state: GameState, monsterId: string): GameState {
   return s;
 }
 
+/**
+ * Makes the player's attacks land: marks every hostile with a huge evasion
+ * penalty (still subject to the MAX_HIT cap, which is 100).
+ */
+export function sureHit(state: GameState): GameState {
+  for (const m of state.battle?.monsters ?? []) {
+    m.statuses = m.statuses.filter((st) => st.id !== 'marked');
+    m.statuses.push({ id: 'marked', turns: 99, power: 1000 });
+  }
+  return state;
+}
+
 /** Recursively freezes an object so accidental mutation throws in strict mode. */
 export function deepFreeze<T>(obj: T): T {
   if (obj && typeof obj === 'object' && !Object.isFrozen(obj)) {

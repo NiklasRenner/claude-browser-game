@@ -21,7 +21,7 @@ import { ENERGY_RECOVERY } from './stats';
 import { PATROL_CONTACTS, patrolBoss, patrolContact, patrolReward, patrolWorlds } from './patrol';
 import type { Action, ClassId, GameEvent, GameState, Player, QuestState, StepResult } from './types';
 
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 export const DEFEAT_GOLD_PENALTY = 0.1;
 
 export function initialState(seed = 1): GameState {

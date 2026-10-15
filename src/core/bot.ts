@@ -3,11 +3,11 @@
  * so it doubles as an integration test of the whole game loop and as a
  * balance probe (`npm run sim`).
  */
-import { aliveIndices, averageEffectDamage, hostileLevel, hitChance, monsterDamageTaken, monsterEvasion, resolveElement, statusPower } from './combat';
+import { aliveIndices, averageEffectDamage, hitChance, monsterDamageTaken, playerHitChance, resolveElement, strikeProfile } from './combat';
 import { AREA_ORDER, CLASSES, ITEMS, getArea, getClass, getMonster } from './data';
 import { checkAction, initialState, legalActions, questEncounters, step } from './game';
 import { countItem, derive, knownSpells } from './player';
-import { ABILITY_ACCURACY, BASE_STAT, PLAYER_BASE_HIT } from './stats';
+import { BASE_STAT } from './stats';
 import type { Action, ArmorDef, ClassId, GameState, MonsterDef, Player, StatusEffect, WeaponDef } from './types';
 
 const ok = (s: GameState, a: Action) => checkAction(s, a) === null;
@@ -40,12 +40,11 @@ function areaMonsters(areaId: string): MonsterDef[] {
   return [...area.monsters, area.boss].map(getMonster);
 }
 
-/** Expected weapon damage per swing against the given monsters. */
+/** Expected weapon damage per attack against the given monsters (hit chance and strikes included). */
 function weaponScore(p: Player, w: WeaponDef, monsters: MonsterDef[]): number {
-  const cls = getClass(p.classId);
-  const avg = ((w.damage[0] + w.damage[1]) / 2) * derive(p).damage;
-  const resist = monsters.reduce((sum, m) => sum + monsterDamageTaken(m, w.element), 0) / monsters.length;
-  return avg * (resist / 100) * (1 + w.bonus / 100);
+  const avg = ((w.damage[0] + w.damage[1]) / 2) * derive(p).damage * (w.hits ?? 1);
+  const perFoe = monsters.map((m) => (monsterDamageTaken(m, w.element) / 100) * (hitChance(w.hit, m.evasion) / 100));
+  return avg * perFoe.reduce((a, b) => a + b, 0) / monsters.length;
 }
 
 function armorScore(a: ArmorDef): number {
@@ -168,14 +167,11 @@ function battleAction(state: GameState, p: Player): Action {
   }
 
   // Otherwise pick the highest expected damage option.
-  const accuracy = d.accuracy - statusPower(battle.playerStatuses, 'chill');
-  const hit = hitChance(accuracy, monsterEvasion(monster, hostileLevel(target)), PLAYER_BASE_HIT) / 100;
-  const fieldHit = hitChance(accuracy + ABILITY_ACCURACY, monsterEvasion(monster, hostileLevel(target)), PLAYER_BASE_HIT) / 100;
-  const cls = getClass(p.classId);
   let best: Action = { type: 'attack' };
   const weapon = ITEMS[p.weapon] as WeaponDef;
+  const weaponHit = playerHitChance(p, battle, battle.target) / 100;
   let bestScore = averageEffectDamage(p, { type: 'damage', element: 'weapon', dice: [0, 0], useWeapon: true })
-    * (monsterDamageTaken(monster, weapon.element) / 100) * hit;
+    * (weapon.hits ?? 1) * (monsterDamageTaken(monster, weapon.element) / 100) * weaponHit;
 
   // Keep enough MP for an emergency heal unless the monster is almost dead.
   const attackScore = bestScore;
@@ -187,10 +183,20 @@ function battleAction(state: GameState, p: Player): Action {
     for (const e of spell.effects) {
       if (e.type === 'damage') {
         const element = resolveElement(p, e.element);
-        const hitList = e.aoe ? others : [monster];
-        for (const m of hitList) score += averageEffectDamage(p, e) * (monsterDamageTaken(m, element) / 100) * (e.useWeapon ? hit : fieldHit);
+        const hitList = e.aoe ? alive : [battle.target];
+        const strikes = strikeProfile(p, e).hits;
+        for (const i of hitList) {
+          const m = getMonster(battle.monsters[i]!.defId);
+          score += averageEffectDamage(p, e) * strikes * (monsterDamageTaken(m, element) / 100) * (playerHitChance(p, battle, i, e) / 100);
+        }
       } else if (e.type === 'status' && e.target === 'enemy' && (e.status === 'corrode' || e.status === 'burn')) {
         if (!target.statuses.some((s) => s.id === e.status)) score += e.power * e.turns * ((e.chance ?? 100) / 100);
+      } else if (e.type === 'status' && e.target === 'enemy' && e.status === 'marked') {
+        // Painting pays off when the next few attacks would otherwise miss a lot, on something worth the time.
+        if (!target.statuses.some((s) => s.id === 'marked') && weaponHit < 0.7 && target.hp > attackScore * 2) {
+          const gain = Math.min(1, weaponHit + e.power / 100) - weaponHit;
+          score += (attackScore / Math.max(weaponHit, 0.05)) * gain * Math.min(e.turns, 3);
+        }
       }
     }
     if (score > bestScore * 1.1) {

@@ -25,7 +25,7 @@ const areas: AreaDef[] = [
   {
     id: 'void_rift', name: 'The Void Rift', minLevel: 12, requires: 'glacies',
     description: 'A tear in space ringed by derelict starships. The flagship\'s admiral is still giving orders.',
-    monsters: ['void_shade', 'rift_marauder', 'void_leech'], boss: 'hollow_admiral', encounters: 3,
+    monsters: ['void_shade', 'phase_wisp', 'rift_marauder', 'void_leech'], boss: 'hollow_admiral', encounters: 3,
     reward: { xp: 500, gold: 400 },
     palette: { sky: 0x0c0818, ground: 0x2a2436, fog: 0x1a1230 },
   },

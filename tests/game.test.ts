@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { derive, getItem, initialState, legalActions, restCost, sellPrice, step } from '../src/core';
 import type { Action } from '../src/core';
-import { act, actAll, deepFreeze, newGame } from './helpers';
+import { act, actAll, deepFreeze, newGame, sureHit } from './helpers';
 
 describe('reducer basics', () => {
   it('starts on the title screen and creates a character', () => {
@@ -128,7 +128,7 @@ describe('quest flow', () => {
     assert.equal(s.mode, 'battle');
     assert.equal(s.quest!.areaId, 'veridia');
     s.battle!.monsters[0]!.hp = 1;
-    s.player!.stats.pre = 300;
+    sureHit(s);
     s = act(s, { type: 'attack' }).state;
     assert.equal(s.mode, 'quest');
     assert.equal(act(s, { type: 'retreat' }).state.mode, 'town');
@@ -140,7 +140,7 @@ describe('quest flow', () => {
     let s = act(newGame('security', 12), { type: 'startQuest', areaId: 'veridia' }).state;
     for (let i = 0; i < 3; i++) {
       s.battle!.monsters[0]!.hp = 1;
-      s.player!.stats.pre = 300;
+      sureHit(s);
       s.player!.hp = 999;
       s = act(s, { type: 'attack' }).state;
       const r = act(s, { type: 'continue' });

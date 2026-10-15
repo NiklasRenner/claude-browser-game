@@ -1,7 +1,7 @@
 import { getArmor, getClass, getWeapon, spellsFor } from './data';
 import { ELEMENTS } from './types';
 import {
-  agilityEvasion, baseStats, damageMultiplier, enduranceHp, intellectEnergy, luckCrit, precisionBonus,
+  agilityEvasion, baseStats, damageMultiplier, enduranceHp, intellectEnergy, luckCrit,
 } from './stats';
 import type { ClassId, Element, GameEvent, Player, Resistances, SpellDef, Stat } from './types';
 
@@ -16,8 +16,6 @@ export function xpToNext(level: number): number {
 export interface DerivedStats {
   maxHp: number;
   maxMp: number;
-  /** Added to base to-hit chance. */
-  accuracy: number;
   /** Subtracted from the enemy's to-hit chance. */
   evasion: number;
   critChance: number;
@@ -30,11 +28,10 @@ export interface DerivedStats {
 export function derive(player: Player): DerivedStats {
   const weapon = getWeapon(player.weapon);
   const armor = getArmor(player.armor);
-  const { pow, agi, pre, int, end, luk } = player.stats;
+  const { pow, agi, int, end, luk } = player.stats;
   return {
     maxHp: 40 + player.level * 12 + enduranceHp(end) + armor.hp,
     maxMp: 15 + player.level * 4 + intellectEnergy(int) + armor.mp,
-    accuracy: weapon.bonus + player.level * 0.5 + precisionBonus(pre),
     evasion: armor.block + agilityEvasion(agi),
     critChance: 5 + luckCrit(luk) + weapon.crit,
     damage: damageMultiplier(pow),

@@ -19,7 +19,7 @@ export const ELEMENT_NAMES: Record<Element, string> = {
 };
 
 export const STATUS_ICONS: Record<StatusId, string> = {
-  burn: '🔥', corrode: '☣', stun: '💫', shield: '🛡', evasive: '◌', chill: '❄',
+  burn: '🔥', corrode: '☣', stun: '💫', shield: '🛡', evasive: '◌', chill: '❄', marked: '⌖',
 };
 
 export const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`;

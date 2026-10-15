@@ -5,11 +5,12 @@
  */
 import {
   AREA_ORDER, CLASSES, ELEMENTS, SHOP_STOCK, STATS, checkAction, countItem, derive, getArea, getClass,
-  PATROL_CONTACTS, STAT_INFO, agilityEvasion, damageMultiplier, enduranceHp, intellectEnergy, luckCrit, precisionBonus, spellsFor,
+  PATROL_CONTACTS, STAT_INFO, agilityEvasion, damageMultiplier, enduranceHp, intellectEnergy, luckCrit, spellsFor,
+  hostileEvasion, hostileHitChance, playerHitChance, strikeProfile,
   getItem, getMonster, getWeapon, hostileLabels, hostileLevel, isAreaUnlocked, patrolReward, patrolWorlds, questEncounters, isEquipped, knownSpells, monsterDamageTaken, resolveElement, restCost,
   sellPrice, xpToNext,
 } from '../core';
-import type { Action, ClassId, Element, GameState, ItemDef, MonsterDef, Player, SpellDef, Stat, StatusEffect } from '../core';
+import type { Action, BattleState, ClassId, Element, GameState, ItemDef, MonsterDef, Player, SpellDef, Stat, StatusEffect } from '../core';
 import type { GameController } from '../game/controller';
 import { ELEMENT_ICONS, STATUS_ICONS } from '../game/elements';
 
@@ -24,7 +25,6 @@ function statEffect(stat: Stat, v: number): string {
   switch (stat) {
     case 'pow': return `+${Math.round((damageMultiplier(v) - 1) * 100)}% damage`;
     case 'agi': return `+${agilityEvasion(v).toFixed(1)} evasion`;
-    case 'pre': return `+${precisionBonus(v).toFixed(0)} hit chance`;
     case 'int': return `+${intellectEnergy(v)} max energy`;
     case 'end': return `+${enduranceHp(v)} max HP`;
     case 'luk': return `+${luckCrit(v).toFixed(1)}% crit chance`;
@@ -209,6 +209,7 @@ export class UI {
         <div class="hud-name"><strong>${esc(labels[b.target]!)}</strong> <span class="muted">Lv ${hostileLevel(target)}${def.boss ? ' · PRIORITY TARGET' : ''}</span></div>
         ${bar('hp enemy', target.hp, target.maxHp, 'HP')}
         <div class="hud-row">${statusChips(target.statuses)}</div>
+        <div class="res profile">Evasion <b>${Math.round(hostileEvasion(target))}</b> · Hits you <b>${Math.round(hostileHitChance(s.player!, b, b.target))}%</b></div>
         ${weak.length ? `<div class="res">Vulnerable: ${chips(weak)}</div>` : ''}
         ${strong.length ? `<div class="res">Resists: ${chips(strong)}</div>` : ''}
       </div>`;
@@ -319,7 +320,7 @@ export class UI {
       <div class="two-col">
         <div><h3>Attributes ${p.statPoints ? `<span class="badge">${p.statPoints} to spend</span>` : ''}</h3><div class="list">${stats}</div></div>
         <div><h3>Combat</h3>
-          <div class="kv"><span>Accuracy bonus</span><b>+${d.accuracy.toFixed(0)}</b><span>Evasion</span><b>${d.evasion.toFixed(0)}</b>
+          <div class="kv"><span>Weapon hit chance</span><b>${weaponHitText(p)}</b><span>Evasion</span><b>${d.evasion.toFixed(0)}</b>
           <span>Critical chance</span><b>${d.critChance.toFixed(0)}%</b><span>Resistances</span><b>${resist || '—'}</b></div>
           <h3>Abilities</h3><div class="list">${spells}</div>
         </div>
@@ -349,12 +350,13 @@ export class UI {
 
   private battlePanel(s: GameState, btn: BtnFn) {
     const p = s.player!;
-    const foe = s.battle ? getMonster(s.battle.monsters[s.battle.target]!.defId) : null;
+    const b = s.battle;
+    const foe = b ? getMonster(b.monsters[b.target]!.defId) : null;
     const back = '<button class="btn ghost" data-ui="menu:main">◂ Back</button>';
     switch (this.battleMenu) {
       case 'skills':
         return `<div class="actions grid">${knownSpells(p).map((sp, i) => btn({ type: 'cast', spellId: sp.id },
-          `<span class="key">${i + 1}</span><span class="skill-name">${sp.name}</span> <span class="mp-cost">${sp.mp} EN</span>${abilityTags(p, sp, foe)}`,
+          `<span class="key">${i + 1}</span><span class="skill-name">${sp.name}</span> <span class="mp-cost">${sp.mp} EN</span>${abilityTags(p, sp, b)}`,
           'skill', sp.description)).join('')}${back}</div>`;
       case 'items': {
         const items = Object.keys(p.inventory).filter((id) => getItem(id).kind === 'consumable');
@@ -366,7 +368,7 @@ export class UI {
       }
       default:
         return `<div class="actions battle-main">
-          ${btn({ type: 'attack' }, `<span class="key">A</span>Attack ${elementChip(getWeapon(p.weapon).element, foe, true)}`, 'primary big')}
+          ${btn({ type: 'attack' }, `<span class="key">A</span>Attack ${elementChip(getWeapon(p.weapon).element, foe, true)}${hitChip(p, b)}`, 'primary big')}
           <button class="btn big" data-ui="menu:skills" ${this.game.busy ? 'disabled' : ''}>Abilities ▸</button>
           <button class="btn" data-ui="menu:items" ${this.game.busy ? 'disabled' : ''}>Items ▸</button>
           <button class="btn" data-ui="menu:gear" ${this.game.busy ? 'disabled' : ''}>Swap weapon ▸</button>
@@ -430,7 +432,7 @@ export function keyAction(s: GameState, key: string, shift = false): Action | nu
 // ─── Ability / element tags ─────────────────────────────────────────────────
 
 const STATUS_NAMES: Record<StatusEffect['id'], string> = {
-  burn: 'burn', corrode: 'corrode', stun: 'stun', shield: 'shield', evasive: 'evade', chill: 'chill',
+  burn: 'burn', corrode: 'corrode', stun: 'stun', shield: 'shield', evasive: 'evade', chill: 'chill', marked: 'marked',
 };
 
 /**
@@ -450,11 +452,13 @@ function elementChip(el: Element, foe: MonsterDef | null, iconOnly = false): str
 }
 
 /** Chips for everything an ability does: damage types, heals and status effects. */
-function abilityTags(p: Player, spell: SpellDef, foe: MonsterDef | null): string {
+function abilityTags(p: Player, spell: SpellDef, battle: BattleState | null): string {
+  const foe = battle ? getMonster(battle.monsters[battle.target]!.defId) : null;
   const tags: string[] = [];
   for (const e of spell.effects) {
     if (e.type === 'damage') {
       tags.push(elementChip(resolveElement(p, e.element), foe));
+      tags.push(hitChip(p, battle, e));
       if (e.aoe) tags.push('<span class="chip tag-aoe" title="Hits every hostile">⇶ all</span>');
     } else if (e.type === 'heal') {
       tags.push('<span class="chip tag-heal" title="Restores HP">✚ heal</span>');
@@ -477,9 +481,34 @@ function statusChips(statuses: StatusEffect[]) {
   return statuses.map((st) => `<span class="status" title="${st.id} (${st.turns} turns)">${STATUS_ICONS[st.id]}${st.turns}</span>`).join('');
 }
 
+/** "88%" or "76% ×3" for the equipped weapon. */
+function weaponHitText(p: Player): string {
+  const { hit, hits } = strikeProfile(p);
+  return `${hit}%${hits > 1 ? ` ×${hits}` : ''}`;
+}
+
+/**
+ * Hit-chance chip for a weapon attack (no effect) or an ability's damage
+ * effect. In battle it shows the real chance against the current target;
+ * otherwise the base value, before the target's evasion.
+ */
+function hitChip(p: Player, battle: BattleState | null, effect?: Extract<SpellDef['effects'][number], { type: 'damage' }>): string {
+  const { hit, hits } = strikeProfile(p, effect);
+  const strikes = hits > 1 ? ` ×${hits}` : '';
+  if (battle) {
+    const chance = Math.round(playerHitChance(p, battle, battle.target, effect));
+    const cls = chance < 50 ? 'hit-low' : chance < 75 ? 'hit-mid' : 'hit-high';
+    return `<span class="chip tag-hit ${cls}" title="Chance for each strike to hit the current target${hits > 1 ? ` (${hits} strikes)` : ''}">◎ ${chance}%${strikes}</span>`;
+  }
+  return `<span class="chip tag-hit" title="Hit chance before the target's evasion${hits > 1 ? ` (${hits} strikes)` : ''}">◎ ${hit}${strikes}</span>`;
+}
+
 function itemStats(item: ItemDef): string {
   if (item.kind === 'weapon') {
-    return `<span class="el el-${item.element}">${ELEMENT_ICONS[item.element]} ${item.damage[0]}–${item.damage[1]}</span>`;
+    const hits = item.hits ?? 1;
+    return `<span class="el el-${item.element}">${ELEMENT_ICONS[item.element]} ${item.damage[0]}–${item.damage[1]}${hits > 1 ? ` ×${hits}` : ''}</span>`
+      + ` <span class="chip tag-hit" title="Hit chance before the target's evasion">◎ ${item.hit}</span>`
+      + (item.crit ? ` <span class="muted" title="Extra critical-hit chance">+${item.crit}% crit</span>` : '');
   }
   if (item.kind === 'armor') {
     const res = Object.entries(item.resist).map(([el, v]) => `${ELEMENT_ICONS[el as keyof typeof ELEMENT_ICONS]}${v}%`).join(' ');

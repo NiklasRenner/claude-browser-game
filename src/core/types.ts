@@ -5,8 +5,8 @@
 export const ELEMENTS = ['kinetic', 'plasma', 'cryo', 'ion', 'photon', 'void', 'corrosive'] as const;
 export type Element = (typeof ELEMENTS)[number];
 
-/** Power, Agility, Precision, Intellect, Endurance, Luck — see stats.ts. */
-export const STATS = ['pow', 'agi', 'pre', 'int', 'end', 'luk'] as const;
+/** Power, Agility, Intellect, Endurance, Luck — see stats.ts. (Hit chance is per weapon / ability, not a stat.) */
+export const STATS = ['pow', 'agi', 'int', 'end', 'luk'] as const;
 export type Stat = (typeof STATS)[number];
 export type Stats = Record<Stat, number>;
 
@@ -17,10 +17,12 @@ export type ClassId = 'security' | 'science' | 'engineer';
 
 /**
  * burn/corrode: damage `power` at the start of each owner turn (plasma / corrosive).
- * stun: owner skips its turn. chill: owner's accuracy −`power`.
+ * stun: owner skips its turn. chill: owner's hit chance −`power`.
  * shield: owner takes `power`% less damage. evasive: owner's evasion +`power`.
+ * marked: owner's evasion −`power` (attacks against it land more often).
+ * Statuses work the same on the player and on hostiles.
  */
-export type StatusId = 'burn' | 'corrode' | 'stun' | 'shield' | 'evasive' | 'chill';
+export type StatusId = 'burn' | 'corrode' | 'stun' | 'shield' | 'evasive' | 'chill' | 'marked';
 
 export interface StatusEffect {
   id: StatusId;
@@ -39,12 +41,19 @@ export interface WeaponDef {
   /** Purely visual: melee weapons lunge, ranged weapons fire a bolt. */
   style: 'melee' | 'ranged';
   element: Element;
+  /** Damage per hit. */
   damage: [number, number];
-  /** Flat to-hit bonus. */
-  bonus: number;
+  /**
+   * Hit chance in percent against a target with 0 evasion. The target's
+   * evasion is subtracted, so values above 100 are meaningful: they keep
+   * landing against evasive hostiles.
+   */
+  hit: number;
+  /** Strikes per attack (default 1). Each rolls hit, crit, damage and proc on its own. */
+  hits?: number;
   /** Extra crit chance in percent. */
   crit: number;
-  /** Chance-based on-hit effect. */
+  /** Chance-based on-hit effect (rolled per landed hit). */
   proc?: { chance: number; status: StatusId; turns: number; power: number };
   level: number;
   price: number;
@@ -92,6 +101,15 @@ export type SpellEffect =
       /** Hits every living hostile (each rolls separately). */
       aoe?: boolean;
       extraCrit?: number;
+      /**
+       * Hit chance before the target's evasion. Defaults: the weapon's hit for
+       * `useWeapon` effects, ABILITY_HIT otherwise.
+       */
+      hit?: number;
+      /** Added to the hit chance above (e.g. a careful aimed shot: +15). */
+      accuracy?: number;
+      /** Strikes per target. Defaults: the weapon's hits for `useWeapon`, else 1. */
+      hits?: number;
     }
   | { type: 'heal'; dice: [number, number] }
   | { type: 'status'; target: 'self' | 'enemy'; status: StatusId; turns: number; power: number; chance?: number };
@@ -120,8 +138,13 @@ export interface ClassDef {
 export interface MonsterAttack {
   name: string;
   element: Element;
+  /** Damage per hit. */
   damage: [number, number];
   weight: number;
+  /** Overrides the hostile's `accuracy` for this attack. */
+  hit?: number;
+  /** Strikes per use (default 1), each rolled separately. */
+  hits?: number;
   effect?: { status: StatusId; chance: number; turns: number; power: number };
 }
 
@@ -137,11 +160,19 @@ export interface MonsterDef {
   id: string;
   name: string;
   level: number;
+  /**
+   * Combat profile, in the same units the player's stats turn into (HP, hit
+   * chance, evasion %, crit %). Hostiles are authored directly in these units,
+   * so they are not bound by the player's diminishing-returns curves: a 70%
+   * evasion wisp or a 75%-accuracy brute is just a number here.
+   */
   hp: number;
-  /** Hostile-only numbers: dex feeds accuracy/evasion, luk crit chance. */
-  stats: { dex: number; luk: number };
-  /** Natural evasion bonus. */
+  /** Hit chance of its attacks against a target with 0 evasion (like a weapon's `hit`). */
+  accuracy: number;
+  /** Subtracted from the attacker's hit chance. */
   evasion: number;
+  /** Critical-hit chance in percent. */
+  crit: number;
   resist: Resistances;
   attacks: MonsterAttack[];
   xp: number;
