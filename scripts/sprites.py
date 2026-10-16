@@ -167,6 +167,30 @@ def lit_by_effect(rgba: np.ndarray, hues, palette: np.ndarray) -> np.ndarray:
     return core & (rgba[:, :, 3] > 0)
 
 
+def against_base(rgba: np.ndarray, base: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Compares a frame with its base sprite, pixel by pixel (PixelLab keeps the canvas, so parts that didn't
+    move are at the same place). A frame may be lit up overall (its `gain`). Returns:
+      same:   the same part as in the base, only lit differently (its colour, divided by the gain, is close);
+      source: a light coming on (it brightened much more than the frame as a whole, and burns white).
+    """
+    if base.shape != rgba.shape:
+        none = np.zeros(rgba.shape[:2], bool)
+        return none, none
+    both = (rgba[:, :, 3] > 0) & (base[:, :, 3] > 127)
+    raw, ref = rgba[:, :, :3].astype(float), base[:, :, :3].astype(float)
+    lum, blum = raw.max(axis=2) + 8, ref.max(axis=2) + 8
+    gain = float(np.median(lum[both] / blum[both])) if both.any() else 1.0
+    same = both & (np.abs(raw / gain - ref).max(axis=2) < 30)
+    # Lights burn white: pale (little saturation) as well as bright; lit-up gold trim isn't a light.
+    pale = (raw.max(axis=2) - raw.min(axis=2)) <= 0.3 * raw.max(axis=2)
+    source = both & (lum / blum > gain * 1.8) & (raw.max(axis=2) > 200) & pale
+    # A light is a patch, not a speck (stray pale pixels on a lit robe would flicker).
+    n, labels, stats, _ = cv2.connectedComponentsWithStats(source.astype(np.uint8), connectivity=8)
+    source &= np.isin(labels, [i for i in range(1, n) if stats[i, cv2.CC_STAT_AREA] >= 6])
+    return same & ~source, source
+
+
 def feet(s: np.ndarray) -> int:
     """x of the feet: the middle of the lowest fifth of the figure."""
     ys, xs = np.nonzero(s[:, :, 3])
@@ -455,7 +479,7 @@ def main():
         if name in LOCKED and base.exists():
             # Animation frames drift in colour (a lit frame turns the robe gold): snap every pixel to the
             # nearest colour of the base sprite (after matching its brightness), so only the shapes move.
-            b = np.array(Image.open(base).convert('RGBA'))
+            b = base_rgba = np.array(Image.open(base).convert('RGBA'))
             palette = np.unique(b[b[:, :, 3] > 127][:, :3], axis=0).astype(int)
             ref = np.sort(b[b[:, :, 3] > 127][:, :3].astype(float), axis=0)
         lit = []
@@ -464,9 +488,10 @@ def main():
             rgba[:, :, 3] = np.where(rgba[:, :, 3] > 127, 255, 0)
             if palette is not None:
                 # What lights up keeps its colour (and glows); the rest of the figure is matched.
-                keep = lit_by_effect(rgba, hues, palette)
-                kept = rgba[keep].copy()
                 on = rgba[:, :, 3] > 0
+                same, source = against_base(rgba, base_rgba)
+                keep = lit_by_effect(rgba, hues, palette) | source
+                kept = rgba[keep].copy()
                 px = rgba[on][:, :3].astype(float)
                 # Match each channel's distribution to the base sprite's (undoes a frame lit up overall).
                 for c in range(3):
@@ -474,6 +499,9 @@ def main():
                     px[:, c] = ref[np.round(rank * (len(ref) - 1)).astype(int), c]
                 near = ((px[:, None, :] - palette[None, :, :]) ** 2).sum(axis=2).argmin(axis=1)
                 rgba[on, :3] = palette[near]
+                # Where it's the same part of the figure as in the base sprite, it is the base's colour exactly
+                # (so a still body doesn't shimmer from frame to frame).
+                rgba[same, :3] = base_rgba[same, :3]
                 rgba[keep] = kept
                 lit.append(keep)
             sprites.append(rgba)
