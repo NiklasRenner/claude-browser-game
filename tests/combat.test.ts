@@ -6,7 +6,7 @@ import {
 import type { GameEvent } from '../src/core';
 import { act, inBattle, newGame, sureHit, endlessFight } from './helpers';
 
-const sturdyBattle = (hostileId = 'protoplasm') => endlessFight(hostileId);
+const sturdyBattle = (hostileId = 'fen_leech') => endlessFight(hostileId);
 
 describe('combat formulas', () => {
   it('clamps hit chance', () => {
@@ -28,7 +28,7 @@ describe('combat formulas', () => {
     const p = newGame('engineer').player!;
     const low = fleeChance(p, getHostile('rift_marauder').level);
     p.level = 30;
-    const high = fleeChance(p, getHostile('protoplasm').level);
+    const high = fleeChance(p, getHostile('fen_leech').level);
     assert.ok(low >= 5 && high <= 95 && high > low);
   });
 });
@@ -71,14 +71,14 @@ describe('status effects', () => {
   });
 
   it('a stunned player has their turn skipped automatically', () => {
-    const s = sturdyBattle('raider'); // same speed as the player, so turns alternate
+    const s = sturdyBattle('choir_cantor'); // same speed as the player, so turns alternate
     s.battle!.playerStatuses.push({ id: 'stun', turns: 1, power: 0 });
     const events: GameEvent[] = [];
-    // The player would act first, but is stunned: that turn is skipped, the raider acts, then it's the player's turn.
+    // The player would act first, but is stunned: that turn is skipped, the cantor acts, then it's the player's turn.
     assert.equal(beginBattle(s.player!, s.battle!, new Rng(4), events), 'continue');
     const hostileTurns = events.filter((e) => e.type === 'attack' && e.actor === 'hostile').length;
     assert.ok(events.some((e) => e.type === 'stunned' && e.actor === 'player'));
-    assert.ok(hostileTurns >= 1, 'the raider used the skipped turn');
+    assert.ok(hostileTurns >= 1, 'the cantor used the skipped turn');
     assert.ok(!s.battle!.playerStatuses.some((x) => x.id === 'stun'), 'stun is consumed');
   });
 
@@ -92,7 +92,7 @@ describe('status effects', () => {
 
 describe('battle outcomes', () => {
   it('awards XP and credits on victory and returns to the mission', () => {
-    const s = inBattle(newGame('security', 5), 'protoplasm');
+    const s = inBattle(newGame('security', 5), 'fen_leech');
     s.battle!.hostiles[0]!.hp = 1;
     sureHit(s);
     const { state, events } = act(s, { type: 'attack' });
@@ -106,7 +106,7 @@ describe('battle outcomes', () => {
   });
 
   it('completes the mission and unlocks the next mission when the boss falls', () => {
-    const s = inBattle(newGame('security', 5), 'thornhide_behemoth');
+    const s = inBattle(newGame('security', 5), 'archcantor');
     s.battle!.hostiles[0]!.hp = 1;
     sureHit(s);
     const { state, events } = act(s, { type: 'attack' });
@@ -117,7 +117,7 @@ describe('battle outcomes', () => {
   });
 
   it('applies the defeat penalty and lets the player recover in ship', () => {
-    const s = inBattle(newGame('science', 6), 'raider');
+    const s = inBattle(newGame('science', 6), 'choir_cantor');
     s.player!.hp = 1;
     s.player!.credits = 100;
     // Make our attacks (almost) always miss and theirs always land.
@@ -162,7 +162,7 @@ describe('battle outcomes', () => {
       }
       return sum;
     };
-    assert.ok(total('protoplasm') > 300);
+    assert.ok(total('fen_leech') > 300);
     assert.equal(total('magma_colossus'), 0);
   });
 });

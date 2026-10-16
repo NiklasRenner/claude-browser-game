@@ -17,7 +17,7 @@ describe('keyboard shortcuts', () => {
   });
 
   it('map battle keys to attack, flee and abilities by slot', () => {
-    const s = inBattle(newGame('science', 4), 'protoplasm');
+    const s = inBattle(newGame('science', 4), 'fen_leech');
     assert.deepEqual(keyAction(s, 'a'), { type: 'attack' });
     assert.deepEqual(keyAction(s, 'f'), { type: 'flee' });
     assert.deepEqual(keyAction(s, '1'), { type: 'useAbility', abilityId: 'plasma_burst' });

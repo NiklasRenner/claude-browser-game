@@ -1,40 +1,40 @@
 import type { HostileDef } from '../types';
 
 const hostiles: HostileDef[] = [
-  // ── Veridia Prime (jungle colony world) ──
-  { id: 'protoplasm', name: 'Protoplasm', level: 1, hp: 26, accuracy: 70, evasion: 0, crit: 3, speed: 85,
+  // ── Veridia Fen (the Choir of the Sunken Engine) ──
+  { id: 'fen_leech', name: 'Fen Leech', level: 1, hp: 26, accuracy: 70, evasion: 0, crit: 3, speed: 85,
     resist: { plasma: 150, cryo: 75, corrosive: 50 },
     attacks: [
-      { name: 'Engulf', element: 'kinetic', damage: [3, 6], weight: 3 },
-      { name: 'Acid Spit', element: 'corrosive', damage: [2, 4], weight: 1, effect: { status: 'corrode', chance: 30, turns: 3, power: 2 } },
+      { name: 'Latch', element: 'kinetic', damage: [3, 6], weight: 3 },
+      { name: 'Bile Spit', element: 'corrosive', damage: [2, 4], weight: 1, effect: { status: 'corrode', chance: 30, turns: 3, power: 2 } },
     ],
     xp: 14, credits: [6, 12], drops: [{ itemId: 'medkit', chance: 10 }],
-    look: { body: 'blob', color: 0x45d8c0, accent: 0xb8fff0, scale: 0.9 } },
-  { id: 'razorback_hound', name: 'Razorback Hound', level: 2, hp: 34, accuracy: 80, evasion: 12, crit: 4, speed: 115,
-    resist: { plasma: 125 },
+    look: { body: 'blob', color: 0x3a4a2a, accent: 0x9aff6a, scale: 0.9, sprite: { sheet: 'fen_leech', idle: [0, 1, 2, 3, 4, 3, 2, 1], attack: [5, 6, 7, 8, 9, 10], fps: 5 } } },
+  { id: 'rotwired_penitent', name: 'Rotwired Penitent', level: 2, hp: 40, accuracy: 78, evasion: 3, crit: 4, speed: 90,
+    resist: { plasma: 125, corrosive: 60 },
     attacks: [
-      { name: 'Bite', element: 'kinetic', damage: [4, 7], weight: 3 },
-      { name: 'Savage Maul', element: 'kinetic', damage: [6, 9], weight: 1 },
+      { name: 'Rotting Grasp', element: 'kinetic', damage: [4, 7], weight: 3 },
+      { name: 'Bile Retch', element: 'corrosive', damage: [3, 5], weight: 1, effect: { status: 'corrode', chance: 35, turns: 3, power: 2 } },
     ],
     xp: 20, credits: [8, 15],
-    look: { body: 'beast', color: 0x6e5a8a, accent: 0xc9b6e8, scale: 0.85, features: ['spikes'] } },
-  { id: 'raider', name: 'Raider', level: 3, hp: 42, accuracy: 80, evasion: 5, crit: 5, speed: 100,
+    look: { body: 'husk', color: 0x6a6e5a, accent: 0x9aff6a, scale: 1, sprite: { sheet: 'rotwired_penitent', idle: [0, 1, 2, 3, 4, 3, 2, 1], attack: [5, 6, 7, 8, 9, 10], fps: 5 } } },
+  { id: 'choir_cantor', name: 'Choir Cantor', level: 3, hp: 42, accuracy: 80, evasion: 5, crit: 5, speed: 100,
     resist: {},
     attacks: [
-      { name: 'Shock Baton', element: 'kinetic', damage: [5, 8], weight: 3 },
-      { name: 'Flashbang', element: 'photon', damage: [3, 5], weight: 1, effect: { status: 'blind', chance: 40, turns: 2, power: 25 } },
+      { name: 'Censer Strike', element: 'kinetic', damage: [5, 8], weight: 3 },
+      { name: 'Litany Flare', element: 'photon', damage: [3, 5], weight: 1, effect: { status: 'blind', chance: 40, turns: 2, power: 25 } },
     ],
     xp: 26, credits: [15, 30], drops: [{ itemId: 'medkit', chance: 25 }],
-    look: { body: 'humanoid', color: 0x6b6f78, accent: 0xff7a1a, scale: 1, features: ['helmet', 'baton'] } },
-  { id: 'thornhide_behemoth', name: 'Thornhide Behemoth', level: 4, hp: 115, accuracy: 80, evasion: 1, crit: 4, speed: 90, boss: true,
+    look: { body: 'humanoid', color: 0x3a4232, accent: 0x9aff6a, scale: 1, features: ['coat', 'staff'], sprite: { sheet: 'choir_cantor', idle: [0, 1, 2, 3], attack: [5, 6, 7, 8, 0], fps: 5 } } },
+  { id: 'archcantor', name: 'The Bloated Archcantor', level: 4, hp: 115, accuracy: 80, evasion: 1, crit: 4, speed: 90, boss: true,
     resist: { kinetic: 85, plasma: 125 },
     attacks: [
-      { name: 'Gore', element: 'kinetic', damage: [7, 11], weight: 3 },
-      { name: 'Spore Barrage', element: 'corrosive', damage: [5, 8], weight: 2, effect: { status: 'corrode', chance: 30, turns: 4, power: 2 } },
-      { name: 'Trample', element: 'kinetic', damage: [11, 15], weight: 1 },
+      { name: 'Censer Swing', element: 'kinetic', damage: [7, 11], weight: 3 },
+      { name: 'Rot Benediction', element: 'corrosive', damage: [5, 8], weight: 2, effect: { status: 'corrode', chance: 30, turns: 4, power: 2 } },
+      { name: 'Crushing Bulk', element: 'kinetic', damage: [11, 15], weight: 1 },
     ],
     xp: 70, credits: [60, 90], drops: [{ itemId: 'trauma_kit', chance: 50 }],
-    look: { body: 'beast', color: 0x4a3a5e, accent: 0xc8f04a, scale: 1.45, features: ['tusks'] } },
+    look: { body: 'brute', color: 0x4a5236, accent: 0x9aff6a, scale: 1.45, features: ['crown'], sprite: { sheet: 'archcantor', idle: [0, 1, 2, 3, 4, 3, 2, 1], attack: [5, 6, 7, 8, 9, 10], fps: 5 } } },
 
   // ── Kethra Mining Moon (volcanic) ──
   { id: 'cave_glider', name: 'Cave Glider', level: 4, hp: 26, accuracy: 82, evasion: 35, crit: 5, speed: 125,

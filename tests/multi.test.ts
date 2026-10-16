@@ -143,7 +143,7 @@ describe('encounters and log text', () => {
 
   it('labels duplicate hostiles A, B, C', () => {
     assert.deepEqual(hostileLabels(['hive_drone', 'hive_spitter', 'hive_drone']), ['Hive Drone A', 'Hive Spitter', 'Hive Drone B']);
-    assert.deepEqual(hostileLabels(['protoplasm']), ['Protoplasm']);
+    assert.deepEqual(hostileLabels(['fen_leech']), ['Fen Leech']);
   });
 });
 

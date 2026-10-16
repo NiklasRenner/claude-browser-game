@@ -46,10 +46,24 @@ SHEETS = [
 ]
 
 
+GREEN, CANDLE = [(75, 160)], [(35, 60)]  # glow hues: the Choir's sickly green, candle flames
+# Sheets whose frames are colour-matched to their base.png (see main).
+LOCKED = {'fen_leech', 'rotwired_penitent', 'choir_cantor', 'archcantor'}
 # PixelLab sheets: name, frame files in art/pixellab/<name>/ (in order), glow hue ranges.
 # The matriarch: an 8-frame idle loop, then a 5-frame claw swipe (wind-up, strike, recover).
 PIXEL = [
     ('plague_matriarch', [f'idle-{i}.png' for i in range(1, 9)] + [f'attack-{i}.png' for i in range(4, 9)], []),
+    # Veridia Fen: made with create image (pro), then two animate image runs on base.png (idle-0 and attack-0
+    # are the input frame). Frames: idle 0-4, then the attack.
+    ('fen_leech', [f'idle-{i}.png' for i in range(5)] + [f'attack-{i}.png' for i in range(1, 7)], GREEN),
+    ('rotwired_penitent', [f'idle-{i}.png' for i in range(5)] + [f'attack-{i}.png' for i in range(1, 7)], GREEN),
+    ('choir_cantor', [f'idle-{i}.png' for i in range(5)] + [f'attack-{i}.png' for i in range(1, 5)], GREEN),
+    ('archcantor', [f'idle-{i}.png' for i in range(5)] + [f'attack-{i}.png' for i in range(1, 7)], GREEN + CANDLE),
+    # Veridia set pieces (src/render/scenes/pieces.ts): a looping animation each (loop-0 is the input).
+    ('fen_chapel', ['base.png'], GREEN),
+    ('fen_shrine', [f'loop-{i}.png' for i in range(6)], GREEN + CANDLE),
+    ('fen_barrels', [f'loop-{i}.png' for i in range(6)], GREEN),
+    ('fen_lantern', [f'loop-{i}.png' for i in range(4)], GREEN),
 ]
 # Rigged PixelLab sheets (see scripts/rig.py): frames posed from one base sprite, so the
 # feet never move. All frames share one crop, and the weapon hand is known in each.
@@ -400,9 +414,26 @@ def main():
         meta.append(write_strip(name, sprites, hues))
     for name, files, hues in PIXEL:
         sprites = []
+        base = ROOT / 'art' / 'pixellab' / name / 'base.png'
+        palette = None
+        if name in LOCKED and base.exists():
+            # Animation frames drift in colour (a lit frame turns the robe gold): snap every pixel to the
+            # nearest colour of the base sprite (after matching its brightness), so only the shapes move.
+            b = np.array(Image.open(base).convert('RGBA'))
+            palette = np.unique(b[b[:, :, 3] > 127][:, :3], axis=0).astype(int)
+            ref = np.sort(b[b[:, :, 3] > 127][:, :3].astype(float), axis=0)
         for file in files:
             rgba = np.array(Image.open(ROOT / 'art' / 'pixellab' / name / file).convert('RGBA'))
             rgba[:, :, 3] = np.where(rgba[:, :, 3] > 127, 255, 0)
+            if palette is not None:
+                on = rgba[:, :, 3] > 0
+                px = rgba[on][:, :3].astype(float)
+                # Match each channel's distribution to the base sprite's (undoes a frame lit up overall).
+                for c in range(3):
+                    rank = px[:, c].argsort().argsort() / max(1, len(px) - 1)
+                    px[:, c] = ref[np.round(rank * (len(ref) - 1)).astype(int), c]
+                near = ((px[:, None, :] - palette[None, :, :]) ** 2).sum(axis=2).argmin(axis=1)
+                rgba[on, :3] = palette[near]
             sprites.append(trim(rgba))
         meta.append(write_strip(name, sprites, hues))
     rigs = {}

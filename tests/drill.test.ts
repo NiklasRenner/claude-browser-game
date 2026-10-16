@@ -26,7 +26,7 @@ describe('combat drill', () => {
   });
 
   it('a win gives nothing and restores the officer, back on the ship', () => {
-    let s = drill(newGame(), ['protoplasm']).state;
+    let s = drill(newGame(), ['fen_leech']).state;
     const before = structuredClone(s.player!);
     s.battle!.hostiles[0]!.hp = 1;
     s.player!.hp = 3;

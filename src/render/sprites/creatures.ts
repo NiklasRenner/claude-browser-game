@@ -4,7 +4,7 @@ import { beat } from './figure';
 import { eyes, lunge } from './kit';
 import type { Body } from './kit';
 
-/** Four-legged hunter (hounds, the Thornhide Behemoth). Features: spikes, tusks. */
+/** Four-legged hunter (hounds and the like). Features: spikes, tusks. */
 export const beast: Body = {
   left: 36, right: 30, height: 40, size: 1.2,
   draw(p, { t, attack }, k) {

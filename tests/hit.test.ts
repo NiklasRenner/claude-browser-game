@@ -21,7 +21,7 @@ describe('hit chance', () => {
   });
 
   it('abilities use their own hit; weapon techniques use the weapon\'s plus their accuracy', () => {
-    const s = fight('protoplasm', 'mag_wrench', 'engineer');
+    const s = fight('fen_leech', 'mag_wrench', 'engineer');
     const ion = ABILITIES.ion_storm!.effects[0]!;
     const exploit = ABILITIES.exploit_weakness!.effects[0]!;
     assert.ok(ion.type === 'damage' && exploit.type === 'damage');
@@ -42,7 +42,7 @@ describe('hit chance', () => {
   });
 
   it('blind lowers the attacker\'s hit; marked and evasive move the defender\'s evasion', () => {
-    const s = fight('raider');
+    const s = fight('choir_cantor');
     const base = playerHitChance(s.player!, s.battle!, 0);
     s.battle!.playerStatuses.push({ id: 'blind', turns: 2, power: 20 });
     assert.equal(playerHitChance(s.player!, s.battle!, 0), base - 20);
@@ -58,7 +58,7 @@ describe('multi-hit', () => {
   it('a multi-hit weapon strikes `hits` times, each rolled on its own', () => {
     const w = getWeapon('flechette_pistol');
     assert.ok((w.hits ?? 1) > 1);
-    let s = fight('protoplasm', w.id);
+    let s = fight('fen_leech', w.id);
     const outcomes = new Set<boolean>();
     for (let i = 0; i < 30; i++) {
       const r = act(s, { type: 'attack' });
@@ -71,7 +71,7 @@ describe('multi-hit', () => {
   });
 
   it('weapon techniques inherit the weapon\'s strikes; dice abilities can set their own', () => {
-    const s = fight('protoplasm', 'pulse_repeater', 'security');
+    const s = fight('fen_leech', 'pulse_repeater', 'security');
     s.player!.energy = 999;
     const r = act(s, { type: 'useAbility', abilityId: 'overcharge' });
     assert.equal(strikes(r.events, 'player').length, getWeapon('pulse_repeater').hits);
@@ -80,7 +80,7 @@ describe('multi-hit', () => {
   });
 
   it('stops striking once the target is down', () => {
-    const s = fight('protoplasm', 'pulse_repeater');
+    const s = fight('fen_leech', 'pulse_repeater');
     s.battle!.hostiles[0]!.hp = 1;
     s.battle!.hostiles[0]!.statuses.push({ id: 'marked', turns: 9, power: 1000 });
     const r = act(s, { type: 'attack' });
@@ -118,8 +118,8 @@ describe('hostile profiles', () => {
   });
 
   it('patrol scaling raises a hostile\'s accuracy with level', () => {
-    const def = getHostile('raider');
-    const up = scaledHostile('raider', def.level + 10, 1);
+    const def = getHostile('choir_cantor');
+    const up = scaledHostile('choir_cantor', def.level + 10, 1);
     assert.equal(hostileHit(up), def.accuracy + 10 * HOSTILE_ACCURACY_PER_LEVEL);
   });
 });

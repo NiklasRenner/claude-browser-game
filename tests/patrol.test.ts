@@ -95,7 +95,7 @@ describe('patrols', () => {
     s.mission = { missionId: 'veridia', patrol: { level: 20 }, cleared: 0, earnedXp: 0, earnedCredits: 0 };
     const make = (scaled: boolean) => {
       const t = structuredClone(s);
-      const base = { defId: 'protoplasm', hp: 5000, maxHp: 5000, statuses: [] };
+      const base = { defId: 'fen_leech', hp: 5000, maxHp: 5000, statuses: [] };
       t.battle = { hostiles: [scaled ? { ...base, level: 20, power: 4 } : base], target: 0, playerStatuses: [], round: 1 };
       return t;
     };

@@ -28,14 +28,14 @@ describe('element effects', () => {
   });
 
   it('chill slows: a hostile at −50% speed gets half as many turns', () => {
-    const s = endlessFight('raider'); // speed 100, like the player
+    const s = endlessFight('choir_cantor'); // speed 100, like the player
     s.battle!.hostiles[0]!.statuses.push({ id: 'chill', turns: 99, power: 50 });
     const order = upcomingTurns(s.player!, s.battle!, 30);
     assert.equal(order.filter((w) => w !== 'player').length, 10);
   });
 
   it('blind lowers a hostile\'s hit chance too', () => {
-    const s = endlessFight('raider');
+    const s = endlessFight('choir_cantor');
     const base = hostileHitChance(s.player!, s.battle!, 0);
     s.battle!.hostiles[0]!.statuses.push({ id: 'blind', turns: 2, power: 30 });
     assert.equal(hostileHitChance(s.player!, s.battle!, 0), base - 30);
@@ -43,7 +43,7 @@ describe('element effects', () => {
 
   it('exposed makes the owner take more damage', () => {
     const hits = (exposed: boolean) => {
-      let s = sureHit(endlessFight('raider', { seed: 9 }));
+      let s = sureHit(endlessFight('choir_cantor', { seed: 9 }));
       if (exposed) s.battle!.hostiles[0]!.statuses.push({ id: 'exposed', turns: 99, power: 50 });
       let total = 0;
       for (let i = 0; i < 20; i++) {
@@ -61,7 +61,7 @@ describe('element effects', () => {
 
 describe('level gap', () => {
   it(`your hit chance drops ${LEVEL_HIT_PENALTY}% per level a hostile is above you, not below`, () => {
-    const s = endlessFight('raider'); // level 3
+    const s = endlessFight('choir_cantor'); // level 3
     s.player!.level = 3;
     const even = playerHitChance(s.player!, s.battle!, 0);
     s.player!.level = 1;

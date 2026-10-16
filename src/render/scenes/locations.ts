@@ -4,6 +4,7 @@
  */
 import type { AmbientSpec } from './ambient';
 import type { GroundSpec } from './ground';
+import type { Piece } from './pieces';
 import type { SkySpec } from './sky';
 import type { Rank } from './skyline';
 import type { FrameStyle, PropStyle } from './structures';
@@ -19,6 +20,8 @@ export interface Location {
   ground: GroundSpec;
   frames: [FrameStyle, FrameStyle];
   props: { style: PropStyle; x: number }[];
+  /** PixelLab set pieces (sprite sheets), drawn over the painted scene. */
+  pieces?: Piece[];
   /** Banner / crystal / egg colour. */
   accent: number;
   ambient: AmbientSpec;
@@ -51,7 +54,15 @@ const LOCATIONS: Record<string, Location> = {
     haze: '#2a3a32',
     ground: { style: 'moss', shades: ['#0c0e0c', '#151a16', '#1f261f', '#2a332a', '#384336', '#4a5646'], haze: '#22302a', pools: { col: '#0c1a18', glint: '#2a5a4a', amount: 0.3 } },
     frames: ['trunk', 'wall'],
-    props: [{ style: 'shrine', x: 0.13 }, { style: 'lamp', x: 0.9 }],
+    props: [],
+    // The Choir's chapel-forge across the water, a reliquary and leaking barrels on the bank, a lantern
+    // hung from the tree.
+    pieces: [
+      { sheet: 'fen_chapel', x: 0.36, at: 'horizon', haze: 0.45, fps: 3 },
+      { sheet: 'fen_shrine', x: 0.14, at: 'ground', fps: 7 },
+      { sheet: 'fen_barrels', x: 0.86, at: 'ground', fps: 6 },
+      { sheet: 'fen_lantern', x: 0.1, at: 'hang', y: 0.24, fps: 6 },
+    ],
     accent: 0x3a6a3a,
     ambient: { weather: 'spores', tint: '#9affb0', fog: '#4a6a5a', sky: ['lightning'], skyAt: [0.6, 0.2] },
     rim: [150, 210, 170],

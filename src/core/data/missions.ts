@@ -2,9 +2,9 @@ import type { MissionDef } from '../types';
 
 const missions: MissionDef[] = [
   {
-    id: 'veridia', name: 'Veridia Prime', minLevel: 1,
-    description: 'A jungle colony that went quiet. Raiders are picking over the outposts, and something huge is moving through the canopy.',
-    hostiles: ['protoplasm', 'razorback_hound', 'raider'], boss: 'thornhide_behemoth', encounters: 3,
+    id: 'veridia', name: 'Veridia Fen', minLevel: 1,
+    description: 'A swamp colony that went quiet. Its chapel-forge still burns: the Choir of the Sunken Engine has been perfecting the colonists with wire and rot, and their Archcantor wants more flesh for the choir.',
+    hostiles: ['fen_leech', 'rotwired_penitent', 'choir_cantor'], boss: 'archcantor', encounters: 3,
     reward: { xp: 40, credits: 30 },
     palette: { sky: 0x8fd6c8, ground: 0x2f7a5a, fog: 0xa8e0c8 },
   },

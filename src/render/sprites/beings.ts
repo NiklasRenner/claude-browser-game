@@ -4,7 +4,7 @@ import { along, beat } from './figure';
 import { eyes, lunge } from './kit';
 import type { Body } from './kit';
 
-/** A mound of living ooze with things floating inside it (Protoplasm). */
+/** A mound of living ooze with things floating inside it (the painted fallback for blob-like foes). */
 export const blob: Body = {
   left: 22, right: 22, height: 30, size: 1.3,
   draw(p, { t, attack }, k) {
@@ -28,7 +28,7 @@ export const blob: Body = {
   },
 };
 
-/** Two-legged foe: raiders, marauders, leeches, the Hollow Admiral. Features: helmet, baton, blade, shield, armor, coat, staff, tendrils. */
+/** Two-legged foe: cantors, marauders, leeches, the Hollow Admiral. Features: helmet, baton, blade, shield, armor, coat, staff, tendrils. */
 export const humanoid: Body = {
   left: 30, right: 26, height: 66,
   draw(p, { t, attack }, k) {

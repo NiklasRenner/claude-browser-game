@@ -11,6 +11,7 @@ import { Ambient } from './ambient';
 import { paintGround } from './ground';
 import { Layer } from './layer';
 import { locationOf } from './locations';
+import { Pieces } from './pieces';
 import { paintEclipse, paintMoon, paintSky } from './sky';
 import { paintHaze, paintRank } from './skyline';
 import { FRAME_WIDTH, paintFrame, paintProp } from './structures';
@@ -72,6 +73,7 @@ export function buildBackdrop(key: string, W: number, H: number, lift = 0): Back
     if (flame) flames.push([px + flame[0], propY + flame[1]]);
   }
 
+  const pieces = new Pieces(loc.pieces ?? [], W, H, horizon, propY, loc.haze);
   const ambient = new Ambient(loc.ambient, W, H, horizon, flames);
   const vignette = buildVignette(W, H);
   return {
@@ -84,6 +86,7 @@ export function buildBackdrop(key: string, W: number, H: number, lift = 0): Back
       ctx.drawImage(scene.img, 0, 0);
       glow.globalAlpha = 0.8 + Math.sin(t * 5.3) * 0.08 + Math.sin(t * 13) * 0.04;
       glow.drawImage(scene.glow, 0, 0);
+      pieces.draw(ctx, glow, t);
       glow.globalAlpha = 1;
     },
     drawFront(ctx, glow, t, dt) {

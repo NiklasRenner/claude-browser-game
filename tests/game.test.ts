@@ -145,7 +145,7 @@ describe('mission flow', () => {
       s = act(s, { type: 'attack' }).state;
       const r = act(s, { type: 'continue' });
       s = r.state;
-      if (i === 2) assert.ok(r.events.some((e) => e.type === 'battleStart' && e.boss && e.hostileIds[0] === 'thornhide_behemoth'));
+      if (i === 2) assert.ok(r.events.some((e) => e.type === 'battleStart' && e.boss && e.hostileIds[0] === 'archcantor'));
     }
   });
 

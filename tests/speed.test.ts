@@ -38,14 +38,14 @@ describe('speed stat', () => {
 
 describe('battle timeline', () => {
   it('equal speed: the player opens, then turns alternate', () => {
-    const s = fight('raider'); // speed 100
+    const s = fight('choir_cantor'); // speed 100
     assert.equal(nextActor(s.player!, s.battle!), 'player');
     assert.deepEqual(upcomingTurns(s.player!, s.battle!, 6), ['player', 0, 'player', 0, 'player', 0]);
     assert.equal(turnLog(s, 20), 'PM'.repeat(20));
   });
 
   it('+10% speed: exactly 11 turns for every 10 of theirs, on a fixed beat (no dice)', () => {
-    const s = fight('raider', 13); // speed 110
+    const s = fight('choir_cantor', 13); // speed 110
     assert.equal(derive(s.player!).speed, 110);
     const order = upcomingTurns(s.player!, s.battle!, 210);
     assert.equal(order.filter((w) => w === 'player').length, 110);
@@ -72,7 +72,7 @@ describe('battle timeline', () => {
   });
 
   it('a battle without timeline data (old save) is the player\'s turn, then runs like a fresh battle', () => {
-    for (const id of ['raider', 'hive_drone', 'phase_wisp', 'magma_colossus']) {
+    for (const id of ['choir_cantor', 'hive_drone', 'phase_wisp', 'magma_colossus']) {
       const loaded = fight(id, 11);
       const fresh = structuredClone(loaded);
       initTimeline(fresh.player!, fresh.battle!);
@@ -111,7 +111,7 @@ describe('battle timeline', () => {
 
 describe('player evasion', () => {
   it('comes from armor and abilities only, capped at PLAYER_EVASION_CAP', () => {
-    const s = fight('raider', 200);
+    const s = fight('choir_cantor', 200);
     s.player!.inventory.aegis_power_armor = 1;
     s.player!.armor = 'aegis_power_armor';
     const armorOnly = playerEvasion(s.player!, s.battle!);
