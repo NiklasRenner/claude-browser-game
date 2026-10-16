@@ -53,7 +53,7 @@ PIXEL = [
 ]
 # Rigged PixelLab sheets (see scripts/rig.py): frames posed from one base sprite, so the
 # feet never move. All frames share one crop, and the weapon hand is known in each.
-RIGGED = [('officer', [])]
+RIGGED = [('officer', []), ('officer_power', [(25, 50)])]  # the power armor's visor glows
 
 
 def frames_of(img: np.ndarray) -> list[tuple[int, int, int, int]]:

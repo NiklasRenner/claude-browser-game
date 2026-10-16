@@ -1,0 +1,244 @@
+{
+  "canvas": [
+    80,
+    112
+  ],
+  "wide": {
+    "swing": [
+      112,
+      112
+    ]
+  },
+  "animations": [
+    "aim",
+    "swing"
+  ],
+  "joints": {
+    "NOSE": [
+      53,
+      21
+    ],
+    "RIGHT EYE": [
+      49,
+      18
+    ],
+    "LEFT EYE": [
+      51,
+      18
+    ],
+    "RIGHT EAR": [
+      45,
+      20
+    ],
+    "LEFT EAR": [
+      47,
+      20
+    ],
+    "NECK": [
+      47,
+      27
+    ],
+    "RIGHT SHOULDER": [
+      32,
+      31
+    ],
+    "RIGHT ELBOW": [
+      25,
+      46
+    ],
+    "RIGHT ARM": [
+      27,
+      58
+    ],
+    "LEFT SHOULDER": [
+      52,
+      30
+    ],
+    "LEFT ELBOW": [
+      57,
+      46
+    ],
+    "LEFT ARM": [
+      63,
+      57
+    ],
+    "RIGHT HIP": [
+      37,
+      53
+    ],
+    "RIGHT KNEE": [
+      32,
+      74
+    ],
+    "RIGHT LEG": [
+      25,
+      97
+    ],
+    "LEFT HIP": [
+      45,
+      53
+    ],
+    "LEFT KNEE": [
+      58,
+      72
+    ],
+    "LEFT LEG": [
+      57,
+      97
+    ]
+  },
+  "bases": {
+    "aim": {
+      "joints": {
+        "NOSE": [
+          50,
+          29
+        ],
+        "RIGHT EYE": [
+          47,
+          27
+        ],
+        "LEFT EYE": [
+          49,
+          27
+        ],
+        "RIGHT EAR": [
+          43,
+          28
+        ],
+        "LEFT EAR": [
+          45,
+          28
+        ],
+        "NECK": [
+          45,
+          33
+        ],
+        "RIGHT SHOULDER": [
+          35,
+          36
+        ],
+        "RIGHT ELBOW": [
+          51,
+          37
+        ],
+        "RIGHT ARM": [
+          63,
+          36
+        ],
+        "LEFT SHOULDER": [
+          45,
+          37
+        ],
+        "LEFT ELBOW": [
+          50,
+          44
+        ],
+        "LEFT ARM": [
+          61,
+          40
+        ],
+        "RIGHT HIP": [
+          37,
+          58
+        ],
+        "RIGHT KNEE": [
+          35,
+          71
+        ],
+        "RIGHT LEG": [
+          28,
+          92
+        ],
+        "LEFT HIP": [
+          44,
+          58
+        ],
+        "LEFT KNEE": [
+          55,
+          70
+        ],
+        "LEFT LEG": [
+          55,
+          92
+        ]
+      }
+    },
+    "ready": {
+      "joints": {
+        "NOSE": [
+          50,
+          29
+        ],
+        "RIGHT EYE": [
+          47,
+          27
+        ],
+        "LEFT EYE": [
+          49,
+          27
+        ],
+        "RIGHT EAR": [
+          42,
+          28
+        ],
+        "LEFT EAR": [
+          44,
+          28
+        ],
+        "NECK": [
+          45,
+          33
+        ],
+        "RIGHT SHOULDER": [
+          31,
+          34
+        ],
+        "RIGHT ELBOW": [
+          25,
+          43
+        ],
+        "RIGHT ARM": [
+          29,
+          46
+        ],
+        "LEFT SHOULDER": [
+          48,
+          35
+        ],
+        "LEFT ELBOW": [
+          50,
+          45
+        ],
+        "LEFT ARM": [
+          59,
+          48
+        ],
+        "RIGHT HIP": [
+          36,
+          56
+        ],
+        "RIGHT KNEE": [
+          30,
+          67
+        ],
+        "RIGHT LEG": [
+          21,
+          84
+        ],
+        "LEFT HIP": [
+          44,
+          56
+        ],
+        "LEFT KNEE": [
+          55,
+          67
+        ],
+        "LEFT LEG": [
+          56,
+          84
+        ]
+      }
+    }
+  }
+}
