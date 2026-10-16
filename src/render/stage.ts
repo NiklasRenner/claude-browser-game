@@ -413,7 +413,7 @@ export class Stage {
         if (followUp) {
           if (style !== 'melee') await this.fx.bolt(from, this.center(target), col, 0.07);
         } else if (style === 'orb') {
-          void this.tweens.run(0.45, (t) => { attacker.attack = Math.sin(t * Math.PI) * 0.4; });
+          void this.tweens.run(0.45, (t) => { attacker.attack = t >= 1 ? 0 : t; });
           await this.fx.projectile(from, this.center(target), col);
         } else if (style === 'bolt') {
           void this.tweens.run(0.18, (t) => { attacker.attack = t >= 1 ? 0 : t; });
@@ -437,7 +437,8 @@ export class Stage {
         }
         if (style === 'melee' && !followUp) {
           const start = attacker.ox, a0 = attacker.attack;
-          await this.tweens.run(0.22, (t) => { attacker.ox = start * (1 - t); attacker.attack = e.actor === 'player' ? a0 * (1 - t) : a0 + (1 - a0) * t; });
+          // The swing plays on to its end while stepping back (never in reverse).
+          await this.tweens.run(0.22, (t) => { attacker.ox = start * (1 - t); attacker.attack = a0 + (1 - a0) * t; });
           attacker.attack = 0;
         }
         await this.tweens.wait(followUp ? 0.08 : 0.12);
