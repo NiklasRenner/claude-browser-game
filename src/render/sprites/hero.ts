@@ -14,6 +14,7 @@ import { R, fromInt, glowOf, rampOf } from '../pixel/palette';
 import type { Ramp } from '../pixel/palette';
 import { beat } from './figure';
 import type { Figure, Pose } from './figure';
+import { SHEETS } from './sheet-data';
 import { tinted } from './sheets';
 import type { Frame } from './sheets';
 import { drawWeapon, isMelee, restAngle, weaponShape } from './weapons';
@@ -160,37 +161,45 @@ export function heroFigure(divisionId: DivisionId, weaponId: string, armorId: st
     left: 26, right: 52, height: 92, scale: 1, hover: 0,
     draw: (p, pose) => {
       const frames = tinted('officer', cloth);
-      if (frames) drawSprite(p, frames, pose, weaponId);
+      if (frames) drawSprite(p, frames, SHEETS.officer.ax, pose, weaponId);
       else draw(p, pose);
     },
   };
 }
 
-/** Idle frames of the officer sheet, and the two stepping frames used when lunging. */
-const IDLE = [0, 3, 0, 5];
-const STEP = [1, 4];
-/** Where the front hand is on the sheet, relative to the feet. */
-const HAND: [number, number] = [15, -40];
+/** Officer sheet: frames 0–3 stand ready (hands free), 4–7 aim a sidearm. */
+const READY = [0, 1, 0, 3];
+const AIM = [4, 5, 4, 7];
+/** Where things are on the sheet, relative to the feet: the free front fist, and the aiming hands and muzzle. */
+const FIST: [number, number] = [19, -42];
+const AIM_GRIP: [number, number] = [20, -63];
+const AIM_MUZZLE: [number, number] = [31, -70];
+/** Weapons that look like the sidearm in the aiming frames, so it needs no overlay. */
+const HANDGUNS = new Set(['pistol', 'needler', 'flechette', 'emitter']);
 
-/** The officer from the concept-art sprite sheet, with the equipped weapon in hand. */
-function drawSprite(p: Painter, frames: Frame[], { t, attack: a }: Pose, weaponId: string) {
+/**
+ * The officer from the concept-art sheet. Ranged weapons: the aiming frames,
+ * kicking up on each shot, with long guns drawn over the sidearm. Melee
+ * weapons: the ready frames with the weapon in the fist, swung on attack.
+ */
+function drawSprite(p: Painter, frames: Frame[], ax: number, { t, attack: a }: Pose, weaponId: string) {
   const shape = weaponShape(weaponId);
   const melee = isMelee(shape);
-  const frame = melee && a > 0 ? frames[STEP[a < 0.5 ? 0 : 1]!]! : frames[IDLE[Math.floor(t / 0.65) % IDLE.length]!]!;
-  p.image(frame, -Math.floor(frame.w / 2), -frame.h);
-  let angle: number;
-  let [hx, hy] = HAND;
+  const beat = Math.floor(t / 0.7);
+  const frame = frames[(melee ? READY : AIM)[beat % 4]!]!;
   if (melee) {
-    // Blade held low; raised on the wind-up, then brought down through the target.
-    angle = a === 0 ? 1.1 : a < 0.3 ? 1.1 - (a / 0.3) * 2.7 : -1.6 + ((a - 0.3) / 0.7) * 2.3;
-    if (a > 0) { hx += 3; hy -= 6; }
-  } else {
-    const kick = Math.sin(Math.min(1, a) * Math.PI);
-    angle = 0.3 - (a > 0 ? 0.3 + kick * 0.25 : 0);
-    hx -= kick * 2;
-    if (a > 0) hy -= 4;
+    p.image(frame, -ax, -frame.h);
+    // Held low; raised on the wind-up, then brought down through the target.
+    const angle = a === 0 ? 1.1 : a < 0.3 ? 1.1 - (a / 0.3) * 2.7 : -1.6 + ((a - 0.3) / 0.7) * 2.3;
+    const [hx, hy] = FIST;
+    drawWeapon(p, weaponId, hx + (a > 0 ? 2 : 0), hy - (a > 0 ? 6 : 0), angle, t, a > 0.3 && a < 0.8 ? 1 : 0);
+    return;
   }
-  drawWeapon(p, weaponId, hx, hy, angle, t, melee ? (a > 0.3 && a < 0.8 ? 1 : 0) : a);
+  // Recoil: the whole figure rocks back a pixel and the aim kicks up.
+  const kick = Math.sin(Math.min(1, a) * Math.PI);
+  p.image(frame, -ax - Math.round(kick * 2), -frame.h);
+  if (!HANDGUNS.has(shape)) drawWeapon(p, weaponId, AIM_GRIP[0] - 4 - kick * 2, AIM_GRIP[1] + 1, -kick * 0.25, t, a);
+  else if (a > 0 && a < 0.5) p.glow(AIM_MUZZLE[0], AIM_MUZZLE[1], [255, 240, 200]);
 }
 
 function drawHead(p: Painter, t: number, U: number, tier: number, divisionId: DivisionId, division: Ramp, divGlow: readonly [number, number, number], plate: Ramp, trim: Ramp) {

@@ -37,15 +37,15 @@ export function hostileFigure(look: HostileLook, boss: boolean): Figure {
  * (drawn at the sprite's scale).
  */
 function spriteFigure(id: SheetId, anim: { idle: number[]; attack?: number }, painted: Figure): Figure {
-  const { w, h } = SHEETS[id];
+  const { w, h, ax } = SHEETS[id];
   return {
-    left: Math.ceil(w / 2) + 2, right: Math.ceil(w / 2) + 2, height: h + 2, hover: 0, scale: 1,
+    left: ax + 2, right: w - ax + 2, height: h + 2, hover: 0, scale: 1,
     draw: (p, pose) => {
       const frames = framesOf(id);
       if (!frames) { painted.draw(p, pose); return; }
       const i = pose.attack > 0 && anim.attack !== undefined ? anim.attack : anim.idle[Math.floor(pose.t / 0.7) % anim.idle.length]!;
       const frame = frames[i] ?? frames[0]!;
-      p.image(frame, -Math.floor(frame.w / 2), -frame.h);
+      p.image(frame, -ax, -frame.h);
     },
   };
 }

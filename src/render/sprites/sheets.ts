@@ -55,7 +55,7 @@ export function framesOf(id: SheetId): Frame[] | null {
 
 const recoloured = new Map<string, Frame[]>();
 
-/** The sheet with its red cloth shifted to another hue (division colours). Cached. */
+/** The sheet with its red and orange trim shifted to another hue (division colours). Cached. */
 export function tinted(id: SheetId, to: RGB): Frame[] | null {
   const base = framesOf(id);
   if (!base) return null;
@@ -68,7 +68,7 @@ export function tinted(id: SheetId, to: RGB): Frame[] | null {
       for (let i = 0; i < rgba.length; i += 4) {
         const r = rgba[i]!, gg = rgba[i + 1]!, b = rgba[i + 2]!;
         const max = Math.max(r, gg, b), min = Math.min(r, gg, b);
-        // Reds only: red clearly on top, and saturated enough to be dyed cloth.
+        // Reds and oranges only: red clearly on top and saturated (skin is too yellow and pale to match).
         if (max !== r || max - min < 28 || gg > r * 0.62 || b > r * 0.7) continue;
         const [nr, ng, nb] = withHue([r, gg, b], hue);
         rgba[i] = nr; rgba[i + 1] = ng; rgba[i + 2] = nb;
