@@ -38,11 +38,13 @@ function energy(weaponId: string): RGB {
 
 /**
  * Draws the weapon with its grip at (hx, hy), aimed at `angle`. `t` drives
- * shimmer and spin; `charge` (0..1) brightens it while attacking.
+ * shimmer and spin; `charge` (0..1) brightens it while attacking. `size` stretches
+ * it (lengths only) for bigger figures.
  */
-export function drawWeapon(p: Painter, weaponId: string, hx: number, hy: number, angle: number, t: number, charge: number) {
+export function drawWeapon(p: Painter, weaponId: string, hx: number, hy: number, angle: number, t: number, charge: number, size = 1) {
   const shape = weaponShape(weaponId);
-  const at = along(hx, hy, angle);
+  const base = along(hx, hy, angle);
+  const at = (u: number, v = 0) => base(u * size, v * size);
   const glow = energy(weaponId);
   const hot = charge > 0.2;
   const grip = () => p.cap(...at(0, 0), ...at(-1, 3), 1.1, 1, R.leather);

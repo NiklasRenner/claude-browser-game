@@ -1,0 +1,12 @@
+{
+  "canvas": [80, 112],
+  "animations": ["aim", "swing"],
+  "joints": {
+    "NOSE": [53, 21], "RIGHT EYE": [49, 18], "LEFT EYE": [51, 18], "RIGHT EAR": [45, 20], "LEFT EAR": [47, 20],
+    "NECK": [47, 27],
+    "RIGHT SHOULDER": [32, 31], "RIGHT ELBOW": [25, 46], "RIGHT ARM": [27, 58],
+    "LEFT SHOULDER": [52, 30], "LEFT ELBOW": [57, 46], "LEFT ARM": [63, 57],
+    "RIGHT HIP": [37, 53], "RIGHT KNEE": [32, 74], "RIGHT LEG": [25, 97],
+    "LEFT HIP": [45, 53], "LEFT KNEE": [58, 72], "LEFT LEG": [57, 97]
+  }
+}

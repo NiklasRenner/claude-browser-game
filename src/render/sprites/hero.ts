@@ -14,7 +14,7 @@ import { R, fromInt, glowOf, rampOf } from '../pixel/palette';
 import type { Ramp } from '../pixel/palette';
 import { beat } from './figure';
 import type { Figure, Pose } from './figure';
-import { HANDS, SHEETS } from './sheet-data';
+import { RIGS, SHEETS } from './sheet-data';
 import { tinted } from './sheets';
 import type { Frame } from './sheets';
 import { drawWeapon, isMelee, restAngle, weaponShape } from './weapons';
@@ -168,33 +168,29 @@ export function heroFigure(divisionId: DivisionId, weaponId: string, armorId: st
 }
 
 /**
- * Officer sheet (PixelLab, posed from scripts/rig.py): frames 0–3 aim (breathing),
- * 4–5 the shot's kick; 6–9 melee ready (breathing), 10–13 the swing: wind-up,
- * over the top, strike, follow-through.
+ * The rigged officer (scripts/rig.py). The body comes from the sheet: an idle
+ * loop while waiting, then the attack frames played forward once. The weapon
+ * is drawn by code at the frame's grip point and angle, then the fist is drawn
+ * again on top so the hand closes around the grip.
  */
-const AIM = [0, 1, 2, 3];
-const SHOT = [4, 5];
-const READY = [6, 7, 8, 9];
-const SWING = [10, 11, 12, 13];
+/** One-handed guns: held in the front hand. */
+const SIDEARMS = new Set(['pistol', 'needler', 'flechette', 'emitter']);
 
-/**
- * The rigged officer. The body comes from the sheet; the weapon is drawn by
- * code at the frame's grip point and angle (HANDS, from the rig), then the fist
- * is drawn again on top so the hand closes around the grip.
- */
 function drawSprite(p: Painter, frames: Frame[], { t, attack: a }: Pose, weaponId: string) {
   const { ax, h } = SHEETS.officer;
+  const rig = RIGS.officer;
   const melee = isMelee(weaponShape(weaponId));
-  const loop = melee ? READY : AIM;
-  let i = loop[Math.floor(t * 2.5) % loop.length]!;
-  if (a > 0) {
-    if (melee) i = SWING[Math.min(3, Math.floor(a * 4))]!;
-    else i = SHOT[a < 0.5 ? 0 : 1]!;
-  }
+  const [start, loop, count] = melee ? rig.anims.swing : rig.anims.aim;
+  const strike = count - loop;
+  const i = start + (a > 0 ? loop + Math.min(strike - 1, Math.floor(a * strike)) : Math.floor(t * 2.5) % loop);
   const frame = frames[i]!;
-  const [hx, hy, angle] = HANDS.officer![i]!;
+  // Long guns and melee weapons sit in the near hand (the far hand then steadies the barrel);
+  // a sidearm is held out in the front hand, aimed along the near arm.
+  const sidearm = !melee && SIDEARMS.has(weaponShape(weaponId));
+  const [hx, hy] = (sidearm ? rig.front : rig.hands)[i]!;
+  const angle = rig.hands[i]![2];
   p.image(frame, -ax, -h);
-  drawWeapon(p, weaponId, hx, hy, angle, t, melee ? (a > 0.3 && a < 0.8 ? 1 : 0) : a);
+  drawWeapon(p, weaponId, hx, hy, angle, t, melee ? (a > 0.3 && a < 0.8 ? 1 : 0) : a, 1.4);
   p.image(frame, -ax, -h, [hx + ax, hy + h, 2.5]);
 }
 
