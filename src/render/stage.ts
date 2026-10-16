@@ -32,13 +32,14 @@ import { Tweens, easeOutCubic } from './tween';
  */
 
 /**
- * Where hostiles stand, by lineup size: [x, y] as fractions of the narrowest
- * scene (MIN_W × SCENE_H), measured from its left edge; centred on wider ones. Back rows are higher.
+ * Where hostiles stand, by lineup size: x as a fraction of the narrowest scene (MIN_W), measured
+ * from its left edge; centred on wider ones. Everyone stands on the fighters' line, and hostiles
+ * are drawn in lineup order (see frame), so there are no rows.
  */
-const SLOTS: Record<number, [number, number][]> = {
-  1: [[0.68, 0.72]],
-  2: [[0.62, 0.69], [0.79, 0.75]],
-  3: [[0.6, 0.67], [0.73, 0.75], [0.86, 0.69]],
+const SLOTS: Record<number, number[]> = {
+  1: [0.68],
+  2: [0.62, 0.79],
+  3: [0.6, 0.73, 0.86],
 };
 // Between fights (field) the officer stays where he fought, instead of jumping to the middle.
 const HERO_X = { battle: 0.3, ship: 0.42, field: 0.3 };
@@ -206,9 +207,8 @@ export class Stage {
     if (this.hero) { this.hero.x = at(HERO_X[this.view]); this.hero.y = FEET; }
     const slots = SLOTS[this.hostiles.length] ?? [];
     this.hostiles.forEach((a, i) => {
-      const [x, y] = slots[i] ?? [0.7, 0.72];
-      a.x = at(x);
-      a.y = Math.round(this.H * y);
+      a.x = at(slots[i] ?? 0.7);
+      a.y = FEET;
     });
   }
 
