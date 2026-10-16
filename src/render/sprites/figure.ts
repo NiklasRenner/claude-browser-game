@@ -21,6 +21,8 @@ export interface Figure {
   scale: number;
   /** Floats this far above the ground (local units). */
   hover: number;
+  /** Extra room on every side for things that stick out past the body, like a swung weapon (local units). */
+  reach?: number;
   draw(p: Painter, pose: Pose): void;
 }
 

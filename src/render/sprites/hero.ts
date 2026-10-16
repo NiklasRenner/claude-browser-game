@@ -158,7 +158,7 @@ export function heroFigure(divisionId: DivisionId, weaponId: string, armorId: st
 
   const cloth = fromInt(DIVISIONS[divisionId].color);
   return {
-    left: 30, right: 40, height: 100, scale: 1, hover: 0,
+    left: 26, right: 34, height: 82, scale: 1, hover: 0, reach: 40,
     draw: (p, pose) => {
       const frames = tinted('officer', cloth);
       if (frames) drawSprite(p, frames, pose, weaponId);
@@ -184,8 +184,8 @@ function drawSprite(p: Painter, frames: Frame[], { t, attack: a }: Pose, weaponI
   const strike = count - loop;
   const i = start + (a > 0 ? loop + Math.min(strike - 1, Math.floor(a * strike)) : Math.floor(t * 2.5) % loop);
   const frame = frames[i]!;
-  // Long guns and melee weapons sit in the near hand (the far hand then steadies the barrel);
-  // a sidearm is held out in the front hand, aimed along the near arm.
+  // Each animation has its weapon hand (`hands`); a sidearm is held in the front hand instead,
+  // aimed along the weapon arm.
   const sidearm = !melee && SIDEARMS.has(weaponShape(weaponId));
   const [hx, hy] = (sidearm ? rig.front : rig.hands)[i]!;
   const angle = rig.hands[i]![2];

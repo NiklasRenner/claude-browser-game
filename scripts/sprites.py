@@ -170,6 +170,18 @@ def write_rigged(name: str, hues, rigs: dict) -> tuple:
     rig = rigs_py.load(name)
     order = rigs_py.frames(rig)
     frames = [np.array(Image.open(ROOT / 'art' / 'pixellab' / name / f'{a}-{i}.png').convert('RGBA')) for a, i in order]
+    # Each animation starts from its own pose base; line them all up on the feet of the first one
+    # (between the ankles, soles on the same row).
+    def feet(anim):
+        file, j = rigs_py.base_of(rig, anim)
+        alpha = np.array(Image.open(ROOT / 'art' / 'pixellab' / name / file).convert('RGBA'))[:, :, 3]
+        return (j['RIGHT LEG'][0] + j['LEFT LEG'][0]) / 2, np.nonzero(alpha)[0].max()
+    fx0, fy0 = feet(order[0][0])
+    shift = {}
+    for a in rig['animations']:
+        fx, fy = feet(a)
+        shift[a] = (round(fx0 - fx), int(fy0 - fy))
+    frames = [np.roll(f, shift[a], axis=(1, 0)) for f, (a, _) in zip(frames, order)]
     for f in frames:
         f[:, :, 3] = np.where(f[:, :, 3] > 127, 255, 0)
         f[:] = dehalo(f)
@@ -185,7 +197,7 @@ def write_rigged(name: str, hues, rigs: dict) -> tuple:
     frames = [np.pad(f, ((0, 1), (0, 2), (0, 0))) for f in frames]
     fw, fh = x1 - x0, y1 - y0
     # Feet: between the two ankles of the base pose; the bottom row is the ground.
-    ax = round((rig['joints']['RIGHT LEG'][0] + rig['joints']['LEFT LEG'][0]) / 2) - x0
+    ax = round(fx0) - x0
     sheet = np.zeros((fh * 2, fw * len(frames), 4), np.uint8)
     for k, f in enumerate(frames):
         crop = f[y0:y1, x0:x1]
@@ -194,11 +206,32 @@ def write_rigged(name: str, hues, rigs: dict) -> tuple:
     Image.fromarray(sheet).save(OUT / f'{name}.png')
     anims, start = {}, 0
     for a in rig['animations']:
-        n = len(rigs_py.TEMPLATES[a])
-        anims[a] = (start, rigs_py.LOOPS.get(a, 0), n)
+        n = len(rigs_py.TEMPLATES[a]['poses'])
+        anims[a] = (start, rigs_py.TEMPLATES[a]['loop'], n)
         start += n
-    rel = lambda side: [(round(x - x0 - ax, 1), round(y - y0 - fh, 1), round(t, 2)) for x, y, t in (rigs_py.hand(rig, *fr, side) for fr in order)]
-    rigs[name] = (anims, rel('RIGHT'), rel('LEFT'))
+    def grip(k, fr, side):
+        # The skeleton says where the fist should be; the drawn fist can land a few pixels off (an arm
+        # foreshortened in the base looks short in the pose). Take the arm's tip as drawn: the solid
+        # pixel furthest along the forearm, near where the skeleton put the wrist.
+        (ex, ey), (wx, wy) = rigs_py.forearm(rig, *fr, side)
+        _, _, angle = rigs_py.hand(rig, *fr, side)
+        dx, dy = shift[fr[0]]
+        ex, ey, wx, wy = ex + dx, ey + dy, wx + dx, wy + dy
+        n = np.hypot(wx - ex, wy - ey) or 1
+        ux, uy = (wx - ex) / n, (wy - ey) / n
+        ys, xs = np.nonzero(frames[k][:, :, 3])
+        near = (xs - wx) ** 2 + (ys - wy) ** 2 <= 12 ** 2
+        if near.any():
+            proj = (xs[near] - ex) * ux + (ys[near] - ey) * uy
+            tip = np.argmax(proj)
+            # The fist's middle: back from the tip along the forearm, onto the arm's centre line.
+            t = proj[tip] - 2.5
+            wx, wy = ex + ux * t, ey + uy * t
+        return round(wx - x0 - ax, 1), round(wy - y0 - fh, 1), round(angle, 2)
+    rel = lambda side: [grip(k, fr, side) for k, fr in enumerate(order)]
+    weapon_hand = [(x, y, t) for (x, y, t), r, (a, _) in zip(rel('RIGHT'), rel('LEFT'), order)
+                   for x, y, t in [r if rigs_py.TEMPLATES[a].get('hand') == 'LEFT' else (x, y, t)]]
+    rigs[name] = (anims, weapon_hand, rel('LEFT'))
     print(f'{name}: {len(frames)} rigged frames of {fw}×{fh}')
     return (name, len(frames), fw, fh, ax)
 
@@ -247,8 +280,8 @@ def main():
         '',
         '/**',
         ' * Rigged sheets (scripts/rig.py). `anims`: each animation\'s [first frame, frames in its idle loop, frame count];',
-        ' * `hands` / `front`: per frame, where the near (weapon) hand and the far hand grip (x, y from the feet), and the',
-        ' * forearm or weapon angle (radians).',
+        ' * `hands`: per frame, where the weapon hand grips (x, y from the feet) and the weapon\'s angle (radians);',
+        ' * `front`: the same for the front (far) hand, which holds sidearms.',
         ' */',
         'export const RIGS = {',
         *[f"  {n}: {{ anims: {{ {', '.join(f'{a}: [{s}, {l}, {c}]' for a, (s, l, c) in an.items())} }}, hands: {pts(h)}, front: {pts(f)} }}," for n, (an, h, f) in rigs.items()],

@@ -3,16 +3,16 @@
 export const SHEETS = {
   brood_minions: { file: 'sprites/brood_minions.png', frames: 4, w: 79, h: 52, ax: 44 },
   plague_matriarch: { file: 'sprites/plague_matriarch.png', frames: 13, w: 80, h: 108, ax: 41 },
-  officer: { file: 'sprites/officer.png', frames: 14, w: 60, h: 103, ax: 22 },
+  officer: { file: 'sprites/officer.png', frames: 14, w: 57, h: 79, ax: 24 },
 } as const;
 
 export type SheetId = keyof typeof SHEETS;
 
 /**
  * Rigged sheets (scripts/rig.py). `anims`: each animation's [first frame, frames in its idle loop, frame count];
- * `hands` / `front`: per frame, where the near (weapon) hand and the far hand grip (x, y from the feet), and the
- * forearm or weapon angle (radians).
+ * `hands`: per frame, where the weapon hand grips (x, y from the feet) and the weapon's angle (radians);
+ * `front`: the same for the front (far) hand, which holds sidearms.
  */
 export const RIGS = {
-  officer: { anims: { aim: [0, 4, 6], swing: [6, 4, 8] }, hands: [[21.4, -70.6, -0.1], [21.4, -69.8, -0.1], [21.4, -69.3, -0.09], [21.4, -70.6, -0.1], [18.5, -78.1, -0.49], [20.4, -73.4, -0.24], [13.8, -53.6, -0.87], [13.8, -52.8, -0.87], [13.4, -52.2, -0.84], [13.8, -53.6, -0.87], [-19.2, -101.0, -2.79], [12.9, -92.3, -1.22], [22.5, -61.2, 0.44], [9.1, -44.7, 0.96]], front: [[32.5, -67.6, -0.61], [32.5, -66.8, -0.61], [32.4, -66.5, -0.59], [32.5, -67.6, -0.61], [29.0, -72.4, -0.96], [31.4, -69.5, -0.73], [12.8, -42.5, -0.87], [12.8, -41.7, -0.87], [12.8, -41.7, -0.84], [12.8, -42.5, -0.87], [23.2, -44.7, -2.79], [18.6, -42.5, -1.22], [1.0, -43.8, 0.44], [3.8, -42.2, 0.96]] },
+  officer: { anims: { aim: [0, 4, 6], swing: [6, 4, 8] }, hands: [[24.7, -59.3, -0.08], [24.8, -58.7, -0.08], [24.8, -58.7, -0.08], [24.7, -59.3, -0.08], [22.2, -67.0, -0.47], [24.6, -62.2, -0.22], [23.6, -40.8, -1.05], [22.6, -40.6, -1.05], [22.6, -40.6, -1.05], [22.7, -41.1, -1.05], [2.1, -76.0, -2.79], [24.1, -68.2, -1.22], [26.7, -48.7, 0.44], [23.7, -32.2, 0.96]], front: [[26.0, -57.5, -0.35], [26.2, -57.0, -0.35], [26.2, -57.0, -0.35], [26.0, -57.5, -0.35], [22.9, -65.5, -0.73], [25.5, -60.7, -0.49], [23.6, -40.8, -1.05], [22.6, -40.6, -1.05], [22.6, -40.6, -1.05], [22.7, -41.1, -1.05], [2.1, -76.0, -2.79], [24.1, -68.2, -1.22], [26.7, -48.7, 0.44], [23.7, -32.2, 0.96]] },
 } as const;
