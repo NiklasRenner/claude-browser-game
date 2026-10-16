@@ -14,7 +14,7 @@ import { R, fromInt, glowOf, rampOf } from '../pixel/palette';
 import type { Ramp } from '../pixel/palette';
 import { beat } from './figure';
 import type { Figure, Pose } from './figure';
-import { SHEETS } from './sheet-data';
+import { HANDS, SHEETS } from './sheet-data';
 import { tinted } from './sheets';
 import type { Frame } from './sheets';
 import { drawWeapon, isMelee, restAngle, weaponShape } from './weapons';
@@ -158,48 +158,44 @@ export function heroFigure(divisionId: DivisionId, weaponId: string, armorId: st
 
   const cloth = fromInt(DIVISIONS[divisionId].color);
   return {
-    left: 26, right: 52, height: 92, scale: 1, hover: 0,
+    left: 30, right: 40, height: 100, scale: 1, hover: 0,
     draw: (p, pose) => {
       const frames = tinted('officer', cloth);
-      if (frames) drawSprite(p, frames, SHEETS.officer.ax, pose, weaponId);
+      if (frames) drawSprite(p, frames, pose, weaponId);
       else draw(p, pose);
     },
   };
 }
 
-/** Officer sheet: frames 0–3 stand ready (hands free), 4–7 aim a sidearm. */
-const READY = [0, 1, 0, 3];
-const AIM = [4, 5, 4, 7];
-/** Where things are on the sheet, relative to the feet: the free front fist, and the aiming hands and muzzle. */
-const FIST: [number, number] = [19, -42];
-const AIM_GRIP: [number, number] = [20, -63];
-const AIM_MUZZLE: [number, number] = [31, -70];
-/** Weapons that look like the sidearm in the aiming frames, so it needs no overlay. */
-const HANDGUNS = new Set(['pistol', 'needler', 'flechette', 'emitter']);
+/**
+ * Officer sheet (PixelLab, posed from scripts/rig.py): frames 0–3 aim (breathing),
+ * 4–5 the shot's kick; 6–9 melee ready (breathing), 10–13 the swing: wind-up,
+ * over the top, strike, follow-through.
+ */
+const AIM = [0, 1, 2, 3];
+const SHOT = [4, 5];
+const READY = [6, 7, 8, 9];
+const SWING = [10, 11, 12, 13];
 
 /**
- * The officer from the concept-art sheet. Ranged weapons: the aiming frames,
- * kicking up on each shot, with long guns drawn over the sidearm. Melee
- * weapons: the ready frames with the weapon in the fist, swung on attack.
+ * The rigged officer. The body comes from the sheet; the weapon is drawn by
+ * code at the frame's grip point and angle (HANDS, from the rig), then the fist
+ * is drawn again on top so the hand closes around the grip.
  */
-function drawSprite(p: Painter, frames: Frame[], ax: number, { t, attack: a }: Pose, weaponId: string) {
-  const shape = weaponShape(weaponId);
-  const melee = isMelee(shape);
-  const beat = Math.floor(t / 0.7);
-  const frame = frames[(melee ? READY : AIM)[beat % 4]!]!;
-  if (melee) {
-    p.image(frame, -ax, -frame.h);
-    // Held low; raised on the wind-up, then brought down through the target.
-    const angle = a === 0 ? 1.1 : a < 0.3 ? 1.1 - (a / 0.3) * 2.7 : -1.6 + ((a - 0.3) / 0.7) * 2.3;
-    const [hx, hy] = FIST;
-    drawWeapon(p, weaponId, hx + (a > 0 ? 2 : 0), hy - (a > 0 ? 6 : 0), angle, t, a > 0.3 && a < 0.8 ? 1 : 0);
-    return;
+function drawSprite(p: Painter, frames: Frame[], { t, attack: a }: Pose, weaponId: string) {
+  const { ax, h } = SHEETS.officer;
+  const melee = isMelee(weaponShape(weaponId));
+  const loop = melee ? READY : AIM;
+  let i = loop[Math.floor(t * 2.5) % loop.length]!;
+  if (a > 0) {
+    if (melee) i = SWING[Math.min(3, Math.floor(a * 4))]!;
+    else i = SHOT[a < 0.5 ? 0 : 1]!;
   }
-  // Recoil: the whole figure rocks back a pixel and the aim kicks up.
-  const kick = Math.sin(Math.min(1, a) * Math.PI);
-  p.image(frame, -ax - Math.round(kick * 2), -frame.h);
-  if (!HANDGUNS.has(shape)) drawWeapon(p, weaponId, AIM_GRIP[0] - 4 - kick * 2, AIM_GRIP[1] + 1, -kick * 0.25, t, a);
-  else if (a > 0 && a < 0.5) p.glow(AIM_MUZZLE[0], AIM_MUZZLE[1], [255, 240, 200]);
+  const frame = frames[i]!;
+  const [hx, hy, angle] = HANDS.officer![i]!;
+  p.image(frame, -ax, -h);
+  drawWeapon(p, weaponId, hx, hy, angle, t, melee ? (a > 0.3 && a < 0.8 ? 1 : 0) : a);
+  p.image(frame, -ax, -h, [hx + ax, hy + h, 2.5]);
 }
 
 function drawHead(p: Painter, t: number, U: number, tier: number, divisionId: DivisionId, division: Ramp, divGlow: readonly [number, number, number], plate: Ramp, trim: Ramp) {

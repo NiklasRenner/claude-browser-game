@@ -182,7 +182,7 @@ const hostiles: HostileDef[] = [
       { name: 'Hive Shriek', element: 'ion', damage: [20, 26], weight: 1, effect: { status: 'stun', chance: 20, turns: 1, power: 0 } },
     ],
     xp: 1400, credits: [800, 1000], drops: [{ itemId: 'nano_restorer', chance: 100 }],
-    look: { body: 'insect', color: 0x4a2a4a, accent: 0xffc040, scale: 1.45, features: ['crown', 'armor'], sprite: { sheet: 'plague_matriarch', idle: [0, 1, 2, 3, 4, 5, 6, 7], attack: [8, 9, 10, 11, 12], fps: 8 } } },
+    look: { body: 'insect', color: 0x4a2a4a, accent: 0xffc040, scale: 1.45, features: ['crown', 'armor'], sprite: { sheet: 'plague_matriarch', idle: [0, 1, 2, 3, 4, 5, 6, 7, 6, 5, 4, 3, 2, 1], attack: [8, 9, 10, 11, 12], fps: 8 } } },
 ];
 
 export const HOSTILES: Record<string, HostileDef> = Object.fromEntries(hostiles.map((m) => [m.id, m]));
