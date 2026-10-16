@@ -28,7 +28,7 @@ function turnLog(s: GameState, n: number): string {
 
 describe('speed stat', () => {
   it('starts every officer at exactly speed 100 and has diminishing returns below +SPEED_MAX%', () => {
-    assert.equal(derive(newGame('engineer').player!).speed, 100);
+    assert.equal(derive(newGame().player!).speed, 100);
     assert.equal(speedBonus(5), 0);
     assert.equal(speedBonus(13), 10, '8 points above base = +10%');
     assert.ok(speedBonus(65) - speedBonus(35) < speedBonus(35) - speedBonus(5), 'later points are worth less');
@@ -85,7 +85,7 @@ describe('battle timeline', () => {
   it('a real mission start lets fast hostiles strike first', () => {
     let saw = false;
     for (let seed = 1; seed <= 20 && !saw; seed++) {
-      const s = newGame('security', seed);
+      const s = newGame(seed);
       s.clearedMissions = ['veridia'];
       s.player!.level = 6;
       s.player!.hp = 10_000;
@@ -100,7 +100,7 @@ describe('battle timeline', () => {
   });
 
   it('armor can change speed', () => {
-    const p = newGame('security').player!;
+    const p = newGame().player!;
     for (const [armor, speed] of [['aegis_power_armor', 96], ['thermal_envirosuit', 104]] as const) {
       p.inventory[armor] = 1;
       p.armor = armor;

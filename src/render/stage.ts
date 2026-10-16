@@ -168,9 +168,9 @@ export class Stage {
 
     const p = state.player;
     if (p) {
-      const key = `${p.divisionId}|${p.weapon}|${p.armor}`;
+      const key = `${p.weapon}|${p.armor}`;
       if (key !== this.heroKey) {
-        const figure = heroFigure(p.divisionId, p.weapon, p.armor);
+        const figure = heroFigure(p.weapon, p.armor);
         this.hero = this.hero ? { ...this.hero, figure } : makeActor(figure);
         this.heroKey = key;
       }

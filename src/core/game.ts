@@ -6,7 +6,7 @@
  *   (legality lives in rules.ts).
  */
 import { fleeChance, playerAttack, playerUseAbility, toughestAliveLevel, useConsumable } from './combat';
-import { DIVISIONS, getMission, getItem } from './data';
+import { getMission, getItem } from './data';
 import { addItem, allocateStat, clampVitals, createPlayer, fullRestore, removeItem } from './player';
 import { drillWorld } from './drill';
 import { endDrill, leaveMission, resolveBattleRound, startNextBattle } from './flow';
@@ -15,7 +15,7 @@ import { Rng } from './rng';
 import { checkAction, treatmentCost, sellPrice } from './rules';
 import type { Action, GameEvent, GameState, StepResult } from './types';
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 export function initialState(seed = 1): GameState {
   return {
@@ -50,9 +50,9 @@ function apply(state: GameState, action: Action, rng: Rng, events: GameEvent[]):
     const seed = action.seed ?? state.rng;
     Object.assign(state, initialState(seed));
     rng.state = seed >>> 0;
-    state.player = createPlayer(action.name, action.divisionId);
+    state.player = createPlayer(action.name, action.stats);
     state.mode = 'ship';
-    events.push({ type: 'message', text: `${state.player.name} the ${DIVISIONS[action.divisionId].name} reports for duty aboard the Meridian.` });
+    events.push({ type: 'message', text: `${state.player.name} reports for duty aboard the Meridian.` });
     return;
   }
   const player = state.player!;

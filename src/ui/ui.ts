@@ -7,8 +7,8 @@
  * queue). The markup lives in views/ (pure functions of state → HTML), shared
  * chips in widgets.ts, string helpers in html.ts, key bindings in keys.ts.
  */
-import { checkAction, drillRoster } from '../core';
-import type { Action, DivisionId } from '../core';
+import { START_POINTS, STATS, checkAction, defaultStart, drillRoster } from '../core';
+import type { Action, Stat, Stats } from '../core';
 import type { GameController } from '../game/controller';
 import { actionAttr, esc } from './html';
 import { keyAction } from './keys';
@@ -27,7 +27,9 @@ export class UI {
   private drill: string[] = [drillRoster()[0]!.hostileIds[0]!, '', ''];
   private battleMenu: BattleMenu = 'main';
   private titleName = '';
-  private titleDivision: DivisionId = 'security';
+  /** Starting points as spread on the title screen; `customizing` shows the +/− controls. */
+  private titleStart: Stats = defaultStart();
+  private customizing = false;
   private seenGameComplete = false;
   private lastLogId = 0;
   /**
@@ -85,9 +87,16 @@ export class UI {
     switch (kind) {
       case 'tab': this.tab = value as ShipTab; break;
       case 'menu': this.battleMenu = value as BattleMenu; break;
-      case 'class': this.titleDivision = value as DivisionId; break;
+      case 'customize': this.customizing = !this.customizing; if (!this.customizing) this.titleStart = defaultStart(); break;
+      case 'stat+': case 'stat-': {
+        const k = value as Stat;
+        const left = STATS.reduce((n, x) => n - this.titleStart[x], START_POINTS);
+        if (kind === 'stat+' && left > 0) this.titleStart[k] += 1;
+        if (kind === 'stat-' && this.titleStart[k] > 0) this.titleStart[k] -= 1;
+        break;
+      }
       case 'start':
-        void this.run({ type: 'newGame', name: this.titleName || 'Hero', divisionId: this.titleDivision });
+        void this.run(this.newGameAction());
         this.tab = 'missions';
         return;
       case 'continue': {
@@ -134,6 +143,10 @@ export class UI {
 
   // ─── Rendering ───────────────────────────────────────────────────────────
 
+  private newGameAction(): Action {
+    return { type: 'newGame', name: this.titleName || 'Hero', stats: { ...this.titleStart } };
+  }
+
   render() {
     const s = this.game.state;
     const btn = (action: Action, label: string, cls = '', hint = '') => {
@@ -145,7 +158,7 @@ export class UI {
 
     let main = '';
     switch (s.mode) {
-      case 'title': main = titleScreen(this.titleDivision, this.game.hasSave()); break;
+      case 'title': main = titleScreen(this.titleStart, this.customizing, checkAction(this.game.state, this.newGameAction()), this.game.hasSave()); break;
       case 'ship': main = shipView(s, btn, this.tab, this.drill); break;
       case 'mission': main = missionPanel(s, btn); break;
       case 'battle': main = battlePanel(s, btn, this.battleMenu, this.game.busy); break;

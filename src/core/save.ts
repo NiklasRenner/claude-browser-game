@@ -3,7 +3,7 @@
  * Loading validates every id against the content tables, so a corrupt or
  * outdated save is rejected instead of crashing the game later.
  */
-import { MISSIONS, DIVISIONS, ITEMS, HOSTILES } from './data';
+import { MISSIONS, ITEMS, HOSTILES } from './data';
 import { SAVE_VERSION } from './game';
 import { checkDrill } from './drill';
 import { clampVitals } from './player';
@@ -23,7 +23,10 @@ export type LoadResult = { ok: true; state: GameState } | { ok: false; error: st
  * to turn a version-n save into version n+1 when you bump SAVE_VERSION.
  * (History was reset at version 1 when the internal names were cleaned up.)
  */
-const MIGRATIONS: Record<number, (state: any) => void> = {};
+const MIGRATIONS: Record<number, (state: any) => void> = {
+  // 1 → 2: divisions (classes) are gone; every officer learns the same abilities by level.
+  1: (state) => { if (state.player) delete state.player.divisionId; },
+};
 
 export function deserialize(text: string): LoadResult {
   let parsed: any;
@@ -55,7 +58,6 @@ function validateState(s: any): string | null {
   if (s.mode !== 'title' && !s.player) return 'missing player';
   const p = s.player;
   if (p) {
-    if (!(p.divisionId in DIVISIONS)) return 'bad class';
     if (!isInt(p.level, 1) || !isInt(p.xp) || !isInt(p.credits) || !isInt(p.statPoints)) return 'bad player numbers';
     if (!isInt(p.hp) || !isInt(p.energy)) return 'bad vitals';
     if (!STATS.every((k) => isInt(p.stats?.[k]))) return 'bad stats';

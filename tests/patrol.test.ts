@@ -25,7 +25,7 @@ function winFight(s: GameState): GameState {
 
 describe('patrols', () => {
   it('launch from the ship only, onto an unlocked world, at the player\'s level', () => {
-    const s = newGame('engineer', 5);
+    const s = newGame(5);
     s.player!.level = 7;
     const r = act(s, { type: 'startPatrol' });
     assert.equal(r.state.mode, 'battle');
@@ -38,7 +38,7 @@ describe('patrols', () => {
   it('pick from every unlocked world', () => {
     const seen = new Set<string>();
     for (let seed = 1; seed <= 40; seed++) {
-      const s = newGame('security', seed);
+      const s = newGame(seed);
       s.clearedMissions = ['veridia', 'kethra'];
       seen.add(act(s, { type: 'startPatrol' }).state.mission!.missionId);
     }
@@ -46,7 +46,7 @@ describe('patrols', () => {
   });
 
   it('run PATROL_CONTACTS contacts, then a boss, then pay out and return to the ship', () => {
-    let s = newGame('security', 8);
+    let s = newGame(8);
     s.player!.level = 10;
     s = act(s, { type: 'startPatrol' }).state;
     for (let i = 0; i < PATROL_CONTACTS; i++) {
@@ -88,7 +88,7 @@ describe('patrols', () => {
   });
 
   it('scaled damage and level actually apply in combat', () => {
-    const s = newGame('security', 2);
+    const s = newGame(2);
     s.player!.level = 20;
     s.player!.hp = 100_000;
     s.mode = 'battle';
@@ -111,7 +111,7 @@ describe('patrols', () => {
 
   it('are deterministic for a seed', () => {
     const run = () => {
-      let s = newGame('science', 77);
+      let s = newGame(77);
       s.player!.level = 9;
       s = act(s, { type: 'startPatrol' }).state;
       return s.battle;
@@ -127,7 +127,7 @@ describe('patrols', () => {
       lines.push(`> ${JSON.stringify(a)}`, ...describeStep(s, r).map((l) => `  ${l}`));
       s = r.state;
     };
-    play({ type: 'newGame', name: 'Patrol', divisionId: 'engineer', seed: 2026 });
+    play({ type: 'newGame', name: 'Patrol', seed: 2026 });
     let started = false;
     for (let i = 0; i < 400; i++) {
       const a = patrolAction(s);

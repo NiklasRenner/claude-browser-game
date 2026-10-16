@@ -5,11 +5,11 @@ import {
   SAVE_VERSION, Rng, deserialize, describeStep, getMission, getHostile, hostileLabels, runRound, step,
 } from '../src/core';
 import type { GameEvent, GameState } from '../src/core';
-import { act, newGame, sureHit } from './helpers';
+import { act, newGame, sureHit, withAbilities } from './helpers';
 
 /** A battle against an explicit lineup inside the Xenith mission. */
-function lineup(ids: string[], divisionId: 'security' | 'science' | 'engineer' = 'security', seed = 3): GameState {
-  const s = newGame(divisionId, seed);
+function lineup(ids: string[], seed = 3): GameState {
+  const s = newGame(seed);
   s.player!.level = 16;
   s.mode = 'battle';
   s.mission = { missionId: 'xenith', cleared: 0, earnedXp: 0, earnedCredits: 0 };
@@ -97,8 +97,8 @@ describe('turn order', () => {
 });
 
 describe('mission attacks', () => {
-  it('an AoE ability strikes every living hostile; a normal one only the target', () => {
-    const aoe = sturdy(lineup(['hive_drone', 'hive_drone', 'hive_drone'], 'science'));
+  it('an AoE ability strikes every living hostile; a normal one only the target', () => withAbilities(['ion_storm', 'plasma_burst'], () => {
+    const aoe = sturdy(lineup(['hive_drone', 'hive_drone', 'hive_drone']));
     aoe.player!.level = 16;
     aoe.player!.energy = 999;
     aoe.battle!.hostiles[1]!.hp = 0;
@@ -106,17 +106,17 @@ describe('mission attacks', () => {
     const hits1 = r1.events.filter((e) => e.type === 'attack' && e.actor === 'player').map((e) => (e as { foe: number }).foe);
     assert.deepEqual(hits1, [0, 2]);
 
-    const single = sturdy(lineup(['hive_drone', 'hive_drone', 'hive_drone'], 'science'));
+    const single = sturdy(lineup(['hive_drone', 'hive_drone', 'hive_drone']));
     single.player!.energy = 999;
     const r2 = act(single, { type: 'useAbility', abilityId: 'plasma_burst' });
     const hits2 = r2.events.filter((e) => e.type === 'attack' && e.actor === 'player').map((e) => (e as { foe: number }).foe);
     assert.deepEqual(hits2, [0]);
-  });
+  }));
 });
 
 describe('encounters and log text', () => {
   it('boss fights put the boss between its escorts', () => {
-    let s = newGame('security', 2);
+    let s = newGame(2);
     s.player!.level = 16;
     s.player!.hp = 100_000;
     s.clearedMissions = ['veridia', 'kethra', 'glacies', 'void_rift'];
@@ -133,7 +133,7 @@ describe('encounters and log text', () => {
   it('regular hive encounters come from the defined packs', () => {
     const groups = getMission('xenith').groups!.map((g) => g.join('+'));
     for (let seed = 1; seed <= 30; seed++) {
-      let s = newGame('security', seed);
+      let s = newGame(seed);
       s.player!.level = 16;
       s.clearedMissions = ['veridia', 'kethra', 'glacies', 'void_rift'];
       s = act(s, { type: 'startMission', missionId: 'xenith' }).state;

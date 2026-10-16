@@ -8,14 +8,14 @@ describe('reducer basics', () => {
   it('starts on the title screen and creates a character', () => {
     const s0 = initialState(1);
     assert.equal(s0.mode, 'title');
-    assert.deepEqual(legalActions(s0).map((a) => a.type), ['newGame', 'newGame', 'newGame']);
-    const s1 = newGame('engineer', 1);
+    assert.deepEqual(legalActions(s0).map((a) => a.type), ['newGame', 'newGame']);
+    const s1 = newGame(1);
     assert.equal(s1.mode, 'ship');
-    assert.equal(s1.player!.divisionId, 'engineer');
+    assert.equal(s1.player!.weapon, 'sidearm_mk1');
   });
 
   it('never mutates the input state', () => {
-    const s = deepFreeze(newGame('security', 9));
+    const s = deepFreeze(newGame(9));
     const actions: Action[] = [
       { type: 'buy', itemId: 'medkit' }, { type: 'startMission', missionId: 'veridia' }, { type: 'attack' },
     ];
@@ -29,7 +29,7 @@ describe('reducer basics', () => {
     for (const a of [
       { type: 'attack' }, { type: 'continue' }, { type: 'returnToShip' }, { type: 'buy', itemId: 'nova_rifle' },
       { type: 'buy', itemId: 'not_an_item' }, { type: 'startMission', missionId: 'void_rift' },
-      { type: 'newGame', name: 'x', divisionId: 'science' }, { type: 'allocateStat', stat: 'str' },
+      { type: 'newGame', name: 'x' }, { type: 'allocateStat', stat: 'str' },
     ] as Action[]) {
       const r = step(s, a);
       assert.equal(r.state, s, JSON.stringify(a));
@@ -39,19 +39,19 @@ describe('reducer basics', () => {
   });
 
   it('agrees with legalActions: everything listed is accepted', () => {
-    const s = newGame('science', 4);
+    const s = newGame(4);
     for (const a of legalActions(s)) assert.equal(step(s, a).events.find((e) => e.type === 'error'), undefined);
   });
 
   it('is deterministic: same seed and actions give identical results', () => {
-    const run = () => actAll(newGame('security', 77), [{ type: 'startMission', missionId: 'veridia' }, { type: 'attack' }, { type: 'attack' }]);
+    const run = () => actAll(newGame(77), [{ type: 'startMission', missionId: 'veridia' }, { type: 'attack' }, { type: 'attack' }]);
     assert.deepEqual(run(), run());
   });
 });
 
 describe('ship', () => {
   it('buys and sells with correct credits accounting', () => {
-    let s = newGame('security');
+    let s = newGame();
     s.player!.level = 2;
     s.player!.credits = 100;
     s = act(s, { type: 'buy', itemId: 'gauss_pistol' }).state;
@@ -65,7 +65,7 @@ describe('ship', () => {
   });
 
   it('enforces level requirements and blocks selling equipped gear', () => {
-    let s = newGame('security');
+    let s = newGame();
     s.player!.credits = 10_000;
     assert.match((step(s, { type: 'buy', itemId: 'plasma_pistol' }).events[0] as { reason: string }).reason, /level 3/);
     s.player!.level = 2;
@@ -81,10 +81,10 @@ describe('ship', () => {
   });
 
   it('sells starter kit for 1 credit but never what is equipped (so you always keep a weapon and armor)', () => {
-    let s = newGame('engineer');
-    assert.equal(sellPrice('mag_wrench'), 1);
+    let s = newGame();
+    assert.equal(sellPrice('sidearm_mk1'), 1);
     assert.equal(sellPrice('duty_uniform'), 1);
-    assert.match((step(s, { type: 'sell', itemId: 'mag_wrench' }).events[0] as { reason: string }).reason, /Unequip/);
+    assert.match((step(s, { type: 'sell', itemId: 'sidearm_mk1' }).events[0] as { reason: string }).reason, /Unequip/);
     assert.match((step(s, { type: 'sell', itemId: 'duty_uniform' }).events[0] as { reason: string }).reason, /Unequip/);
     s.player!.level = 2;
     s.player!.credits = 200;
@@ -96,7 +96,7 @@ describe('ship', () => {
   });
 
   it('rests to full for a small fee, and only when needed', () => {
-    let s = newGame('security');
+    let s = newGame();
     assert.equal(step(s, { type: 'treat' }).events[0]!.type, 'error');
     s = structuredClone(s);
     s.player!.hp = 1;
@@ -107,14 +107,14 @@ describe('ship', () => {
   });
 
   it('lets a broke player rest for free (no softlock)', () => {
-    const s = newGame('security');
+    const s = newGame();
     s.player!.credits = 0;
     s.player!.hp = 1;
     assert.equal(act(s, { type: 'treat' }).state.player!.credits, 0);
   });
 
   it('uses potions outside battle', () => {
-    const s = newGame('engineer');
+    const s = newGame();
     s.player!.hp = 10;
     const r = act(s, { type: 'useItem', itemId: 'medkit' });
     assert.equal(r.state.player!.hp, 55);
@@ -124,7 +124,7 @@ describe('ship', () => {
 
 describe('mission flow', () => {
   it('starts a battle immediately and allows retreating between fights', () => {
-    let s = act(newGame('security', 12), { type: 'startMission', missionId: 'veridia' }).state;
+    let s = act(newGame(12), { type: 'startMission', missionId: 'veridia' }).state;
     assert.equal(s.mode, 'battle');
     assert.equal(s.mission!.missionId, 'veridia');
     s.battle!.hostiles[0]!.hp = 1;
@@ -137,7 +137,7 @@ describe('mission flow', () => {
   });
 
   it('sends the boss after the regular encounters', () => {
-    let s = act(newGame('security', 12), { type: 'startMission', missionId: 'veridia' }).state;
+    let s = act(newGame(12), { type: 'startMission', missionId: 'veridia' }).state;
     for (let i = 0; i < 3; i++) {
       s.battle!.hostiles[0]!.hp = 1;
       sureHit(s);
@@ -150,7 +150,7 @@ describe('mission flow', () => {
   });
 
   it('swapping weapons mid-battle costs a turn', () => {
-    let s = newGame('security', 8);
+    let s = newGame(8);
     s.player!.credits = 1000;
     s.player!.level = 2;
     s = act(s, { type: 'buy', itemId: 'gauss_pistol' }).state;

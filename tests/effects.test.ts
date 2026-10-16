@@ -71,7 +71,7 @@ describe('level gap', () => {
   });
 
   it('fleeing is easy from weaker hostiles and hard from stronger ones', () => {
-    const p = newGame('security').player!;
+    const p = newGame().player!;
     p.level = 10;
     assert.equal(fleeChance(p, 10), FLEE_BASE);
     assert.equal(fleeChance(p, 8), FLEE_BASE + 2 * FLEE_PER_LEVEL);
@@ -82,7 +82,7 @@ describe('level gap', () => {
 
   it('story bosses fight at the recommended level + 1 unless the mission says otherwise', () => {
     for (const m of Object.values(MISSIONS)) assert.equal(bossLevel(m), m.bossLevel ?? m.minLevel + 1, m.id);
-    let s = newGame('security', 4);
+    let s = newGame(4);
     s.player!.hp = 100_000;
     s = act(s, { type: 'startMission', missionId: 'veridia' }).state;
     s.mission!.cleared = getMission('veridia').encounters;

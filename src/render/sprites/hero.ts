@@ -1,14 +1,9 @@
 /**
  * The player's officer. Armor sets the silhouette (a long coat at first,
- * full plate at the end), the division sets the colour of the sash or cloak
- * and a piece of kit, and the weapon sits in the front hand.
- *
- *   security  crest on the helm, red
- *   science   a caged lantern familiar floating at the shoulder, blue
- *   engineer  a backpack with an exhaust and a glowing antenna, amber
+ * full plate at the end), the weapon sits in the front hand; sash, cloak and
+ * helm crest are in the officer's colour.
  */
-import { DIVISIONS, getArmor } from '../../core';
-import type { DivisionId } from '../../core';
+import { getArmor } from '../../core';
 import type { Painter } from '../pixel/painter';
 import { R, fromInt, glowOf, rampOf } from '../pixel/palette';
 import type { Ramp } from '../pixel/palette';
@@ -34,11 +29,14 @@ function tierOf(armorId: string): number {
 /** Main armor material per tier. */
 const PLATE: Ramp[] = [R.coat, R.coat, R.iron, rampOf(0x9a6a44, 0.9), rampOf(0xb8c4d0, 0.95), R.iron];
 
-export function heroFigure(divisionId: DivisionId, weaponId: string, armorId: string): Figure {
+/** The officer's colour: sash, cloak, helm crest (and the trim the sprite sheets are drawn with). */
+const COLOR = 0xc8382e;
+
+export function heroFigure(weaponId: string, armorId: string): Figure {
   const tier = tierOf(armorId);
   const shape = weaponShape(weaponId);
-  const division = rampOf(DIVISIONS[divisionId].color, 0.9);
-  const divGlow = glowOf(DIVISIONS[divisionId].color);
+  const division = rampOf(COLOR, 0.9);
+  const divGlow = glowOf(COLOR);
   const plate = PLATE[tier]!;
   const heavy = tier >= 4;
   const armored = tier >= 2;
@@ -57,15 +55,6 @@ export function heroFigure(divisionId: DivisionId, weaponId: string, armorId: st
       p.poly([[-12, -52 + U], [0, -54 + U], [-3, -26], [-4, long + hem(0) - 4], [-8, long - 6], [-12, long - 3 + hem(1)], [-16, long - 7],
         [-19, long - 4 + hem(2)], [-22, long - 10], [-22, -24], [-18, -42]], cloth,
       { normal: (x, y) => [Math.sin(x * 0.95 + y * 0.03 + t * 0.7) * 0.6, -0.1, 1], grime: 0.04, bias: -0.04, rim: tier === 5 ? 0 : 1, rimRamp: division });
-    }
-
-    // Engineer's pack sits behind the shoulders.
-    if (divisionId === 'engineer') {
-      p.rect(-16, -56 + U, 9, 17, R.rust, { bevel: 1, grime: 0.12 });
-      p.cap(-14, -56 + U, -14, -64 + U, 1.3, 1.1, R.iron);
-      p.line(-10, -56 + U, -8, -70 + U, R.iron[3]);
-      p.glow(-8, -71 + U, Math.sin(t * 4) > 0 ? divGlow : [255, 240, 200]);
-      p.glow(-12, -48 + U, divGlow);
     }
 
     // Far arm.
@@ -117,16 +106,7 @@ export function heroFigure(divisionId: DivisionId, weaponId: string, armorId: st
     if (armored) p.ell(8, -14, 3.7, 3.5, plate, { rim: 1, rimRamp: trim });
     p.poly([[3, -5], [12, -5], [16, -2], [16, 0], [3, 0]], R.leather, { ny: -0.3 });
 
-    drawHead(p, t, U, tier, divisionId, division, divGlow, plate, trim);
-
-    // Science's familiar: a caged lantern bobbing above the far shoulder.
-    if (divisionId === 'science') {
-      const fy = -62 + Math.round(Math.sin(t * 1.8) * 1.5), fx = -18 + Math.round(Math.sin(t * 0.9) * 1);
-      p.ell(fx, fy, 3, 3.4, R.iron, { bias: -0.2 });
-      for (let k = -1; k <= 1; k++) p.glow(fx + k * (k ? 1 : 0), fy + (k ? 0 : -1), divGlow);
-      p.glow(fx, fy, [235, 248, 255]);
-      p.dot(fx, fy - 4, R.gold[3]);
-    }
+    drawHead(p, t, U, tier, division, plate, trim);
 
     // Near arm and weapon. Melee: wind up then swing through. Ranged: recoil.
     let angle = restAngle(shape), hx: number, hy: number;
@@ -157,7 +137,7 @@ export function heroFigure(divisionId: DivisionId, weaponId: string, armorId: st
     p.ell(hx, hy, 2.6 + limb * 0.4, 2.4, tier >= 3 ? plate : R.leather);
   };
 
-  const cloth = fromInt(DIVISIONS[divisionId].color);
+  const cloth = fromInt(COLOR);
   return {
     left: 26, right: 34, height: 82, scale: 1, hover: 0, reach: 40,
     draw: (p, pose) => {
@@ -216,7 +196,7 @@ function drawSprite(p: Painter, body: Body, frames: Frame[], pose: Pose, weaponI
   if (mask) p.image(frame, -ax, -h, mask);
 }
 
-function drawHead(p: Painter, t: number, U: number, tier: number, divisionId: DivisionId, division: Ramp, divGlow: readonly [number, number, number], plate: Ramp, trim: Ramp) {
+function drawHead(p: Painter, t: number, U: number, tier: number, division: Ramp, plate: Ramp, trim: Ramp) {
   const blink = Math.sin(t * 0.7) > 0.985;
   const eyes = (col: readonly [number, number, number]) => { if (!blink) { p.dot(4, -58 + U, col, { noLine: true }); p.dot(6, -58 + U, col, { noLine: true }); } };
   // Collar.
@@ -239,7 +219,7 @@ function drawHead(p: Painter, t: number, U: number, tier: number, divisionId: Di
       p.ell(4, -57 + U, 3.4, 4, R.skin);
       eyes([24, 16, 18]);
       p.poly([[-5, -61 + U], [0, -65 + U], [7, -64 + U], [9, -60 + U], [5, -60 + U], [3, -58 + U], [-4, -55 + U]], plate, { rim: 1, rimRamp: trim, bias: 0.1 });
-      if (divisionId === 'security') crest(p, t, U, division, -64);
+      crest(p, t, U, division, -64);
       return;
     }
     case 3: {
@@ -261,9 +241,7 @@ function drawHead(p: Painter, t: number, U: number, tier: number, divisionId: Di
       for (let x = 4; x <= 7; x++) p.glow(x, -59 + U, x === 7 ? [255, 180, 138] : [255, 74, 42]);
       p.dot(5, -56 + U, plate[0]!, { noLine: true });
       p.dot(7, -56 + U, plate[0]!, { noLine: true });
-      if (divisionId === 'security') crest(p, t, U, division, -64);
-      else if (divisionId === 'science') p.glow(2, -63 + U, divGlow);
-      else p.cap(-2, -63 + U, -2, -66 + U, 0.8, 0.8, R.gold);
+      crest(p, t, U, division, -64);
     }
   }
 }

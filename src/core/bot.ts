@@ -4,13 +4,13 @@
  * balance probe (`npm run sim`).
  */
 import { aliveIndices, averageEffectDamage, hitChance, hostileDamageTaken, playerHitChance, resolveElement, strikeProfile } from './combat';
-import { MISSION_ORDER, DIVISIONS, ITEMS, getMission, getHostile } from './data';
+import { MISSION_ORDER, ITEMS, getMission, getHostile } from './data';
 import { initialState, step } from './game';
 import { missionEncounters } from './flow';
 import { checkAction, legalActions } from './rules';
 import { countItem, derive, knownAbilities } from './player';
 import { BASE_STAT } from './stats';
-import type { Action, ArmorDef, DivisionId, GameState, HostileDef, Player, StatusEffect, WeaponDef } from './types';
+import type { Action, ArmorDef, GameState, HostileDef, Player, StatusEffect, WeaponDef } from './types';
 
 const ok = (s: GameState, a: Action) => checkAction(s, a) === null;
 
@@ -53,12 +53,14 @@ function armorScore(a: ArmorDef): number {
   return a.block * 3 + a.hp + Object.values(a.resist).reduce((s, v) => s + v, 0) * 0.3;
 }
 
+/** How the bot spends stat points (repeating). */
+const STAT_PRIORITY = ['pow', 'end', 'spd', 'pow', 'int', 'end'] as const;
+
 function shipAction(state: GameState, p: Player): Action {
-  // 1. Spend stat points following the class pattern.
+  // 1. Spend stat points following a fixed pattern.
   if (p.statPoints > 0) {
-    const cls = DIVISIONS[p.divisionId];
     const spent = Object.values(p.stats).reduce((s, v) => s + v - BASE_STAT, 0);
-    return { type: 'allocateStat', stat: cls.statPriority[spent % cls.statPriority.length]! };
+    return { type: 'allocateStat', stat: STAT_PRIORITY[spent % STAT_PRIORITY.length]! };
   }
 
   const missionId = targetMission(state, p);
@@ -96,9 +98,6 @@ function shipAction(state: GameState, p: Player): Action {
   const potion = p.level >= 8 ? 'trauma_kit' : 'medkit';
   const potions = countItem(p, 'medkit') + countItem(p, 'trauma_kit');
   if (potions < 4 && ok(state, { type: 'buy', itemId: potion })) return { type: 'buy', itemId: potion };
-  if (p.divisionId === 'science' && countItem(p, 'energy_cell') < 2 && ok(state, { type: 'buy', itemId: 'energy_cell' })) {
-    return { type: 'buy', itemId: 'energy_cell' };
-  }
 
   // 5. Rest, then head out.
   if (ok(state, { type: 'treat' })) return { type: 'treat' };
@@ -162,11 +161,6 @@ function battleAction(state: GameState, p: Player): Action {
     if (buff) return { type: 'useAbility', abilityId: buff.id };
   }
 
-  // Out of energy as a caster: drink.
-  const cheapest = Math.min(...abilities.map((s) => s.energy));
-  if (p.energy < cheapest && p.divisionId === 'science' && countItem(p, 'energy_cell') > 0) {
-    return { type: 'useItem', itemId: 'energy_cell' };
-  }
 
   // Wrong tool for this hostile (e.g. plasma against a magma creature)? Swap to a much better owned weapon.
   if (target.hp > d.maxHp * 0.5) {
@@ -225,7 +219,6 @@ function hasBuff(statuses: StatusEffect[]) {
 // ─── Whole-game runner ─────────────────────────────────────────────────────
 
 interface BotRunSummary {
-  divisionId: DivisionId;
   seed: number;
   steps: number;
   completed: boolean;
@@ -237,8 +230,8 @@ interface BotRunSummary {
 }
 
 /** Plays from a new game until the final mission is cleared or `maxSteps` is reached. */
-export function runBot(divisionId: DivisionId, seed: number, maxSteps = 20000, onStep?: (s: GameState) => void): BotRunSummary {
-  let state = step(initialState(seed), { type: 'newGame', name: 'Bot', divisionId: divisionId, seed }).state;
+export function runBot(seed: number, maxSteps = 20000, onStep?: (s: GameState) => void): BotRunSummary {
+  let state = step(initialState(seed), { type: 'newGame', name: 'Bot', seed }).state;
   let completed = false;
   let steps = 0;
   while (steps < maxSteps && !completed) {
@@ -254,7 +247,7 @@ export function runBot(divisionId: DivisionId, seed: number, maxSteps = 20000, o
   }
   const p = state.player!;
   return {
-    divisionId, seed, steps, completed, level: p.level, credits: p.credits,
+    seed, steps, completed, level: p.level, credits: p.credits,
     cleared: [...state.clearedMissions], battlesWon: state.stats.battlesWon, battlesLost: state.stats.battlesLost,
   };
 }

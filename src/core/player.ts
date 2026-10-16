@@ -1,9 +1,9 @@
-import { getArmor, getDivision, getWeapon, abilitiesFor } from './data';
-import { ELEMENTS } from './types';
+import { getArmor, getWeapon, abilitiesFor } from './data';
+import { ELEMENTS, STATS } from './types';
 import {
   PLAYER_EVASION_CAP, baseStats, damageMultiplier, enduranceHp, intellectEnergy, luckCrit, speedBonus,
 } from './stats';
-import type { DivisionId, Element, GameEvent, Player, Resistances, AbilityDef, Stat } from './types';
+import type { Element, GameEvent, Player, Resistances, AbilityDef, Stat, Stats } from './types';
 
 export const MAX_LEVEL = 30;
 export const STAT_POINTS_PER_LEVEL = 4;
@@ -48,21 +48,43 @@ function resistTable(resist: Resistances): Record<Element, number> {
   return table;
 }
 
-export function createPlayer(name: string, divisionId: DivisionId): Player {
-  const cls = getDivision(divisionId);
+/** Every officer starts with this gear. */
+export const START_WEAPON = 'sidearm_mk1';
+export const START_ARMOR = 'duty_uniform';
+/** Points spread over the stats when enlisting, on top of the base stats. */
+export const START_POINTS = 5;
+
+/**
+ * The starting points as offered on the title screen: spread over everything but speed, so every
+ * officer starts at exactly speed 100 (its curve is steep on purpose, see stats.ts).
+ */
+export const defaultStart = (): Stats => ({ pow: 1, spd: 0, int: 1, end: 2, luk: 1 });
+
+/** Why this spread of starting points isn't allowed, or null if it is. */
+export function checkStart(start: unknown): string | null {
+  if (start === undefined) return null;
+  if (typeof start !== 'object' || start === null) return 'Bad starting stats';
+  const entries = Object.entries(start);
+  if (!entries.every(([k, v]) => (STATS as readonly string[]).includes(k) && Number.isInteger(v) && (v as number) >= 0)) return 'Bad starting stats';
+  const total = entries.reduce((n, [, v]) => n + (v as number), 0);
+  return total === START_POINTS ? null : `Spread exactly ${START_POINTS} starting points`;
+}
+
+export function createPlayer(name: string, start: Partial<Stats> = defaultStart()): Player {
+  const stats = baseStats();
+  for (const k of STATS) stats[k] += start[k] ?? 0;
   const player: Player = {
     name: name.trim().slice(0, 20) || 'Hero',
-    divisionId: divisionId,
     level: 1,
     xp: 0,
     credits: 50,
     hp: 1,
     energy: 1,
-    stats: baseStats(),
+    stats,
     statPoints: 0,
-    weapon: cls.startWeapon,
-    armor: cls.startArmor,
-    inventory: { [cls.startWeapon]: 1, [cls.startArmor]: 1, medkit: 2 },
+    weapon: START_WEAPON,
+    armor: START_ARMOR,
+    inventory: { [START_WEAPON]: 1, [START_ARMOR]: 1, medkit: 2 },
   };
   fullRestore(player);
   return player;
@@ -90,7 +112,7 @@ export function grantXp(player: Player, amount: number, events: GameEvent[]): vo
     player.statPoints += STAT_POINTS_PER_LEVEL;
     fullRestore(player);
     events.push({ type: 'levelUp', level: player.level });
-    for (const ability of abilitiesFor(player.divisionId, player.level)) {
+    for (const ability of abilitiesFor(player.level)) {
       if (ability.level === player.level) events.push({ type: 'learned', abilityId: ability.id });
     }
   }
@@ -109,7 +131,7 @@ export function allocateStat(player: Player, stat: Stat): void {
 }
 
 export function knownAbilities(player: Player): AbilityDef[] {
-  return abilitiesFor(player.divisionId, player.level);
+  return abilitiesFor(player.level);
 }
 
 export function countItem(player: Player, itemId: string): number {

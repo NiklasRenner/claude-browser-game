@@ -6,7 +6,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-  HOSTILES, MISSION_ORDER, ITEMS, Rng, STATS, deserialize, derive, initialState, legalActions, serialize, abilitiesFor, step,
+  HOSTILES, MISSION_ORDER, ITEMS, Rng, STATS, deserialize, derive, initialState, legalActions, serialize, ABILITIES, step,
 } from '../src/core';
 import type { Action, GameState } from '../src/core';
 
@@ -47,7 +47,7 @@ function randomAction(s: GameState, rng: Rng): Action {
       { type: 'sell', itemId: rng.pick(Object.keys(ITEMS)) },
       { type: 'equip', itemId: rng.pick(Object.keys(ITEMS)) },
       { type: 'useItem', itemId: rng.pick(Object.keys(ITEMS)) },
-      { type: 'useAbility', abilityId: rng.pick(abilitiesFor('science', 30).map((x) => x.id)) },
+      { type: 'useAbility', abilityId: rng.pick(Object.keys(ABILITIES)) },
       { type: 'startMission', missionId: rng.pick([...MISSION_ORDER, 'void']) },
       { type: 'startDrill', hostileIds: Array.from({ length: rng.int(0, 4) }, () => rng.pick([...Object.keys(HOSTILES), 'nope'])) },
       { type: 'allocateStat', stat: rng.pick(STATS) },

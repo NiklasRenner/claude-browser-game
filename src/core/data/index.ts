@@ -1,13 +1,12 @@
 import { MAX_HOSTILES } from '../types';
-import type { Element, StatusId, MissionDef, ArmorDef, DivisionDef, DivisionId, ConsumableDef, ItemDef, HostileDef, AbilityDef, WeaponDef } from '../types';
+import type { Element, StatusId, MissionDef, ArmorDef, ConsumableDef, ItemDef, HostileDef, AbilityDef, WeaponDef } from '../types';
 import { MISSIONS, MISSION_ORDER } from './missions';
-import { DIVISIONS } from './divisions';
 import { ITEMS, QUARTERMASTER_STOCK } from './items';
 import { HOSTILES } from './hostiles';
 import { ABILITIES } from './abilities';
 import { ELEMENT_EFFECTS } from './effects';
 
-export { MISSIONS, MISSION_ORDER, DIVISIONS, ITEMS, HOSTILES, QUARTERMASTER_STOCK, ABILITIES };
+export { MISSIONS, MISSION_ORDER, ITEMS, HOSTILES, QUARTERMASTER_STOCK, ABILITIES };
 export { FINAL_MISSION } from './missions';
 export { ELEMENT_EFFECTS, STATUS_INFO } from './effects';
 
@@ -21,7 +20,6 @@ export const getItem = (id: string): ItemDef => lookup(ITEMS, id, 'item');
 export const getHostile = (id: string): HostileDef => lookup(HOSTILES, id, 'hostile');
 export const getAbility = (id: string): AbilityDef => lookup(ABILITIES, id, 'ability');
 export const getMission = (id: string): MissionDef => lookup(MISSIONS, id, 'mission');
-export const getDivision = (id: DivisionId): DivisionDef => lookup(DIVISIONS, id, 'class');
 
 export function getWeapon(id: string): WeaponDef {
   const item = getItem(id);
@@ -42,9 +40,9 @@ export function getConsumable(id: string): ConsumableDef {
 /** The boss's level in a story mission: its `bossLevel`, or recommended level + 1. */
 export const bossLevel = (mission: MissionDef): number => mission.bossLevel ?? mission.minLevel + 1;
 
-/** Abilities a class knows at a given level, in learning order. */
-export function abilitiesFor(divisionId: DivisionId, level: number): AbilityDef[] {
-  return Object.values(ABILITIES).filter((s) => s.divisionId === divisionId && s.level <= level);
+/** Abilities an officer knows at a given level, in learning order. */
+export function abilitiesFor(level: number): AbilityDef[] {
+  return Object.values(ABILITIES).filter((s) => s.level !== undefined && s.level <= level).sort((a, b) => a.level! - b.level!);
 }
 
 /** Statuses that belong to a damage type (the rest — shield, evasive, marked — come from abilities). */
@@ -65,13 +63,7 @@ export function validateContent(): string[] {
     if (item.kind === 'weapon') range(item.id, item.damage);
     if (item.kind === 'weapon' && item.proc) elementEffect(item.id, item.element, item.proc.status);
   }
-  for (const cls of Object.values(DIVISIONS)) {
-    if (ITEMS[cls.startWeapon]?.kind !== 'weapon') problems.push(`${cls.id}: bad startWeapon`);
-    if (ITEMS[cls.startArmor]?.kind !== 'armor') problems.push(`${cls.id}: bad startArmor`);
-    if (!Object.values(ABILITIES).some((s) => s.divisionId === cls.id && s.level === 1)) {
-      problems.push(`${cls.id}: no level-1 ability`);
-    }
-  }
+  if (!Object.values(ABILITIES).some((s) => s.level === 1)) problems.push('no level-1 ability');
   for (const ability of Object.values(ABILITIES)) {
     if (ability.energy <= 0) problems.push(`${ability.id}: energy must be positive`);
     for (const e of ability.effects) if (e.type !== 'status') range(ability.id, e.dice);

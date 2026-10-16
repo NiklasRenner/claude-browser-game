@@ -6,8 +6,7 @@
  * URL options: ?t=<seconds> freezes the clock (stable screenshots);
  * ?only=heroes|hostiles|weapons shows one group (weapons: each in the officer's hands); ?attack=<0..1> poses everyone mid-attack.
  */
-import { DIVISIONS, HOSTILES, ITEMS } from './core';
-import type { DivisionId } from './core';
+import { HOSTILES, ITEMS, START_WEAPON } from './core';
 import { Painter } from './render/pixel/painter';
 import { heroFigure, hostileFigure, loadSheets, paintFigure } from './render/sprites';
 import type { Figure } from './render/sprites';
@@ -19,21 +18,23 @@ const only = params.get('only');
 
 interface Cell { label: string; figure: Figure; painter: Painter }
 const cells: Cell[] = [];
+const getName = (id: string) => ITEMS[id]?.name ?? id;
 const add = (label: string, figure: Figure) => cells.push({ label, figure, painter: new Painter(1, 1) });
 
 const kits: [string, string][] = [
   ['duty_uniform', ''], ['field_jacket', 'gauss_pistol'], ['composite_vest', 'ion_lance'],
   ['thermal_envirosuit', 'plasma_pistol'], ['arctic_hardsuit', 'mass_driver'], ['aegis_power_armor', ''],
 ];
-const topWeapon: Record<DivisionId, string> = { security: 'plasma_cannon', science: 'stasis_projector', engineer: 'singularity_edge' };
+/** Each armor with the starting sidearm (or its kit's weapon), then two top weapons: a heavy gun and a blade. */
+const rows = ['', 'plasma_cannon', 'singularity_edge'];
 if (only === 'weapons') {
   // Every weapon in the officer's hands, to check their sizes against him.
-  for (const item of Object.values(ITEMS)) if (item.kind === 'weapon') add(item.name, heroFigure('security', item.id, 'duty_uniform'));
+  for (const item of Object.values(ITEMS)) if (item.kind === 'weapon') add(item.name, heroFigure(item.id, 'duty_uniform'));
 } else if (only !== 'hostiles') {
-  for (const id of Object.keys(DIVISIONS) as DivisionId[]) {
-    kits.forEach(([armor, weapon], i) => {
-      const w = weapon || (i === 0 ? DIVISIONS[id].startWeapon : topWeapon[id]);
-      add(`${DIVISIONS[id].name.split(' ')[0]} · ${armor.replace(/_/g, ' ')}`, heroFigure(id, w, armor));
+  for (const row of rows) {
+    kits.forEach(([armor, weapon]) => {
+      const w = row || weapon || START_WEAPON;
+      add(`${armor.replace(/_/g, ' ')} · ${getName(w)}`, heroFigure(w, armor));
     });
   }
 }

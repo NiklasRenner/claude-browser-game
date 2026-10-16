@@ -56,11 +56,17 @@ try {
   await page.screenshot({ path: `${OUT}/01-title.png` });
 
   await page.fill('#hero-name', 'Playwright');
-  await page.click('[data-ui="class:science"]');
+  // Customize the starting attributes: move a point from Luck to Power.
+  await page.click('[data-ui="customize"]');
+  await page.click('[data-ui="stat-:luk"]');
+  check(await page.locator('#start-game').isDisabled(), 'can\'t enlist with a starting point left to spend');
+  await page.click('[data-ui="stat+:pow"]');
+  check(!(await page.locator('#start-game').isDisabled()), 'can enlist once every starting point is spent');
+  await page.screenshot({ path: `${OUT}/01b-title-customize.png` });
   await page.click('#start-game');
   await page.waitForSelector('text=Meridian');
   const s1 = await page.evaluate(() => window.__qf.state);
-  check(s1.mode === 'ship' && s1.player.name === 'Playwright' && s1.player.divisionId === 'science', 'new game created from title screen');
+  check(s1.mode === 'ship' && s1.player.name === 'Playwright' && s1.player.stats.pow === 7 && s1.player.stats.luk === 5, `new game created from title screen with the customized attributes (${JSON.stringify(s1.player.stats)})`);
   await page.waitForTimeout(400);
   await page.screenshot({ path: `${OUT}/02-ship.png` });
 
@@ -91,12 +97,12 @@ try {
   await page.waitForSelector('.hostile-card');
   await waitIdle(page);
   await page.click('[data-ui="menu:abilities"]');
-  await page.click('[data-action*="plasma_burst"]');
+  await page.click('[data-action*="overcharge"]');
   await page.waitForTimeout(350);
   await page.screenshot({ path: `${OUT}/03-battle-mid-animation.png` });
   await waitIdle(page);
   check((await canvasVariety(page)) > 20, 'battle scene renders');
-  check(await page.locator('.log').innerText().then((t) => t.includes('Plasma Burst')), 'combat log shows the cast');
+  check(await page.locator('.log').innerText().then((t) => t.includes('Overcharge')), 'combat log shows the ability');
 
   // Speed up and let the bot play a long stretch through the real controller + renderer.
   await page.evaluate(() => window.__qf.speed(0));

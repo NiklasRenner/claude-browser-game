@@ -7,30 +7,25 @@
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { DIVISIONS, chooseAction, describeStep, initialState, runBot, step } from '../src/core';
-import type { Action, DivisionId, GameState } from '../src/core';
+import { chooseAction, describeStep, initialState, runBot, step } from '../src/core';
+import type { Action, GameState } from '../src/core';
 import { expectGolden } from './helpers';
 
-const classes = Object.keys(DIVISIONS) as DivisionId[];
-
 describe('bot playthroughs', () => {
-  for (const divisionId of classes) {
-    it(`a ${divisionId} can finish the whole game`, () => {
-      for (const seed of [1, 2, 3]) {
-        const r = runBot(divisionId, seed, 5000);
-        assert.ok(r.completed, `${divisionId} seed ${seed} did not finish: ${JSON.stringify(r)}`);
-      }
-    });
-  }
+  it('an officer can finish the whole game', () => {
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const r = runBot(seed, 5000);
+      assert.ok(r.completed, `seed ${seed} did not finish: ${JSON.stringify(r)}`);
+    }
+  });
 
   it('summary stays stable (balance regression guard)', () => {
-    const summaries = classes.flatMap((c) => [1, 2].map((seed) => runBot(c, seed, 5000)));
-    expectGolden('bot-summaries', summaries);
+    expectGolden('bot-summaries', [1, 2, 3, 4].map((seed) => runBot(seed, 5000)));
   });
 });
 
 /** Plays with the bot and records a readable transcript of every action and its log lines. */
-function transcript(divisionId: DivisionId, seed: number, until: (s: GameState) => boolean, maxSteps = 400): string[] {
+function transcript(seed: number, until: (s: GameState) => boolean, maxSteps = 400): string[] {
   let s = initialState(seed);
   const lines: string[] = [];
   const play = (action: Action) => {
@@ -38,7 +33,7 @@ function transcript(divisionId: DivisionId, seed: number, until: (s: GameState) 
     lines.push(`> ${JSON.stringify(action)}`, ...describeStep(s, r).map((l) => `  ${l}`));
     s = r.state;
   };
-  play({ type: 'newGame', name: 'Golden', divisionId: divisionId, seed });
+  play({ type: 'newGame', name: 'Golden', seed });
   for (let i = 0; i < maxSteps && !until(s); i++) play(chooseAction(s));
   const p = s.player!;
   lines.push(`= ${s.mode} L${p.level} xp ${p.xp} hp ${p.hp} energy ${p.energy} credits ${p.credits} weapon ${p.weapon}`);
@@ -46,9 +41,7 @@ function transcript(divisionId: DivisionId, seed: number, until: (s: GameState) 
 }
 
 describe('golden transcripts', () => {
-  for (const divisionId of classes) {
-    it(`${divisionId}: first mission`, () => {
-      expectGolden(`transcript-${divisionId}`, transcript(divisionId, 2026, (s) => s.clearedMissions.length > 0));
-    });
-  }
+  it('first mission', () => {
+    expectGolden('transcript-first-mission', transcript(2026, (s) => s.clearedMissions.length > 0));
+  });
 });

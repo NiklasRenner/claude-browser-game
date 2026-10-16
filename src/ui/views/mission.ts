@@ -1,6 +1,6 @@
 /** In-mission views: the HUD, the target card, the turn-order strip, and the mission / battle / defeat panels. */
 import {
-  ELEMENTS, checkAction, countItem, derive, fleeChance, getMission, getDivision, getItem, getHostile, getWeapon, hostileEvasion,
+  ELEMENTS, checkAction, countItem, derive, fleeChance, getMission, getItem, getHostile, getWeapon, hostileEvasion,
   hostileHitChance, hostileLabels, hostileLevel, hostileSpeed, knownAbilities, levelPenalty, missionEncounters,
   toughestAliveLevel, upcomingTurns, xpToNext,
 } from '../../core';
@@ -15,10 +15,9 @@ export type BattleMenu = 'main' | 'abilities' | 'items' | 'gear';
 
 export function hud(p: Player, statuses: StatusEffect[]) {
   const d = derive(p);
-  const cls = getDivision(p.divisionId);
   return `
     <div class="hud panel">
-      <div class="hud-name"><strong>${esc(p.name)}</strong> <span class="muted">Lv ${p.level} ${cls.name}</span></div>
+      <div class="hud-name"><strong>${esc(p.name)}</strong> <span class="muted">Lv ${p.level} Officer</span></div>
       ${bar('hp', p.hp, d.maxHp, 'HP')}
       ${bar('energy', p.energy, d.maxEnergy, 'EN')}
       <div class="bar bar-xp" title="XP ${p.xp} / ${xpToNext(p.level)}"><div class="fill" style="width:${pct(p.xp, xpToNext(p.level))}"></div></div>

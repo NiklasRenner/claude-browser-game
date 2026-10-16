@@ -80,7 +80,7 @@ function openLocation(id: string) {
 
 /** A practice fight in this location (the editor's own state; the game's save is untouched). */
 function showFighters() {
-  let s: GameState = step(initialState(1), { type: 'newGame', name: 'Officer', divisionId: 'security' }).state;
+  let s: GameState = step(initialState(1), { type: 'newGame', name: 'Officer' }).state;
   if (lineup.length) s = step(s, { type: 'startDrill', hostileIds: lineup }).state;
   stage.sync(s);
 }

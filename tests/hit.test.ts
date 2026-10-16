@@ -5,14 +5,14 @@ import {
   HOSTILE_ACCURACY_PER_LEVEL, ITEMS, HOSTILES, ABILITIES, getHostile, getWeapon, hostileHit, hostileHitChance, playerHitChance,
   scaledHostile, strikeProfile,
 } from '../src/core';
-import type { DivisionId, GameEvent, WeaponDef } from '../src/core';
+import type { GameEvent, WeaponDef } from '../src/core';
 import { act, endlessFight } from './helpers';
 
 const strikes = (events: GameEvent[], actor: 'player' | 'hostile') => events.filter((e) => e.type === 'attack' && e.actor === actor);
 
 /** A level-20 fight where nobody dies, with `weapon` equipped. */
-const fight = (hostileId: string, weapon = 'sidearm_mk1', divisionId: DivisionId = 'security') =>
-  endlessFight(hostileId, { divisionId, seed: 4, weapon, level: 20 });
+const fight = (hostileId: string, weapon = 'sidearm_mk1') =>
+  endlessFight(hostileId, { seed: 4, weapon, level: 20 });
 
 describe('hit chance', () => {
   it('is the weapon\'s hit minus the hostile\'s evasion', () => {
@@ -21,7 +21,7 @@ describe('hit chance', () => {
   });
 
   it('abilities use their own hit; weapon techniques use the weapon\'s plus their accuracy', () => {
-    const s = fight('fen_leech', 'mag_wrench', 'engineer');
+    const s = fight('fen_leech', 'mag_wrench');
     const ion = ABILITIES.ion_storm!.effects[0]!;
     const exploit = ABILITIES.exploit_weakness!.effects[0]!;
     assert.ok(ion.type === 'damage' && exploit.type === 'damage');
@@ -71,7 +71,7 @@ describe('multi-hit', () => {
   });
 
   it('weapon techniques inherit the weapon\'s strikes; dice abilities can set their own', () => {
-    const s = fight('fen_leech', 'pulse_repeater', 'security');
+    const s = fight('fen_leech', 'pulse_repeater');
     s.player!.energy = 999;
     const r = act(s, { type: 'useAbility', abilityId: 'overcharge' });
     assert.equal(strikes(r.events, 'player').length, getWeapon('pulse_repeater').hits);
@@ -126,7 +126,7 @@ describe('hostile profiles', () => {
 
 describe('Target Painter', () => {
   it('marks the target without a hit roll, making it easier to hit for its duration', () => {
-    const s = fight('phase_wisp', 'mag_wrench', 'engineer');
+    const s = fight('phase_wisp', 'mag_wrench');
     s.player!.energy = 999;
     const before = playerHitChance(s.player!, s.battle!, 0);
     const r = act(s, { type: 'useAbility', abilityId: 'target_painter' });

@@ -5,8 +5,8 @@ import type { GameState } from '../src/core';
 import { act, newGame } from './helpers';
 
 function midBattle(): GameState {
-  let s = act(newGame('engineer', 31), { type: 'startMission', missionId: 'veridia' }).state;
-  s = act(s, { type: 'useAbility', abilityId: 'nanite_swarm' }).state;
+  let s = act(newGame(31), { type: 'startMission', missionId: 'veridia' }).state;
+  s = act(s, { type: 'useAbility', abilityId: 'overcharge' }).state;
   return s;
 }
 
@@ -36,6 +36,15 @@ describe('save / load', () => {
     assert.equal(deserialize('not json').ok, false);
     assert.equal(deserialize('{}').ok, false);
     assert.equal(deserialize(JSON.stringify({ format: 'other', version: 1, state: {} })).ok, false);
+  });
+
+  it('loads a version-1 save (from when officers had a division), dropping the division', () => {
+    const old = structuredClone(midBattle()) as GameState & { player: { divisionId?: string } };
+    old.player.divisionId = 'science';
+    const r = deserialize(JSON.stringify({ format: 'starward-save', version: 1, state: old }));
+    assert.ok(r.ok);
+    assert.equal('divisionId' in r.state.player!, false);
+    assert.equal(r.state.player!.level, old.player.level);
   });
 
   it('rejects saves from a newer version', () => {

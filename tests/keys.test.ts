@@ -6,7 +6,7 @@ import { act, inBattle, newGame, sureHit } from './helpers';
 
 describe('keyboard shortcuts', () => {
   it('advance to the next fight with Enter, Space or C, and return to ship with R', () => {
-    let s = act(newGame('security', 4), { type: 'startMission', missionId: 'veridia' }).state;
+    let s = act(newGame(4), { type: 'startMission', missionId: 'veridia' }).state;
     s.battle!.hostiles[0]!.hp = 1;
     sureHit(s);
     s = act(s, { type: 'attack' }).state;
@@ -17,16 +17,16 @@ describe('keyboard shortcuts', () => {
   });
 
   it('map battle keys to attack, flee and abilities by slot', () => {
-    const s = inBattle(newGame('science', 4), 'fen_leech');
+    const s = inBattle(newGame(4), 'fen_leech');
     assert.deepEqual(keyAction(s, 'a'), { type: 'attack' });
     assert.deepEqual(keyAction(s, 'f'), { type: 'flee' });
-    assert.deepEqual(keyAction(s, '1'), { type: 'useAbility', abilityId: 'plasma_burst' });
+    assert.deepEqual(keyAction(s, '1'), { type: 'useAbility', abilityId: 'overcharge' });
     assert.equal(keyAction(s, '9'), null, 'no ability in that slot yet');
     assert.equal(keyAction(s, 'Enter'), null, 'Enter must not do anything mid-fight');
   });
 
   it('wake up after going down with Enter or Space', () => {
-    const s = newGame('engineer');
+    const s = newGame();
     s.mode = 'defeated';
     assert.deepEqual(keyAction(s, 'Enter'), { type: 'returnToShip' });
     assert.deepEqual(keyAction(s, ' '), { type: 'returnToShip' });
@@ -39,7 +39,7 @@ describe('keyboard shortcuts', () => {
   });
 
   it('only ever produce actions the rules accept in that mode', () => {
-    const s = act(newGame('security', 4), { type: 'startMission', missionId: 'veridia' }).state;
+    const s = act(newGame(4), { type: 'startMission', missionId: 'veridia' }).state;
     for (const key of ['a', 'f', '1', '2', '3']) {
       const action = keyAction(s, key);
       if (action) assert.equal(checkAction(s, action), null, key);
@@ -47,7 +47,7 @@ describe('keyboard shortcuts', () => {
   });
 
   it('Tab / Shift+Tab cycle through living hostiles only, wrapping around', () => {
-    const s = inBattle(newGame('security', 4), 'hive_drone');
+    const s = inBattle(newGame(4), 'hive_drone');
     s.battle!.hostiles = ['hive_drone', 'hive_spitter', 'hive_drone'].map((defId) => ({ defId, hp: 50, maxHp: 50, statuses: [] }));
     s.battle!.target = 0;
     assert.deepEqual(keyAction(s, 'Tab'), { type: 'target', index: 1 });

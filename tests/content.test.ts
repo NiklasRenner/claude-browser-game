@@ -1,18 +1,16 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { MISSION_ORDER, DIVISIONS, ITEMS, HOSTILES, QUARTERMASTER_STOCK, getMission, abilitiesFor, validateContent } from '../src/core';
-import type { DivisionId } from '../src/core';
+import { MISSION_ORDER, ITEMS, HOSTILES, QUARTERMASTER_STOCK, START_ARMOR, START_WEAPON, getMission, abilitiesFor, validateContent } from '../src/core';
 
 describe('content tables', () => {
   it('have no broken references or invalid ranges', () => {
     assert.deepEqual(validateContent(), []);
   });
 
-  it('give every class a ability at level 1 and more abilities later', () => {
-    for (const id of Object.keys(DIVISIONS) as DivisionId[]) {
-      assert.ok(abilitiesFor(id, 1).length >= 1, `${id} has no level-1 ability`);
-      assert.ok(abilitiesFor(id, 12).length >= 5, `${id} has too few abilities`);
-    }
+  it('teach every officer Overcharge at level 1, Target Painter at 3 and Combat Stim at 5 (the rest wait for the ability shop)', () => {
+    assert.deepEqual(abilitiesFor(1).map((a) => a.id), ['overcharge']);
+    assert.deepEqual(abilitiesFor(4).map((a) => a.id), ['overcharge', 'target_painter']);
+    assert.deepEqual(abilitiesFor(30).map((a) => a.id), ['overcharge', 'target_painter', 'combat_stim']);
   });
 
   it('form a single unlock chain starting from an unrestricted mission', () => {
@@ -28,10 +26,8 @@ describe('content tables', () => {
   });
 
   it('never sell starter gear and stock consumables', () => {
-    for (const cls of Object.values(DIVISIONS)) {
-      assert.ok(!QUARTERMASTER_STOCK.includes(cls.startWeapon));
-      assert.ok(!QUARTERMASTER_STOCK.includes(cls.startArmor));
-    }
+    assert.ok(!QUARTERMASTER_STOCK.includes(START_WEAPON));
+    assert.ok(!QUARTERMASTER_STOCK.includes(START_ARMOR));
     assert.ok(QUARTERMASTER_STOCK.some((id) => ITEMS[id]!.kind === 'consumable'));
   });
 

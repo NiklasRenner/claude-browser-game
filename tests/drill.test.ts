@@ -8,7 +8,7 @@ const drill = (s: GameState, hostileIds: string[]) => act(s, { type: 'startDrill
 
 describe('combat drill', () => {
   it('starts one fight against the picked lineup, on the first hostile\'s world, bosses at their story level', () => {
-    const s = drill(newGame('security'), ['hive_drone', 'brood_matriarch']).state;
+    const s = drill(newGame(), ['hive_drone', 'brood_matriarch']).state;
     assert.equal(s.mode, 'battle');
     assert.equal(s.mission!.missionId, 'xenith');
     assert.deepEqual(s.battle!.hostiles.map((h) => h.defId), ['hive_drone', 'brood_matriarch']);

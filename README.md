@@ -2,7 +2,7 @@
 
 A turn-based sci-fi RPG in the spirit of classic browser RPGs like AdventureQuest, in dark 2D pixel art. The setting is an original one: a Star Trek-like premise (you serve aboard the exploration vessel *Meridian*) in a grim, gothic, slightly magical universe.
 
-Pick a division, take missions from the ship's board, beam down and fight through five worlds, each ending in a priority target. Exploit damage-type vulnerabilities, manage HP/energy between fights, level up, spend stat points, and requisition better gear.
+Enlist an officer, take missions from the ship's board, beam down and fight through five worlds, each ending in a priority target. Exploit damage-type vulnerabilities, manage HP/energy between fights, level up, spend stat points, and requisition better gear.
 
 The repository is still called `questforge`; the in-game title is set in `src/ui/views/title.ts` (`GAME_TITLE`) and `public/index.html`.
 
@@ -24,15 +24,16 @@ npm run dev        # http://localhost:5173 with live reload
 | `npm run test:e2e` | Builds, then drives the real UI in headless Chromium; screenshots in `test-results/` |
 | `npm run test:update-golden` | Re-record golden files after an *intentional* gameplay change |
 | `npm run gallery` | Paints every officer kit and hostile side by side to `test-results/gallery.png` (`npm run gallery -- heroes` / `hostiles` for one group, `npm run gallery -- all 1.3 0.4` for everyone mid-attack). Use it after changing sprites |
-| `npm run sim` | Balance report: full bot playthroughs per class, patrols at several levels and post-game, and **stat weights** (`npm run sim -- 100` for more seeds) |
+| `npm run sim` | Balance report: full bot playthroughs, patrols at several levels and post-game, and **stat weights** (`npm run sim -- 100` for more seeds) |
 | `npm run check` | lint + tests + e2e (run before committing) |
 
 The e2e test needs a Playwright Chromium (`npx playwright install chromium` once).
 
 ## Gameplay
 
-- **Divisions:** Security Officer, Science Officer and Engineer differ only in their ability kits and starting gear. Stats are generic and shared.
-- **Stats** (`src/core/stats.ts`, every officer starts at 5 in each; +4 points per level). Each has one job:
+- **Enlisting:** every officer starts with the same gear (Mk I Sidearm, duty uniform) and 5 in each stat, plus 5 starting points, spread by default as Power +1, Intellect +1, Endurance +2, Luck +1 (Speed stays at base so everyone starts at speed 100). *Customize* on the title screen moves them; all 5 must be spent (`checkStart` in `player.ts`).
+- **Abilities:** everyone learns the same ones by level: Overcharge (1), Target Painter (3), Combat Stim (5). The other abilities in `abilities.ts` have no `level` and aren't learnable yet: they're kept for an ability shop to come (and, later, high-level specializations). Tests reach them with `withAbilities` in `tests/helpers.ts`.
+- **Stats** (`src/core/stats.ts`, base 5 in each, plus the starting points; +4 points per level). Each has one job:
   **Power** → all damage (weapons, abilities, damage over time) · **Speed** → how often you act (diminishing; +10% takes 8 points) · **Intellect** → max energy · **Endurance** → max HP · **Luck** → crit chance (diminishing; crits deal ×2).
 - **Turn order is a deterministic timeline.** Every combatant waits `100 / speed` between turns and whoever is due first acts (ties: you, then hostiles in lineup order). At equal speed turns simply alternate; at speed 110 against 100 you get 11 turns for every 10 of theirs, i.e. a double turn on a fixed beat roughly every 10 rounds. Fast hostiles (Hive Drones, Phase Wisps) can open a fight before you act and sometimes act twice. No dice are involved, so the battle screen shows the next 8 turns (»You marks a turn you get again before anyone else). Armor can add or cost speed (Thermal Envirosuit +4%, Aegis Power Armor −4%).
 - **Player evasion is gear, not a stat:** fixed amounts from armor and abilities (Holo-Decoy), capped at 40 in total. Hostile evasion is not capped.
@@ -63,7 +64,7 @@ The e2e test needs a Playwright Chromium (`npx playwright install chromium` once
 - **Saves:** autosaved to `localStorage` after every action; *Resume duty* on the title screen. Saves are versioned (see `src/core/save.ts`); the history was reset at version 1, so pre-reset saves no longer load.
 - **Keys:** Combat `A` attack · `1–9` abilities · `Tab`/`Shift+Tab` switch target · `F` beam out · `Esc` back. Between fights `Enter`/`Space` advance · `R` return to ship. Keys pressed during an animation are queued.
 
-Naming: code uses the same words as the game (divisions, credits, energy, abilities, missions, hostiles, the ship). The repository name `questforge` is the only leftover.
+Naming: code uses the same words as the game (credits, energy, abilities, missions, hostiles, the ship). The repository name `questforge` is the only leftover.
 
 ## Architecture
 
@@ -71,7 +72,7 @@ Naming: code uses the same words as the game (divisions, credits, energy, abilit
 src/
   core/            Pure, deterministic game rules. No DOM, no rendering.
     types.ts       All state / action / event types (plain JSON data)
-    data/          Content tables: divisions, items, abilities, hostiles, missions (+ validateContent)
+    data/          Content tables: items, abilities, hostiles, missions (+ validateContent)
     stats.ts       Stat formulas and every balance knob
     game.ts        Reducer: step(state, action) → { state, events }
     rules.ts       checkAction() / legalActions() and read-only queries (prices, unlocks)
@@ -110,7 +111,7 @@ Key design rules:
 
 - **Unit tests** for formulas, statuses (e.g. "a 3-turn guard covers exactly 3 enemy turns"), shop, quest flow and saves.
 - **Fuzz tests:** 40 seeds × 1500 random (partly garbage) actions, asserting invariants after every step: no softlocks, HP/MP/gold in bounds, mode consistency, rejected actions don't change state, and every state survives save/load.
-- **Playthrough tests:** the bot must finish the whole game with every class.
+- **Playthrough tests:** the bot must finish the whole game (six seeds).
 - **Golden tests** (`tests/golden/`): exact seeded transcripts and bot summaries. Any change to formulas, content or turn order shows up as a readable diff. If the change was intended, run `npm run test:update-golden` and review `git diff tests/golden`.
 - **E2E** (`scripts/e2e.mjs`): real clicks through title → ship → battle, a 400-action bot run through the real UI and renderer, a HUD/state sync check, a non-blank canvas check, reload/continue, a mobile layout check, and zero console errors.
 

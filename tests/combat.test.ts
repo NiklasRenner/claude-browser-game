@@ -4,7 +4,7 @@ import {
   MAX_HIT, MIN_HIT, Rng, applyStatus, beginBattle, fleeChance, getHostile, hitChance, mitigate, runRound, step,
 } from '../src/core';
 import type { GameEvent } from '../src/core';
-import { act, inBattle, newGame, sureHit, endlessFight } from './helpers';
+import { act, inBattle, newGame, sureHit, endlessFight, withAbilities } from './helpers';
 
 const sturdyBattle = (hostileId = 'fen_leech') => endlessFight(hostileId);
 
@@ -25,7 +25,7 @@ describe('combat formulas', () => {
   });
 
   it('bounds flee chance', () => {
-    const p = newGame('engineer').player!;
+    const p = newGame().player!;
     const low = fleeChance(p, getHostile('rift_marauder').level);
     p.level = 30;
     const high = fleeChance(p, getHostile('fen_leech').level);
@@ -92,7 +92,7 @@ describe('status effects', () => {
 
 describe('battle outcomes', () => {
   it('awards XP and credits on victory and returns to the mission', () => {
-    const s = inBattle(newGame('security', 5), 'fen_leech');
+    const s = inBattle(newGame(5), 'fen_leech');
     s.battle!.hostiles[0]!.hp = 1;
     sureHit(s);
     const { state, events } = act(s, { type: 'attack' });
@@ -106,7 +106,7 @@ describe('battle outcomes', () => {
   });
 
   it('completes the mission and unlocks the next mission when the boss falls', () => {
-    const s = inBattle(newGame('security', 5), 'archcantor');
+    const s = inBattle(newGame(5), 'archcantor');
     s.battle!.hostiles[0]!.hp = 1;
     sureHit(s);
     const { state, events } = act(s, { type: 'attack' });
@@ -117,7 +117,7 @@ describe('battle outcomes', () => {
   });
 
   it('applies the defeat penalty and lets the player recover in ship', () => {
-    const s = inBattle(newGame('science', 6), 'choir_cantor');
+    const s = inBattle(newGame(6), 'choir_cantor');
     s.player!.hp = 1;
     s.player!.credits = 100;
     // Make our attacks (almost) always miss and theirs always land.
@@ -142,12 +142,12 @@ describe('battle outcomes', () => {
   });
 
   it('spends MP when casting and refuses without enough', () => {
-    const s = inBattle(newGame('science'), 'tundra_brute');
-    const r = act(s, { type: 'useAbility', abilityId: 'plasma_burst' });
+    const s = inBattle(newGame(), 'tundra_brute');
+    const r = act(s, { type: 'useAbility', abilityId: 'overcharge' });
     assert.equal(r.state.player!.energy, s.player!.energy - 6);
     const broke = structuredClone(s);
     broke.player!.energy = 0;
-    assert.equal(step(broke, { type: 'useAbility', abilityId: 'plasma_burst' }).events[0]!.type, 'error');
+    assert.equal(step(broke, { type: 'useAbility', abilityId: 'overcharge' }).events[0]!.type, 'error');
   });
 
   it('exploits elemental weaknesses', () => {
@@ -155,14 +155,16 @@ describe('battle outcomes', () => {
     const total = (hostileId: string) => {
       let sum = 0;
       for (let seed = 1; seed <= 30; seed++) {
-        const s = inBattle(newGame('science', seed), hostileId);
+        const s = inBattle(newGame(seed), hostileId);
         s.battle!.hostiles[0]!.hp = s.battle!.hostiles[0]!.maxHp = 10_000;
         const ev = act(s, { type: 'useAbility', abilityId: 'plasma_burst' }).events;
         for (const e of ev) if (e.type === 'attack' && e.actor === 'player') sum += e.damage;
       }
       return sum;
     };
-    assert.ok(total('fen_leech') > 300);
-    assert.equal(total('magma_colossus'), 0);
+    withAbilities(['plasma_burst'], () => {
+      assert.ok(total('fen_leech') > 300);
+      assert.equal(total('magma_colossus'), 0);
+    });
   });
 });

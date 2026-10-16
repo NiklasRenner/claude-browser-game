@@ -1,25 +1,25 @@
 /**
- * Balance report: lets the bot play full games for every class over many
+ * Balance report: lets the bot play full games over many
  * seeds and prints completion rates, run length and difficulty spikes.
  *
- *   npm run sim            # 20 seeds per class
- *   npm run sim -- 100     # 100 seeds per class
+ *   npm run sim            # 20 seeds
+ *   npm run sim -- 100     # 100 seeds
  */
-import { MISSION_ORDER, DIVISIONS, STATS, STAT_INFO, chooseAction, derive, fullRestore, initialState, runBot, step } from '../src/core';
-import type { Action, DivisionId, GameState } from '../src/core';
+import { MISSION_ORDER, STATS, STAT_INFO, chooseAction, derive, fullRestore, initialState, runBot, step } from '../src/core';
+import type { Action, GameState } from '../src/core';
 
 const seeds = Number(process.argv[2] ?? 20);
 const maxSteps = 30000;
 
-console.log(`Balance sim — ${seeds} seeds per class, max ${maxSteps} steps\n`);
-console.log('class    done   avg steps  avg lvl  win%   deaths  level when each mission first cleared');
+console.log(`Balance sim — ${seeds} seeds, max ${maxSteps} steps\n`);
+console.log('         done   avg steps  avg lvl  win%   deaths  level when each mission first cleared');
 
-for (const divisionId of Object.keys(DIVISIONS) as DivisionId[]) {
+for (const label of ['officer']) {
   const clearLevels: Record<string, number[]> = Object.fromEntries(MISSION_ORDER.map((a) => [a, []]));
   let done = 0, steps = 0, levels = 0, won = 0, lost = 0;
   for (let seed = 1; seed <= seeds; seed++) {
     const seen = new Set<string>();
-    const r = runBot(divisionId, seed, maxSteps, (s) => {
+    const r = runBot(seed, maxSteps, (s) => {
       for (const a of s.clearedMissions) if (!seen.has(a)) { seen.add(a); clearLevels[a]!.push(s.player!.level); }
     });
     done += r.completed ? 1 : 0;
@@ -27,7 +27,7 @@ for (const divisionId of Object.keys(DIVISIONS) as DivisionId[]) {
   }
   const avg = (xs: number[]) => (xs.length ? (xs.reduce((a, b) => a + b, 0) / xs.length).toFixed(1) : '—');
   console.log(
-    `${divisionId.padEnd(8)} ${`${done}/${seeds}`.padEnd(6)} ${String(Math.round(steps / seeds)).padStart(9)}  `
+    `${label.padEnd(8)} ${`${done}/${seeds}`.padEnd(6)} ${String(Math.round(steps / seeds)).padStart(9)}  `
     + `${(levels / seeds).toFixed(1).padStart(7)}  ${((100 * won) / (won + lost)).toFixed(1).padStart(5)}  `
     + `${(lost / seeds).toFixed(1).padStart(6)}  ${MISSION_ORDER.map((a) => `${a}:${avg(clearLevels[a]!)}`).join('  ')}`,
   );
@@ -61,13 +61,13 @@ function runPatrols(start: GameState, count: number) {
   return { done, deaths, startLevel, endLevel: s.player!.level, state: s };
 }
 
-console.log(`\nPatrols — ${patrolsPerSnapshot} per snapshot, ${Math.min(seeds, 10)} seeds per class`);
-console.log('class    at level  patrols  deaths  death%');
-for (const divisionId of Object.keys(DIVISIONS) as DivisionId[]) {
+console.log(`\nPatrols — ${patrolsPerSnapshot} per snapshot, ${Math.min(seeds, 10)} seeds`);
+console.log('         at level  patrols  deaths  death%');
+for (const label of ['officer']) {
   const byLevel = new Map<number, { done: number; deaths: number }>();
   let post = { levels: 0, deaths: 0, patrols: 0 };
   for (let seed = 1; seed <= Math.min(seeds, 10); seed++) {
-    let s = step(initialState(seed), { type: 'newGame', name: 'Bot', divisionId: divisionId, seed }).state;
+    let s = step(initialState(seed), { type: 'newGame', name: 'Bot', seed }).state;
     const pending = [...PATROL_LEVELS];
     let finished = false;
     for (let i = 0; i < 30000 && !finished; i++) {
@@ -85,10 +85,10 @@ for (const divisionId of Object.keys(DIVISIONS) as DivisionId[]) {
     post = { levels: post.levels + r.endLevel, deaths: post.deaths + r.deaths, patrols: post.patrols + r.done + r.deaths };
   }
   const rows = [...byLevel].map(([lvl, v]) =>
-    `${divisionId.padEnd(8)} ${String(lvl).padStart(8)}  ${String(v.done + v.deaths).padStart(7)}  ${String(v.deaths).padStart(6)}  ${(100 * v.deaths / Math.max(1, v.done + v.deaths)).toFixed(0).padStart(5)}%`);
+    `${label.padEnd(8)} ${String(lvl).padStart(8)}  ${String(v.done + v.deaths).padStart(7)}  ${String(v.deaths).padStart(6)}  ${(100 * v.deaths / Math.max(1, v.done + v.deaths)).toFixed(0).padStart(5)}%`);
   console.log(rows.join('\n'));
   const n = Math.min(seeds, 10);
-  console.log(`${divisionId.padEnd(8)} post-game (from level ~16): level ${(post.levels / n).toFixed(1)} after 40 patrols, deaths ${post.deaths}/${post.patrols} (${(100 * post.deaths / post.patrols).toFixed(0)}%)`);
+  console.log(`${label.padEnd(8)} post-game (from level ~16): level ${(post.levels / n).toFixed(1)} after 40 patrols, deaths ${post.deaths}/${post.patrols} (${(100 * post.deaths / post.patrols).toFixed(0)}%)`);
 }
 
 // ─── Stat weights ──────────────────────────────────────────────────────────
@@ -127,9 +127,9 @@ function missionScore(start: GameState, runs: number): number {
 }
 
 console.log(`\nStat weights — % combat score per +1 point (+${BUMP} points, ${RUNS} missions each)`);
-console.log(`class    level  ${STATS.map((k) => STAT_INFO[k].short.padStart(6)).join('')}`);
-for (const divisionId of Object.keys(DIVISIONS) as DivisionId[]) {
-  let s = step(initialState(11), { type: 'newGame', name: 'Bot', divisionId: divisionId, seed: 11 }).state;
+console.log(`         level  ${STATS.map((k) => STAT_INFO[k].short.padStart(6)).join('')}`);
+for (const label of ['officer']) {
+  let s = step(initialState(11), { type: 'newGame', name: 'Bot', seed: 11 }).state;
   const pending = [...WEIGHT_LEVELS];
   for (let i = 0; i < 30000 && pending.length; i++) {
     const a = chooseAction(s);
@@ -144,7 +144,7 @@ for (const divisionId of Object.keys(DIVISIONS) as DivisionId[]) {
         const pct = ((missionScore(v, RUNS) / base - 1) * 100) / BUMP;
         return pct.toFixed(1).padStart(6);
       });
-      console.log(`${divisionId.padEnd(8)} ${String(level).padStart(5)}  ${cells.join('')}`);
+      console.log(`${label.padEnd(8)} ${String(level).padStart(5)}  ${cells.join('')}`);
     }
     s = step(s, a).state;
   }

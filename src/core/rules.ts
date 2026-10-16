@@ -6,10 +6,10 @@
  */
 import { aliveIndices, isAlive } from './combat';
 import { checkDrill, drillRoster } from './drill';
-import { MISSION_ORDER, DIVISIONS, QUARTERMASTER_STOCK, getMission, getItem, getHostile, getAbility } from './data';
-import { countItem, derive, knownAbilities } from './player';
+import { MISSION_ORDER, QUARTERMASTER_STOCK, getMission, getItem, getHostile, getAbility } from './data';
+import { checkStart, countItem, derive, knownAbilities } from './player';
 import { STATS } from './types';
-import type { Action, DivisionId, GameState, Player } from './types';
+import type { Action, GameState, Player } from './types';
 
 // ─── Queries (used by UI and bot) ──────────────────────────────────────────
 
@@ -38,7 +38,7 @@ export function checkAction(state: GameState, action: Action): string | null {
   const { mode, player } = state;
   if (action.type === 'newGame') {
     if (mode !== 'title') return 'A game is already in progress';
-    return action.divisionId in DIVISIONS ? null : 'Unknown class';
+    return checkStart(action.stats);
   }
   if (!player) return 'No active game';
   const inBattle = mode === 'battle' && state.battle !== null;
@@ -131,7 +131,7 @@ export function legalActions(state: GameState): Action[] {
   const candidates: Action[] = [];
   const p = state.player;
   if (state.mode === 'title') {
-    for (const divisionId of Object.keys(DIVISIONS) as DivisionId[]) candidates.push({ type: 'newGame', name: 'Hero', divisionId: divisionId });
+    candidates.push({ type: 'newGame', name: 'Hero' }, { type: 'newGame', name: 'Hero', stats: { pow: 3, end: 2 } });
   } else if (p) {
     candidates.push({ type: 'treat' }, { type: 'continue' }, { type: 'retreat' }, { type: 'attack' }, { type: 'flee' });
     candidates.push({ type: 'returnToShip' }, { type: 'startPatrol' });

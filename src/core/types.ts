@@ -13,7 +13,6 @@ export type Stats = Record<Stat, number>;
 /** Damage taken in percent per element. 100 = normal, 50 = resist, 150 = weak. */
 export type Resistances = Partial<Record<Element, number>>;
 
-export type DivisionId = 'security' | 'science' | 'engineer';
 
 /**
  * Element effects (one per damage type, see ELEMENT_EFFECTS; an attack *may* carry it):
@@ -121,22 +120,11 @@ export type AbilityEffect =
 export interface AbilityDef {
   id: string;
   name: string;
-  divisionId: DivisionId;
-  level: number;
+  /** The level every officer learns it at; without one it isn't learnable yet (kept for the ability shop to come). */
+  level?: number;
   energy: number;
   effects: AbilityEffect[];
   description: string;
-}
-
-export interface DivisionDef {
-  id: DivisionId;
-  name: string;
-  description: string;
-  /** Repeating pattern the bot (and auto-allocate) uses to spend stat points. */
-  statPriority: Stat[];
-  startWeapon: string;
-  startArmor: string;
-  color: number;
 }
 
 export interface HostileAttack {
@@ -234,7 +222,6 @@ export interface MissionDef {
 
 export interface Player {
   name: string;
-  divisionId: DivisionId;
   level: number;
   xp: number;
   credits: number;
@@ -304,7 +291,8 @@ export interface GameState {
 // ─── Actions & events ──────────────────────────────────────────────────────
 
 export type Action =
-  | { type: 'newGame'; name: string; divisionId: DivisionId; seed?: number }
+  /** `stats`: how the starting points are spread (START_POINTS in total); default: defaultStart(). */
+  | { type: 'newGame'; name: string; stats?: Partial<Stats>; seed?: number }
   | { type: 'treat' }
   | { type: 'buy'; itemId: string }
   | { type: 'sell'; itemId: string }

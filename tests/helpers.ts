@@ -2,12 +2,22 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getHostile, initialState, step } from '../src/core';
-import type { Action, DivisionId, GameState, StepResult } from '../src/core';
+import { ABILITIES, getHostile, initialState, step } from '../src/core';
+import type { Action, GameState, StepResult } from '../src/core';
 
 /** Starts a new game in ship. */
-export function newGame(divisionId: DivisionId = 'security', seed = 1): GameState {
-  return act(initialState(seed), { type: 'newGame', name: 'Tester', divisionId: divisionId, seed }).state;
+export function newGame(seed = 1): GameState {
+  return act(initialState(seed), { type: 'newGame', name: 'Tester', seed }).state;
+}
+
+/**
+ * Runs `fn` with abilities nobody learns yet (kept for the ability shop) learnable from level 1,
+ * to test their effects.
+ */
+export function withAbilities<T>(ids: string[], fn: () => T): T {
+  const before = ids.map((id) => ABILITIES[id]!.level);
+  ids.forEach((id) => { ABILITIES[id]!.level = 1; });
+  try { return fn(); } finally { ids.forEach((id, i) => { ABILITIES[id]!.level = before[i]; }); }
 }
 
 /** Applies an action and fails the test if it was rejected. */
@@ -39,9 +49,9 @@ export function inBattle(state: GameState, hostileId: string): GameState {
  */
 export function endlessFight(
   hostileId: string,
-  opts: { divisionId?: DivisionId; seed?: number; weapon?: string; level?: number; spd?: number } = {},
+  opts: { seed?: number; weapon?: string; level?: number; spd?: number } = {},
 ): GameState {
-  const s = inBattle(newGame(opts.divisionId ?? 'security', opts.seed ?? 3), hostileId);
+  const s = inBattle(newGame(opts.seed ?? 3), hostileId);
   const p = s.player!;
   if (opts.weapon) {
     p.inventory[opts.weapon] = 1;
