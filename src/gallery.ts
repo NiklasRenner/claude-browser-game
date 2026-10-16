@@ -1,12 +1,12 @@
 /**
  * Figure gallery (dist/gallery.html): every officer kit and every hostile
  * side by side, idling, so art changes can be judged at a glance.
- * `npm run gallery` screenshots it to test-results/gallery.png.
+ * `npm run gallery` screenshots it to test-results/gallery.png (`npm run gallery -- weapons` for the weapons).
  *
  * URL options: ?t=<seconds> freezes the clock (stable screenshots);
- * ?only=heroes|hostiles shows one group; ?attack=<0..1> poses everyone mid-attack.
+ * ?only=heroes|hostiles|weapons shows one group (weapons: each in the officer's hands); ?attack=<0..1> poses everyone mid-attack.
  */
-import { DIVISIONS, HOSTILES } from './core';
+import { DIVISIONS, HOSTILES, ITEMS } from './core';
 import type { DivisionId } from './core';
 import { Painter } from './render/pixel/painter';
 import { heroFigure, hostileFigure, loadSheets, paintFigure } from './render/sprites';
@@ -26,7 +26,10 @@ const kits: [string, string][] = [
   ['thermal_envirosuit', 'plasma_pistol'], ['arctic_hardsuit', 'mass_driver'], ['aegis_power_armor', ''],
 ];
 const topWeapon: Record<DivisionId, string> = { security: 'plasma_cannon', science: 'stasis_projector', engineer: 'singularity_edge' };
-if (only !== 'hostiles') {
+if (only === 'weapons') {
+  // Every weapon in the officer's hands, to check their sizes against him.
+  for (const item of Object.values(ITEMS)) if (item.kind === 'weapon') add(item.name, heroFigure('security', item.id, 'duty_uniform'));
+} else if (only !== 'hostiles') {
   for (const id of Object.keys(DIVISIONS) as DivisionId[]) {
     kits.forEach(([armor, weapon], i) => {
       const w = weapon || (i === 0 ? DIVISIONS[id].startWeapon : topWeapon[id]);
@@ -34,9 +37,9 @@ if (only !== 'hostiles') {
     });
   }
 }
-if (only !== 'heroes') for (const h of Object.values(HOSTILES)) add(`${h.name}${h.boss ? ' ★' : ''}`, hostileFigure(h.look, !!h.boss));
+if (only !== 'heroes' && only !== 'weapons') for (const h of Object.values(HOSTILES)) add(`${h.name}${h.boss ? ' ★' : ''}`, hostileFigure(h.look, !!h.boss));
 
-const cols = only === 'heroes' ? 6 : only === 'hostiles' ? 6 : 8;
+const cols = only === 'heroes' || only === 'hostiles' ? 6 : 8;
 const CELL_W = 130, CELL_H = 124, ZOOM = only ? 3 : 2;
 const frozen = params.get('t');
 const attack = Number(params.get('attack') ?? 0);

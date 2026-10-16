@@ -3,7 +3,8 @@
 export const SHEETS = {
   brood_minions: { file: 'sprites/brood_minions.png', frames: 4, w: 79, h: 52, ax: 44 },
   plague_matriarch: { file: 'sprites/plague_matriarch.png', frames: 13, w: 80, h: 108, ax: 41 },
-  officer: { file: 'sprites/officer.png', frames: 14, w: 57, h: 79, ax: 24 },
+  officer: { file: 'sprites/officer.png', frames: 16, w: 65, h: 88, ax: 24 },
+  officer_grip: { file: 'sprites/officer_grip.png', frames: 32, w: 65, h: 88, ax: 24 },
   weapons: { file: 'sprites/weapons.png', frames: 16, w: 46, h: 24, ax: 0 },
 } as const;
 
@@ -15,7 +16,7 @@ export type SheetId = keyof typeof SHEETS;
  * `front`: the same for the front (far) hand, which holds sidearms.
  */
 export const RIGS = {
-  officer: { anims: { aim: [0, 4, 6], swing: [6, 4, 8] }, hands: [[24.7, -59.3, -0.08], [24.7, -58.1, -0.08], [24.8, -56.7, -0.08], [24.7, -58.1, -0.08], [22.2, -67.0, -0.47], [24.6, -62.2, -0.22], [23.6, -40.8, -1.05], [22.7, -40.0, -1.05], [22.7, -39.1, -1.05], [22.7, -40.0, -1.05], [2.1, -76.0, -2.79], [24.1, -68.2, -1.22], [26.7, -48.7, 0.44], [23.7, -32.2, 0.96]], front: [[26.0, -57.5, -0.35], [26.0, -56.3, -0.35], [26.2, -54.9, -0.35], [26.0, -56.3, -0.35], [22.9, -65.5, -0.73], [25.5, -60.7, -0.49], [23.6, -40.8, -1.05], [22.7, -40.0, -1.05], [22.7, -39.1, -1.05], [22.7, -40.0, -1.05], [2.1, -76.0, -2.79], [24.1, -68.2, -1.22], [26.7, -48.7, 0.44], [23.7, -32.2, 0.96]] },
+  officer: { anims: { aim: [0, 4, 6], swing: [6, 4, 10] }, hands: [[24.5, -59.8, -0.08], [24.6, -60.0, -0.08], [24.6, -60.0, -0.08], [23.6, -60.4, -0.08], [20.6, -61.9, -0.29], [23.5, -61.0, -0.17], [23.7, -41.2, -1.05], [22.7, -40.2, -1.05], [22.7, -39.2, -1.05], [22.7, -40.2, -1.05], [-14.6, -73.9, -3.05], [0.3, -84.8, -2.09], [20.5, -78.0, -1.05], [36.5, -64.8, 0.0], [26.8, -48.1, 0.79], [25.0, -29.3, 1.31]], front: [[24.4, -57.8, -0.35], [23.6, -57.8, -0.35], [23.5, -57.6, -0.35], [23.5, -58.0, -0.35], [20.5, -59.4, -0.56], [23.2, -58.6, -0.44], [23.7, -41.2, -1.05], [22.7, -40.2, -1.05], [22.7, -39.2, -1.05], [22.7, -40.2, -1.05], [-14.6, -73.9, -3.05], [0.3, -84.8, -2.09], [20.5, -78.0, -1.05], [36.5, -64.8, 0.0], [26.8, -48.1, 0.79], [25.0, -29.3, 1.31]] },
 } as const;
 
 /** Weapon sprites: frame in the `weapons` sheet, the grip (where the hand holds it) and the muzzle, in the frame's pixels. */
@@ -26,7 +27,7 @@ export const WEAPONS: Record<string, { frame: number; grip: readonly [number, nu
   flechette_pistol: { frame: 3, grip: [4, 6], muzzle: [18, 2] },
   plasma_pistol: { frame: 4, grip: [4, 6], muzzle: [20, 2] },
   corrosive_needler: { frame: 5, grip: [4, 7], muzzle: [21, 4] },
-  cryo_carbine: { frame: 6, grip: [18, 11], muzzle: [40, 5] },
+  cryo_carbine: { frame: 6, grip: [10, 8], muzzle: [29, 4] },
   mass_driver: { frame: 7, grip: [12, 8], muzzle: [43, 4] },
   photon_rifle: { frame: 8, grip: [12, 7], muzzle: [43, 4] },
   plasma_cannon: { frame: 9, grip: [16, 12], muzzle: [44, 7] },

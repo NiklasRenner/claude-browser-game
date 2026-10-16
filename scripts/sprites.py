@@ -226,6 +226,9 @@ def write_rigged(name: str, hues, rigs: dict) -> tuple:
     rig = rigs_py.load(name)
     order = rigs_py.frames(rig)
     frames = [np.array(Image.open(ROOT / 'art' / 'pixellab' / name / f'{a}-{i}.png').convert('RGBA')) for a, i in order]
+    # Animations that reach far (a swing) are drawn on a wider canvas, extended right and down: pad to one size.
+    H, W = max(f.shape[0] for f in frames), max(f.shape[1] for f in frames)
+    frames = [np.pad(f, ((0, H - f.shape[0]), (0, W - f.shape[1]), (0, 0))) for f in frames]
     # Each animation starts from its own pose base; line them all up on the feet of the first one
     # (between the ankles, soles on the same row).
     def feet(anim):
@@ -267,32 +270,48 @@ def write_rigged(name: str, hues, rigs: dict) -> tuple:
         anims[a] = (start, rigs_py.TEMPLATES[a]['loop'], n)
         start += n
     def grip(k, fr, side):
-        # The skeleton says where the fist should be; the drawn fist can land a few pixels off (an arm
-        # foreshortened in the base looks short in the pose). Take the arm's tip as drawn: the solid
-        # pixel furthest along the forearm, near where the skeleton put the wrist.
+        # The skeleton says roughly where the fist is; take it from the drawing instead.
         (sx, sy), (ex, ey), (wx, wy) = rigs_py.arm(rig, *fr, side)
         _, _, angle = rigs_py.hand(rig, *fr, side)
         dx, dy = shift[fr[0]]
         sx, sy, ex, ey, wx, wy = sx + dx, sy + dy, ex + dx, ey + dy, wx + dx, wy + dy
-        n = np.hypot(wx - ex, wy - ey) or 1
-        ux, uy = (wx - ex) / n, (wy - ey) / n
-        reach = np.hypot(ex - sx, ey - sy) + n
+        # The drawn arm can be longer than the skeleton's (an arm foreshortened in the base); follow it out from
+        # the shoulder: solid pixels in a corridor along shoulder→wrist, the furthest out is the fist's tip.
+        n = np.hypot(wx - sx, wy - sy) or 1
+        ux, uy = (wx - sx) / n, (wy - sy) / n
         ys, xs = np.nonzero(frames[k][:, :, 3])
-        # Near the posed wrist, and out at the end of the arm (not the chest or belt behind it).
-        near = ((xs - wx) ** 2 + (ys - wy) ** 2 <= 12 ** 2) & (np.hypot(xs - sx, ys - sy) >= reach * 0.7)
+        along_, across = (xs - sx) * ux + (ys - sy) * uy, -(xs - sx) * uy + (ys - sy) * ux
+        wa = (wx - sx) * ux + (wy - sy) * uy
+        near = (np.abs(across) <= 6) & (along_ >= wa * 0.6) & (along_ <= wa * 1.45)
         if near.any():
-            proj = (xs[near] - ex) * ux + (ys[near] - ey) * uy
-            tip = np.argmax(proj)
-            # The fist's middle: back from the tip along the forearm, onto the arm's centre line.
-            t = proj[tip] - 2.5
-            wx, wy = ex + ux * t, ey + uy * t
-        return round(wx - x0 - ax, 1), round(wy - y0 - fh, 1), round(angle, 2)
-    rel = lambda side: [grip(k, fr, side) for k, fr in enumerate(order)]
-    weapon_hand = [(x, y, t) for (x, y, t), r, (a, _) in zip(rel('RIGHT'), rel('LEFT'), order)
-                   for x, y, t in [r if rigs_py.TEMPLATES[a].get('hand') == 'LEFT' else (x, y, t)]]
-    rigs[name] = (anims, weapon_hand, rel('LEFT'))
+            tip = along_[near].max()
+            fist = near & (along_ >= tip - 5)
+            # The fist's middle: back from the tip, on the middle of what's drawn there.
+            c = across[fist].mean()
+            t = tip - 2.5
+            wx, wy = sx + ux * t - uy * c, sy + uy * t + ux * c
+        return (round(wx - x0 - ax, 1), round(wy - y0 - fh, 1), round(angle, 2)), forearm(k, (ex, ey), (wx, wy))
+    def forearm(k, elbow, fist):
+        # The holding forearm and fist as drawn: redrawn over the weapon so the hand wraps around it.
+        ys, xs = np.mgrid[:frames[k].shape[0], :frames[k].shape[1]]
+        (ex, ey), (fx, fy) = elbow, fist
+        ex, ey = ex + (fx - ex) * 0.3, ey + (fy - ey) * 0.3  # not the elbow end: that's against the body
+        dx, dy = fx - ex, fy - ey
+        t = np.clip(((xs - ex) * dx + (ys - ey) * dy) / (dx * dx + dy * dy or 1), 0, 1)
+        d = np.hypot(xs - ex - t * dx, ys - ey - t * dy)
+        m = (frames[k][:, :, 3] > 0) & ((d <= 4) | (np.hypot(xs - fx, ys - fy) <= 4.5))
+        return m[y0:y1, x0:x1]
+    hand = lambda side: [grip(k, fr, side) for k, fr in enumerate(order)]
+    right, left = hand('RIGHT'), hand('LEFT')
+    weapon_hand = [l if rigs_py.TEMPLATES[a].get('hand') == 'LEFT' else r for r, l, (a, _) in zip(right, left, order)]
+    rigs[name] = (anims, [g for g, _ in weapon_hand], [g for g, _ in left])
+    # Grip masks: frame k = the weapon hand's forearm in frame k; frame N + k = the front hand's.
+    masks = np.zeros((fh * 2, fw * len(frames) * 2, 4), np.uint8)
+    for k, m in enumerate([m for _, m in weapon_hand] + [m for _, m in left]):
+        masks[:fh, k * fw:(k + 1) * fw][m] = 255
+    Image.fromarray(masks).save(OUT / f'{name}_grip.png')
     print(f'{name}: {len(frames)} rigged frames of {fw}×{fh}')
-    return (name, len(frames), fw, fh, ax)
+    return [(name, len(frames), fw, fh, ax), (f'{name}_grip', len(frames) * 2, fw, fh, ax)]
 
 
 # Weapons (art/pixellab/weapons/<id>.png, PixelLab "1-direction object", side view pointing right).
@@ -388,7 +407,7 @@ def main():
         meta.append(write_strip(name, sprites, hues))
     rigs = {}
     for name, hues in RIGGED:
-        meta.append(write_rigged(name, hues, rigs))
+        meta += write_rigged(name, hues, rigs)
     weapons = write_weapons(meta)
     pts = lambda h: '[' + ', '.join(f'[{x}, {y}, {t}]' for x, y, t in h) + ']'
     lines = [

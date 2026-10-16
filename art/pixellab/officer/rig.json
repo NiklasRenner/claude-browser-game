@@ -3,6 +3,12 @@
     80,
     112
   ],
+  "wide": {
+    "swing": [
+      112,
+      112
+    ]
+  },
   "animations": [
     "aim",
     "swing"

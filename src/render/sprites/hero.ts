@@ -15,7 +15,7 @@ import type { Ramp } from '../pixel/palette';
 import { beat } from './figure';
 import type { Figure, Pose } from './figure';
 import { RIGS, SHEETS } from './sheet-data';
-import { tinted } from './sheets';
+import { framesOf, tinted } from './sheets';
 import type { Frame } from './sheets';
 import { drawWeapon, isMelee, restAngle, weaponShape } from './weapons';
 
@@ -170,7 +170,7 @@ export function heroFigure(divisionId: DivisionId, weaponId: string, armorId: st
 /**
  * The rigged officer (scripts/rig.py). The body comes from the sheet: an idle
  * loop while waiting, then the attack frames played forward once. The weapon
- * is drawn by code at the frame's grip point and angle, then the fist is drawn
+ * is drawn at the frame's grip point and angle, then the holding forearm is drawn
  * again on top so the hand closes around the grip.
  */
 /** One-handed guns: held in the front hand. */
@@ -191,7 +191,9 @@ function drawSprite(p: Painter, frames: Frame[], { t, attack: a }: Pose, weaponI
   const angle = rig.hands[i]![2];
   p.image(frame, -ax, -h);
   drawWeapon(p, weaponId, hx, hy, angle, t, melee ? (a > 0.3 && a < 0.8 ? 1 : 0) : a, 1.4);
-  p.image(frame, -ax, -h, [hx + ax, hy + h, 2.5]);
+  // The holding forearm and fist again, over the weapon (masks: weapon hand, then front hand).
+  const mask = framesOf('officer_grip')?.[(sidearm ? SHEETS.officer.frames : 0) + i];
+  if (mask) p.image(frame, -ax, -h, mask);
 }
 
 function drawHead(p: Painter, t: number, U: number, tier: number, divisionId: DivisionId, division: Ramp, divGlow: readonly [number, number, number], plate: Ramp, trim: Ramp) {

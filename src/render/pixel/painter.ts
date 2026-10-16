@@ -161,10 +161,10 @@ export class Painter {
    * A ready-made bitmap (a sprite frame) with its top-left at local (x, y),
    * scaled by the transform with nearest-neighbour sampling. Pixels set in
    * `glow` are emissive. It is one part, so it gets the outline, rim light,
-   * flash and dissolve like painted figures. `clip` = [cx, cy, r] in image
-   * pixels: only that disc is drawn (e.g. a fist re-drawn over the weapon it holds).
+   * flash and dissolve like painted figures. `only`: a same-sized mask image;
+   * only the pixels it covers are drawn (e.g. a forearm re-drawn over the weapon it holds).
    */
-  image(img: { w: number; h: number; rgba: Uint8ClampedArray; glow: Uint8Array }, x: number, y: number, clip?: readonly [number, number, number]) {
+  image(img: { w: number; h: number; rgba: Uint8ClampedArray; glow: Uint8Array }, x: number, y: number, only?: { rgba: Uint8ClampedArray }) {
     this.nextPart({ noLine: true });
     const X0 = Math.round(this.X(x)), Y0 = Math.round(this.Y(y));
     const W = Math.max(1, Math.round(img.w * this.s)), H = Math.max(1, Math.round(img.h * this.s));
@@ -173,7 +173,7 @@ export class Painter {
       for (let i = 0; i < W; i++) {
         const sx = Math.min(img.w - 1, Math.floor(i / this.s)), k = sy * img.w + sx;
         if (img.rgba[k * 4 + 3]! < 128) continue;
-        if (clip && (sx - clip[0]) ** 2 + (sy - clip[1]) ** 2 > clip[2] ** 2) continue;
+        if (only && only.rgba[k * 4 + 3]! < 128) continue;
         this.put(X0 + i, Y0 + j, [img.rgba[k * 4]!, img.rgba[k * 4 + 1]!, img.rgba[k * 4 + 2]!], img.glow[k] === 1);
       }
     }
