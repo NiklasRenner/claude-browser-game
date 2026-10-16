@@ -2,8 +2,8 @@
 /** Sprite strips in public/sprites: frame size, and `ax` = the feet's x (they stand on the bottom row). Row 2 is the glow mask. */
 export const SHEETS = {
   officer: { file: 'sprites/officer.png', frames: 8, w: 56, h: 85, ax: 20 },
-  plague_matriarch: { file: 'sprites/plague_matriarch.png', frames: 4, w: 87, h: 111, ax: 47 },
   brood_minions: { file: 'sprites/brood_minions.png', frames: 4, w: 79, h: 52, ax: 44 },
+  plague_matriarch: { file: 'sprites/plague_matriarch.png', frames: 13, w: 80, h: 108, ax: 41 },
 } as const;
 
 export type SheetId = keyof typeof SHEETS;

@@ -165,11 +165,12 @@ export interface HostileLook {
   scale: number;
   features?: LookFeature[];
   /**
-   * Drawn from a sprite sheet (public/sprites, made from concept art) instead of
-   * the body plan: frames to cycle while idle, and one to show while attacking.
+   * Drawn from a sprite sheet (public/sprites) instead of the body plan: frames
+   * to cycle while idle (`fps` per second, default 1.4), and frames played over
+   * an attack (wind-up, strike, recover; the strike lands 40% of the way in).
    * The body plan is the fallback until the sheet has loaded.
    */
-  sprite?: { sheet: string; idle: number[]; attack?: number };
+  sprite?: { sheet: string; idle: number[]; attack?: number[]; fps?: number };
 }
 
 export interface HostileDef {
