@@ -157,6 +157,26 @@ export class Painter {
     return this.c[(by * this.w + bx) * 4 + 3]! > 0;
   }
 
+  /**
+   * A ready-made bitmap (a sprite frame) with its top-left at local (x, y),
+   * scaled by the transform with nearest-neighbour sampling. Pixels set in
+   * `glow` are emissive. It is one part, so it gets the outline, rim light,
+   * flash and dissolve like painted figures.
+   */
+  image(img: { w: number; h: number; rgba: Uint8ClampedArray; glow: Uint8Array }, x: number, y: number) {
+    this.nextPart({ noLine: true });
+    const X0 = Math.round(this.X(x)), Y0 = Math.round(this.Y(y));
+    const W = Math.max(1, Math.round(img.w * this.s)), H = Math.max(1, Math.round(img.h * this.s));
+    for (let j = 0; j < H; j++) {
+      const sy = Math.min(img.h - 1, Math.floor(j / this.s));
+      for (let i = 0; i < W; i++) {
+        const sx = Math.min(img.w - 1, Math.floor(i / this.s)), k = sy * img.w + sx;
+        if (img.rgba[k * 4 + 3]! < 128) continue;
+        this.put(X0 + i, Y0 + j, [img.rgba[k * 4]!, img.rgba[k * 4 + 1]!, img.rgba[k * 4 + 2]!], img.glow[k] === 1);
+      }
+    }
+  }
+
   /** One glowing pixel (eyes, runes, embers): unaffected by outlines and lighting, feeds the bloom. */
   glow(x: number, y: number, col: RGB | string) {
     this.nextPart({ noLine: true });

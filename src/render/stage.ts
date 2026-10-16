@@ -17,7 +17,7 @@ import { fromInt, glowOf } from './pixel/palette';
 import type { RGB } from './pixel/palette';
 import { buildBackdrop } from './scenes/backdrop';
 import type { Backdrop } from './scenes/backdrop';
-import { heroFigure, hostileFigure, paintFigure } from './sprites';
+import { heroFigure, hostileFigure, loadSheets, paintFigure } from './sprites';
 import type { Figure } from './sprites';
 import { Tweens, easeOutCubic } from './tween';
 
@@ -87,6 +87,7 @@ export class Stage {
     this.ctx = canvas.getContext('2d')!;
     this.glow = this.glowCan.getContext('2d')!;
     this.fx = new Effects(overlay, this.tweens, () => this.scale);
+    void loadSheets();
     this.resize();
     window.addEventListener('resize', () => this.resize());
     // Schedule first, so one bad frame can't stop the animation (and with it, every pending tween).

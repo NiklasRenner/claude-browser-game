@@ -10,10 +10,12 @@
 import { DIVISIONS, getArmor } from '../../core';
 import type { DivisionId } from '../../core';
 import type { Painter } from '../pixel/painter';
-import { R, glowOf, rampOf } from '../pixel/palette';
+import { R, fromInt, glowOf, rampOf } from '../pixel/palette';
 import type { Ramp } from '../pixel/palette';
 import { beat } from './figure';
 import type { Figure, Pose } from './figure';
+import { tinted } from './sheets';
+import type { Frame } from './sheets';
 import { drawWeapon, isMelee, restAngle, weaponShape } from './weapons';
 
 /** 0 duty coat · 1 field jacket · 2 armored vest · 3 envirosuit · 4 arctic hardsuit · 5 power armor. */
@@ -153,9 +155,42 @@ export function heroFigure(divisionId: DivisionId, weaponId: string, armorId: st
     p.ell(hx, hy, 2.6 + limb * 0.4, 2.4, tier >= 3 ? plate : R.leather);
   };
 
+  const cloth = fromInt(DIVISIONS[divisionId].color);
   return {
-    left: 26, right: 52, height: 82, scale: 1, hover: 0, draw,
+    left: 26, right: 52, height: 92, scale: 1, hover: 0,
+    draw: (p, pose) => {
+      const frames = tinted('officer', cloth);
+      if (frames) drawSprite(p, frames, pose, weaponId);
+      else draw(p, pose);
+    },
   };
+}
+
+/** Idle frames of the officer sheet, and the two stepping frames used when lunging. */
+const IDLE = [0, 3, 0, 5];
+const STEP = [1, 4];
+/** Where the front hand is on the sheet, relative to the feet. */
+const HAND: [number, number] = [15, -40];
+
+/** The officer from the concept-art sprite sheet, with the equipped weapon in hand. */
+function drawSprite(p: Painter, frames: Frame[], { t, attack: a }: Pose, weaponId: string) {
+  const shape = weaponShape(weaponId);
+  const melee = isMelee(shape);
+  const frame = melee && a > 0 ? frames[STEP[a < 0.5 ? 0 : 1]!]! : frames[IDLE[Math.floor(t / 0.65) % IDLE.length]!]!;
+  p.image(frame, -Math.floor(frame.w / 2), -frame.h);
+  let angle: number;
+  let [hx, hy] = HAND;
+  if (melee) {
+    // Blade held low; raised on the wind-up, then brought down through the target.
+    angle = a === 0 ? 1.1 : a < 0.3 ? 1.1 - (a / 0.3) * 2.7 : -1.6 + ((a - 0.3) / 0.7) * 2.3;
+    if (a > 0) { hx += 3; hy -= 6; }
+  } else {
+    const kick = Math.sin(Math.min(1, a) * Math.PI);
+    angle = 0.3 - (a > 0 ? 0.3 + kick * 0.25 : 0);
+    hx -= kick * 2;
+    if (a > 0) hy -= 4;
+  }
+  drawWeapon(p, weaponId, hx, hy, angle, t, melee ? (a > 0.3 && a < 0.8 ? 1 : 0) : a);
 }
 
 function drawHead(p: Painter, t: number, U: number, tier: number, divisionId: DivisionId, division: Ramp, divGlow: readonly [number, number, number], plate: Ramp, trim: Ramp) {

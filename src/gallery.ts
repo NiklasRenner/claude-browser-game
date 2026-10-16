@@ -9,7 +9,7 @@
 import { DIVISIONS, HOSTILES } from './core';
 import type { DivisionId } from './core';
 import { Painter } from './render/pixel/painter';
-import { heroFigure, hostileFigure, paintFigure } from './render/sprites';
+import { heroFigure, hostileFigure, loadSheets, paintFigure } from './render/sprites';
 import type { Figure } from './render/sprites';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#gallery')!;
@@ -67,5 +67,7 @@ function frame() {
   });
   if (frozen === null) requestAnimationFrame(frame);
 }
-frame();
-(window as unknown as { galleryReady: boolean }).galleryReady = true;
+void loadSheets().then(() => {
+  frame();
+  (window as unknown as { galleryReady: boolean }).galleryReady = true;
+});

@@ -157,7 +157,7 @@ const hostiles: HostileDef[] = [
       { name: 'Pounce', element: 'kinetic', damage: [21, 27], weight: 1 },
     ],
     xp: 60, credits: [10, 16], drops: [{ itemId: 'medkit', chance: 10 }],
-    look: { body: 'insect', color: 0x2e2a1c, accent: 0xffb000, scale: 0.8 } },
+    look: { body: 'insect', color: 0x2e2a1c, accent: 0xffb000, scale: 0.8, sprite: { sheet: 'brood_minions', idle: [0] } } },
   { id: 'hive_spitter', name: 'Hive Spitter', level: 15, hp: 90, accuracy: 100, evasion: 7, crit: 5, speed: 100,
     resist: { corrosive: 0, cryo: 150, kinetic: 90 },
     attacks: [
@@ -165,7 +165,7 @@ const hostiles: HostileDef[] = [
       { name: 'Spine Volley', element: 'kinetic', damage: [4, 6], hits: 3, hit: 88, weight: 2 },
     ],
     xp: 75, credits: [12, 20], drops: [{ itemId: 'energy_cell', chance: 15 }],
-    look: { body: 'insect', color: 0x5a6b2a, accent: 0xc8ff3a, scale: 0.8, features: ['wings', 'sac'] } },
+    look: { body: 'insect', color: 0x5a6b2a, accent: 0xc8ff3a, scale: 0.8, features: ['wings', 'sac'], sprite: { sheet: 'brood_minions', idle: [1] } } },
   { id: 'hive_guardian', name: 'Hive Guardian', level: 16, hp: 280, accuracy: 99, evasion: 0, crit: 4, speed: 85,
     resist: { kinetic: 60, ion: 150, plasma: 125, corrosive: 50 },
     attacks: [
@@ -173,7 +173,7 @@ const hostiles: HostileDef[] = [
       { name: 'Carapace Slam', element: 'kinetic', damage: [22, 28], weight: 1 },
     ],
     xp: 170, credits: [30, 45], drops: [{ itemId: 'trauma_kit', chance: 25 }],
-    look: { body: 'insect', color: 0x3a3020, accent: 0xffb000, scale: 1.25, features: ['armor'] } },
+    look: { body: 'insect', color: 0x3a3020, accent: 0xffb000, scale: 1.25, features: ['armor'], sprite: { sheet: 'brood_minions', idle: [2] } } },
   { id: 'brood_matriarch', name: 'The Brood Matriarch', level: 18, hp: 1250, accuracy: 104, evasion: 6, crit: 6, speed: 105, boss: true,
     resist: { corrosive: 25, kinetic: 80, plasma: 140, cryo: 125 },
     attacks: [
@@ -182,7 +182,7 @@ const hostiles: HostileDef[] = [
       { name: 'Hive Shriek', element: 'ion', damage: [20, 26], weight: 1, effect: { status: 'stun', chance: 20, turns: 1, power: 0 } },
     ],
     xp: 1400, credits: [800, 1000], drops: [{ itemId: 'nano_restorer', chance: 100 }],
-    look: { body: 'insect', color: 0x4a2a4a, accent: 0xffc040, scale: 1.45, features: ['crown', 'armor'] } },
+    look: { body: 'insect', color: 0x4a2a4a, accent: 0xffc040, scale: 1.45, features: ['crown', 'armor'], sprite: { sheet: 'plague_matriarch', idle: [0, 1, 3], attack: 2 } } },
 ];
 
 export const HOSTILES: Record<string, HostileDef> = Object.fromEntries(hostiles.map((m) => [m.id, m]));

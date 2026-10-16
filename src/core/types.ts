@@ -164,6 +164,12 @@ export interface HostileLook {
   accent: number;
   scale: number;
   features?: LookFeature[];
+  /**
+   * Drawn from a sprite sheet (public/sprites, made from concept art) instead of
+   * the body plan: frames to cycle while idle, and one to show while attacking.
+   * The body plan is the fallback until the sheet has loaded.
+   */
+  sprite?: { sheet: string; idle: number[]; attack?: number };
 }
 
 export interface HostileDef {

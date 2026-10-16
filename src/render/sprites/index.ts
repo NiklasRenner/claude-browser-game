@@ -6,7 +6,8 @@
  *   weapons.ts    held weapons
  *   creatures.ts  beast, brute, flyer, serpent, dragon, insect
  *   beings.ts     blob, humanoid, husk, elemental, golem, wraith, wisp
- *   hostiles.ts   look → body plan
+ *   hostiles.ts   look → body plan (or a concept-art sprite sheet)
+ *   sheets.ts     loading sprite sheets made by scripts/sprites.py
  *
  * `npm run gallery` paints every figure side by side (test-results/gallery.png).
  */
@@ -14,3 +15,4 @@ export type { Figure, Pose } from './figure';
 export { heroFigure } from './hero';
 export { hostileFigure } from './hostiles';
 export { paintFigure } from './paint';
+export { loadSheets } from './sheets';
