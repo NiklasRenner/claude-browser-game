@@ -16,6 +16,15 @@ describe('combat drill', () => {
     assert.equal(hostileLevel(s.battle!.hostiles[1]!), bossLevel(getMission('xenith')));
   });
 
+  it('in a lineup of three, a boss stands in the middle (others keep their order); pairs stay as picked', () => {
+    const three = drill(newGame(), ['archcantor', 'fen_leech', 'choir_cantor']).state;
+    assert.deepEqual(three.battle!.hostiles.map((h) => h.defId), ['fen_leech', 'archcantor', 'choir_cantor']);
+    const last = drill(newGame(), ['fen_leech', 'choir_cantor', 'archcantor']).state;
+    assert.deepEqual(last.battle!.hostiles.map((h) => h.defId), ['fen_leech', 'archcantor', 'choir_cantor']);
+    const pair = drill(newGame(), ['archcantor', 'fen_leech']).state;
+    assert.deepEqual(pair.battle!.hostiles.map((h) => h.defId), ['archcantor', 'fen_leech']);
+  });
+
   it('rejects empty, oversized and unknown lineups, and anything off the ship', () => {
     const s = newGame();
     assert.ok(checkAction(s, { type: 'startDrill', hostileIds: [] }));

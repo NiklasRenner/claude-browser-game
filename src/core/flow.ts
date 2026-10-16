@@ -26,19 +26,31 @@ export function leaveMission(state: GameState) {
   state.mode = 'ship';
 }
 
+/**
+ * A lineup as it stands in the fight: in a lineup of three, a boss takes the middle, flanked by the
+ * others (in their order). The scene draws hostiles left to right in this order, which is also the
+ * target list's.
+ */
+function bossInMiddle<T extends { defId: string }>(lineup: T[]): T[] {
+  const i = lineup.findIndex((h) => getHostile(h.defId).boss);
+  if (lineup.length !== 3 || i < 0 || i === 1) return lineup;
+  const rest = lineup.filter((_, k) => k !== i);
+  return [rest[0]!, lineup[i]!, rest[1]!];
+}
+
 export function startNextBattle(state: GameState, rng: Rng, events: GameEvent[]) {
   const run = state.mission!;
   const mission = getMission(run.missionId);
   const isBoss = run.cleared >= missionEncounters(run);
   if (run.drill) {
-    state.battle = { hostiles: run.drill.hostileIds.map(drillHostile), target: 0, playerStatuses: [], round: 1 };
+    state.battle = { hostiles: bossInMiddle(run.drill.hostileIds.map(drillHostile)), target: 0, playerStatuses: [], round: 1 };
     state.mode = 'battle';
-    events.push({ type: 'battleStart', hostileIds: run.drill.hostileIds, boss: state.battle.hostiles.some((h) => getHostile(h.defId).boss) });
+    events.push({ type: 'battleStart', hostileIds: state.battle.hostiles.map((h) => h.defId), boss: state.battle.hostiles.some((h) => getHostile(h.defId).boss) });
     openBattle(state, rng, events);
     return;
   }
   if (run.patrol) {
-    const hostiles = isBoss ? patrolBoss(mission.id, run.patrol.level, rng) : patrolContact(mission.id, run.patrol.level, rng);
+    const hostiles = bossInMiddle(isBoss ? patrolBoss(mission.id, run.patrol.level, rng) : patrolContact(mission.id, run.patrol.level, rng));
     state.battle = { hostiles: hostiles, target: 0, playerStatuses: [], round: 1 };
     state.mode = 'battle';
     events.push({ type: 'battleStart', hostileIds: hostiles.map((m) => m.defId), boss: isBoss });
@@ -53,6 +65,7 @@ export function startNextBattle(state: GameState, rng: Rng, events: GameEvent[])
   } else {
     lineup = mission.groups ? [...rng.pick(mission.groups)] : [rng.pick(mission.hostiles)];
   }
+  lineup = bossInMiddle(lineup.map((defId) => ({ defId }))).map((h) => h.defId);
   state.battle = {
     hostiles: lineup.map((defId) => {
       const def = getHostile(defId);
