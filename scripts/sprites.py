@@ -336,10 +336,14 @@ def write_rigged(name: str, hues, rigs: dict) -> tuple:
 # Weapons (art/pixellab/weapons/<id>.png, PixelLab "1-direction object", side view pointing right).
 # Optional: source scale (the long ones were drawn at double size), the kind (decides where the grip is
 # found) or the grip itself where finding it goes wrong.
+# Guns give their grip by hand: the middle of the pistol grip, a little below the body, where the
+# fingers wrap round it (finding it automatically picks stocks, triggers and drum magazines instead).
 WEAPONS = {
-    'sidearm_mk1': {}, 'sonic_emitter': {}, 'gauss_pistol': {}, 'flechette_pistol': {}, 'plasma_pistol': {},
-    'corrosive_needler': {}, 'cryo_carbine': {}, 'mass_driver': {}, 'photon_rifle': {}, 'plasma_cannon': {},
-    'stasis_projector': {}, 'pulse_repeater': {}, 'nova_rifle': {'scale': 2, 'grip': (12, 6)},
+    'sidearm_mk1': {'grip': (3, 10)}, 'sonic_emitter': {'grip': (4, 12)}, 'gauss_pistol': {'grip': (3, 11)},
+    'flechette_pistol': {'grip': (3, 11)}, 'plasma_pistol': {'grip': (3, 10)}, 'corrosive_needler': {'grip': (2, 10)},
+    'cryo_carbine': {'grip': (6, 10)}, 'mass_driver': {'grip': (10, 11)}, 'photon_rifle': {'grip': (11, 10)},
+    'plasma_cannon': {'grip': (6, 15)}, 'stasis_projector': {'grip': (11, 13)}, 'pulse_repeater': {'grip': (12, 12)},
+    'nova_rifle': {'scale': 2, 'grip': (12, 6)},
     'ion_lance': {'scale': 2, 'kind': 'pole'}, 'singularity_edge': {'scale': 2, 'kind': 'sword'}, 'mag_wrench': {'kind': 'tool'},
 }
 

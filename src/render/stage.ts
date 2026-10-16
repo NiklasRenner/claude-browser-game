@@ -40,7 +40,8 @@ const SLOTS: Record<number, [number, number][]> = {
   2: [[0.62, 0.69], [0.79, 0.75]],
   3: [[0.6, 0.67], [0.73, 0.75], [0.86, 0.69]],
 };
-const HERO_X = { battle: 0.3, ship: 0.42, field: 0.44 };
+// Between fights (field) the officer stays where he fought, instead of jumping to the middle.
+const HERO_X = { battle: 0.3, ship: 0.42, field: 0.3 };
 
 interface Actor {
   figure: Figure;
