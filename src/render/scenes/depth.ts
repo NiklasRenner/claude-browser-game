@@ -14,7 +14,22 @@
  * something nearer, generate it bigger.
  */
 
-/** The fighters' feet, as a fraction of the screen height (before the portrait lift). */
+/**
+ * The scene's size in art pixels: always SCENE_H tall, between MIN_W and MAX_W
+ * wide (the stage scales it up by whole pixels and adds bars beyond that).
+ */
+export const SCENE_H = 180;
+export const MIN_W = 320;
+export const MAX_W = 384;
+
+/**
+ * Where something placed at fraction x of the narrowest scene stands in a scene
+ * W wide: everything keeps its spot around the centre, and a wider scene only
+ * shows a little more at the sides.
+ */
+export const sceneX = (W: number, x: number) => Math.round(W / 2 + (x - 0.5) * MIN_W);
+
+/** The fighters' feet, as a fraction of the screen height. */
 export const FEET = 0.73;
 
 /** Pixels per metre on the fighters' line: the officer, 1.8 m tall, is 82 px. */

@@ -31,11 +31,10 @@ export interface Backdrop {
 /** Where the horizon sits, as a fraction of the screen height. */
 const HORIZON = 0.56;
 
-/** `lift` raises the horizon (fraction of the height) for tall screens. */
-export function buildBackdrop(key: string, W: number, H: number, lift = 0): Backdrop {
+export function buildBackdrop(key: string, W: number, H: number): Backdrop {
   const loc = locationOf(key);
-  const horizon = Math.round(H * (HORIZON - lift));
-  const feet = Math.round(H * (FEET - lift));
+  const horizon = Math.round(H * HORIZON);
+  const feet = Math.round(H * FEET);
 
   const sky = new Layer(W, H);
   paintSky(sky, loc.sky, horizon);

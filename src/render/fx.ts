@@ -18,7 +18,7 @@ export class Effects {
   private particles: Particle[] = [];
   private live = new Set<Drawable>();
 
-  constructor(private overlay: HTMLElement, private tweens: Tweens, private pixelScale: () => number) {}
+  constructor(private overlay: HTMLElement, private tweens: Tweens, private toPage: (x: number, y: number) => [number, number]) {}
 
   /** Floating text at a scene point (damage numbers, MISS, ability names…). */
   popText(x: number, y: number, text: string, className: string) {
@@ -26,9 +26,9 @@ export class Effects {
     const el = document.createElement('div');
     el.className = `pop ${className}`;
     el.textContent = text;
-    const s = this.pixelScale();
-    el.style.left = `${Math.round(x * s)}px`;
-    el.style.top = `${Math.round(y * s)}px`;
+    const [px, py] = this.toPage(x, y);
+    el.style.left = `${Math.round(px)}px`;
+    el.style.top = `${Math.round(py)}px`;
     el.style.animationDuration = `${1.1 / this.tweens.speed}s`;
     this.overlay.appendChild(el);
     el.addEventListener('animationend', () => el.remove());

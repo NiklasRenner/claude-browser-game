@@ -14,12 +14,12 @@ import { hex, mix } from '../pixel/palette';
 import { framesOf } from '../sprites/sheets';
 import type { Frame } from '../sprites/sheets';
 import type { SheetId } from '../sprites/sheet-data';
-import { depthOf, groundY } from './depth';
+import { depthOf, groundY, sceneX } from './depth';
 import type { Layer } from './layer';
 
 export interface Piece {
   sheet: SheetId;
-  /** Horizontal position, as a fraction of the screen width (the piece's centre). */
+  /** Horizontal position of the piece's centre, as a fraction of the narrowest scene (see sceneX). */
   x: number;
   /**
    * 'ground': stands on the floor, at the depth its size gives (needs `height`).
@@ -54,7 +54,7 @@ export function paintFar(L: Layer, p: Piece, horizon: number, feet: number, haze
   if (!f) return false;
   const depth = depthOfPiece(p, f);
   const tint = hex(haze), base = hazeAt(depth);
-  const x0 = Math.round(L.W * p.x - f.w / 2), y0 = groundY(depth, horizon, feet) - f.h;
+  const x0 = sceneX(L.W, p.x) - Math.round(f.w / 2), y0 = groundY(depth, horizon, feet) - f.h;
   for (let j = 0; j < f.h; j++) {
     const y = y0 + j;
     // Fog thickens toward the water: the lower third fades out completely.
@@ -132,7 +132,7 @@ export class Pieces {
       }
       if ((p.at === 'ground' && b.depth > 1) !== near) continue;
       const k = Math.floor(t * (p.fps ?? 6)) % b.img.length;
-      const cx = Math.round(this.W * p.x);
+      const cx = sceneX(this.W, p.x);
       let x = cx - Math.floor(b.w / 2), y: number;
       if (p.at === 'hang') {
         // A slow pendulum on a chain.

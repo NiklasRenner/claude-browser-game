@@ -16,18 +16,24 @@ import { bayer } from './pixel/noise';
 import { fromInt, glowOf } from './pixel/palette';
 import type { RGB } from './pixel/palette';
 import { buildBackdrop } from './scenes/backdrop';
-import { FEET } from './scenes/depth';
+import { FEET, MAX_W, MIN_W, SCENE_H, sceneX } from './scenes/depth';
 import type { Backdrop } from './scenes/backdrop';
 import { heroFigure, hostileFigure, loadSheets, paintFigure } from './sprites';
 import type { Figure } from './sprites';
 import { Tweens, easeOutCubic } from './tween';
 
-/** Art pixels per screen height we aim for. */
-const TARGET_HEIGHT = 200;
-/** Narrowest scene (in art pixels) we accept before shrinking the scale. */
-const MIN_WIDTH = 260;
+/**
+ * The scene is always SCENE_H art pixels tall and between MIN_W and MAX_W wide,
+ * scaled up by a whole number of device pixels (so pixels stay square and
+ * sharp) and centred, with bars beyond that. The fighters stand at fixed pixel
+ * spots around the centre; a wider screen only moves the edge pieces outward
+ * and shows a little more scenery, so nothing ever ends up on top of a wall.
+ */
 
-/** Where hostiles stand, by lineup size: [x, y] as fractions of the screen. Back rows are higher. */
+/**
+ * Where hostiles stand, by lineup size: [x, y] as fractions of the narrowest
+ * scene (MIN_W × SCENE_H), measured from its left edge; centred on wider ones. Back rows are higher.
+ */
 const SLOTS: Record<number, [number, number][]> = {
   1: [[0.68, 0.72]],
   2: [[0.62, 0.69], [0.79, 0.75]],
@@ -35,8 +41,6 @@ const SLOTS: Record<number, [number, number][]> = {
 };
 const HERO_X = { battle: 0.3, ship: 0.42, field: 0.44 };
 const HERO_Y = FEET;
-/** On tall (phone) screens the panels cover more of the bottom, so the action moves up. */
-const PORTRAIT_LIFT = 0.11;
 
 interface Actor {
   figure: Figure;
@@ -65,12 +69,12 @@ export class Stage {
   private blur = [makeCanvas(1, 1), makeCanvas(1, 1), makeCanvas(1, 1)];
   private W = 1;
   private H = 1;
+  /** CSS pixels per art pixel, and where the scene's top-left corner sits in the page (CSS pixels). */
   private scale = 1;
-  /** Figures are drawn smaller on narrow screens. */
-  private zoom = 1;
+  private left = 0;
+  private top = 0;
   /** Draw only the location (no figures or markers): for judging backdrops (`npm run scene`). */
   sceneryOnly = false;
-  private lift = 0;
   private fx: Effects;
   private time = 0;
   private last = performance.now();
@@ -89,7 +93,7 @@ export class Stage {
   constructor(private canvas: HTMLCanvasElement, overlay: HTMLElement) {
     this.ctx = canvas.getContext('2d')!;
     this.glow = this.glowCan.getContext('2d')!;
-    this.fx = new Effects(overlay, this.tweens, () => this.scale);
+    this.fx = new Effects(overlay, this.tweens, (x, y) => [this.left + x * this.scale, this.top + y * this.scale]);
     // Rebuild the backdrop once the sprite sheets are in: its distant set pieces are painted into it.
     void loadSheets().then(() => { this.backdropKey = ''; });
     this.resize();
@@ -102,18 +106,21 @@ export class Stage {
   private resize() {
     const host = this.canvas.parentElement ?? this.canvas;
     const cw = Math.max(1, host.clientWidth), ch = Math.max(1, host.clientHeight);
-    const portrait = ch > cw * 1.2;
-    this.scale = portrait
-      ? Math.max(1, Math.round(cw / 195))
-      : Math.max(1, Math.min(Math.round(ch / TARGET_HEIGHT), Math.floor(cw / MIN_WIDTH)));
-    this.lift = portrait ? PORTRAIT_LIFT : 0;
-    this.W = Math.ceil(cw / this.scale);
-    this.H = Math.ceil(ch / this.scale);
-    this.zoom = Math.min(1, this.W / 300, this.H / 170);
+    const dpr = window.devicePixelRatio || 1;
+    // Device pixels per art pixel: the most whole pixels that fit the height, and the narrowest width.
+    const k = Math.max(1, Math.floor(Math.min((ch * dpr) / SCENE_H, (cw * dpr) / MIN_W)));
+    this.W = Math.min(MAX_W, Math.max(MIN_W, Math.floor((cw * dpr) / k)));
+    this.H = SCENE_H;
+    this.scale = k / dpr;
+    // Centred (on a phone, that's the gap between the top cards and the panels below).
+    this.left = Math.round((cw - this.W * this.scale) / 2);
+    this.top = Math.round((ch - this.H * this.scale) / 2);
     this.canvas.width = this.W;
     this.canvas.height = this.H;
     this.canvas.style.width = `${this.W * this.scale}px`;
     this.canvas.style.height = `${this.H * this.scale}px`;
+    this.canvas.style.left = `${this.left}px`;
+    this.canvas.style.top = `${this.top}px`;
     this.glowCan.width = this.W;
     this.glowCan.height = this.H;
     const sizes = [2, 4, 8];
@@ -168,12 +175,14 @@ export class Stage {
   }
 
   private layout() {
-    if (this.hero) { this.hero.x = Math.round(this.W * HERO_X[this.view]); this.hero.y = Math.round(this.H * (HERO_Y - this.lift)); }
+    // Fixed spots around the centre (see SLOTS).
+    const at = (fx: number) => sceneX(this.W, fx);
+    if (this.hero) { this.hero.x = at(HERO_X[this.view]); this.hero.y = Math.round(this.H * HERO_Y); }
     const slots = SLOTS[this.hostiles.length] ?? [];
     this.hostiles.forEach((a, i) => {
       const [x, y] = slots[i] ?? [0.7, 0.72];
-      a.x = Math.round(this.W * x);
-      a.y = Math.round(this.H * (y - this.lift));
+      a.x = at(x);
+      a.y = Math.round(this.H * y);
     });
   }
 
@@ -187,7 +196,7 @@ export class Stage {
     this.tweens.tick(dt);
     const key = `${this.location}@${this.W}x${this.H}`;
     if (key !== this.backdropKey) {
-      this.backdrop = buildBackdrop(this.location, this.W, this.H, this.lift);
+      this.backdrop = buildBackdrop(this.location, this.W, this.H);
       this.backdropKey = key;
     }
     const { ctx, glow, W, H } = this;
@@ -217,7 +226,7 @@ export class Stage {
   }
 
   private drawActor(a: Actor, isHero: boolean, i: number) {
-    const f = a.figure, z = this.zoom;
+    const f = a.figure, z = 1;
     const fig = z === 1 ? f : { ...f, scale: f.scale * z };
     const { ax, ay } = paintFigure(a.painter, fig, { t: this.time + (isHero ? 0 : 1.3 + i * 0.7), attack: a.attack }, {
       rimDir: isHero ? [1, 0] : [0, -1], rimCol: this.backdrop!.rim, rimAmt: 0.3, flash: a.flash, dissolve: a.dissolve,
@@ -236,7 +245,7 @@ export class Stage {
   }
 
   private shadow(a: Actor) {
-    const f = a.figure, rx = Math.round(((f.left + f.right) / 2) * f.scale * this.zoom * 0.55), ry = 2;
+    const f = a.figure, rx = Math.round(((f.left + f.right) / 2) * f.scale * 0.55), ry = 2;
     const cx = Math.round(a.x + a.ox), cy = a.y + 1, alpha = f.hover ? 0.35 : 0.55;
     this.ctx.fillStyle = `rgba(0,0,0,${alpha})`;
     for (let y = -ry; y <= ry; y++) {
@@ -255,7 +264,7 @@ export class Stage {
   private targetRing() {
     const a = this.showTarget();
     if (!a) return;
-    const rx = Math.round(((a.figure.left + a.figure.right) / 2) * a.figure.scale * this.zoom * 0.7);
+    const rx = Math.round(((a.figure.left + a.figure.right) / 2) * a.figure.scale * 0.7);
     for (let t = 0; t < Math.PI * 2; t += 1 / rx) {
       const px = Math.round(a.x + a.ox + Math.cos(t) * rx), py = Math.round(a.y + 1 + Math.sin(t) * 3);
       if (Math.sin(t * 6 + this.time * 3) < -0.3) continue;
@@ -323,7 +332,7 @@ export class Stage {
     let best: number | null = null, bestD = Infinity;
     this.hostiles.forEach((a, i) => {
       if (!a.visible) return;
-      const f = a.figure, s = f.scale * this.zoom;
+      const f = a.figure, s = f.scale;
       const left = a.x - f.left * s * 0.7, right = a.x + f.right * s * 0.7, top = a.y - (f.height + f.hover) * s;
       if (x < left || x > right || y < top || y > a.y + 3) return;
       const [cx, cy] = this.center(a), d = Math.hypot(x - cx, y - cy);
@@ -336,7 +345,7 @@ export class Stage {
 
   private center(a: Actor | null): [number, number] {
     if (!a) return [0, 0];
-    const s = a.figure.scale * this.zoom;
+    const s = a.figure.scale;
     return [a.x + a.ox + (a.figure.right - a.figure.left) * s * 0.15, a.y - (a.figure.height * 0.5 + a.figure.hover) * s];
   }
 
@@ -347,7 +356,7 @@ export class Stage {
   private shot(a: Actor, target: Actor): { from: [number, number]; to: [number, number] } | null {
     const m = a.figure.muzzle?.(this.time);
     if (!m) return null;
-    const s = a.figure.scale * this.zoom;
+    const s = a.figure.scale;
     const from: [number, number] = [a.x + a.ox + m[0] * s, a.y + a.oy + (m[1] - a.figure.hover) * s];
     const tx = this.center(target)[0];
     return { from, to: [tx, from[1] + Math.tan(m[2]) * (tx - from[0])] };
@@ -355,7 +364,7 @@ export class Stage {
 
   private head(a: Actor | null, extra = 4): [number, number] {
     if (!a) return [0, 0];
-    const s = a.figure.scale * this.zoom;
+    const s = a.figure.scale;
     return [a.x + a.ox, a.y - (a.figure.height * 0.85 + a.figure.hover) * s - extra];
   }
 
@@ -440,7 +449,7 @@ export class Stage {
           void this.tweens.run(0.18, (t) => { attacker.attack = t >= 1 ? 0 : t; });
           await this.fx.bolt(from, impact, col);
         } else {
-          const gap = ((target.figure.left + attacker.figure.right) * 0.45) * this.zoom;
+          const gap = ((target.figure.left + attacker.figure.right) * 0.45);
           const dist = Math.max(0, Math.abs(target.x - attacker.x) - gap - 10) * dir;
           await this.tweens.run(0.16, (t) => { attacker.ox = t * dist; attacker.attack = t * (e.actor === 'player' ? 0.3 : 0.4); }, easeOutCubic);
           if (e.actor === 'player') await this.tweens.run(0.08, (t) => { attacker.attack = 0.3 + t * 0.7; }, (t) => t);

@@ -5,6 +5,7 @@
  *
  *   npm run scene                 (builds first; every mission)
  *   npm run scene -- veridia      (one mission)
+ *   npm run scene -- veridia 1700x720   (another viewport; default 1280x720, a 16:9 screen)
  */
 import { mkdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
@@ -13,11 +14,13 @@ import { serve } from './serve.mjs';
 // A hostile from each world: a drill against it shows that world's backdrop.
 const WORLDS = { veridia: 'fen_leech', kethra: 'cave_glider', glacies: 'frost_serpent', void_rift: 'void_shade', xenith: 'hive_drone' };
 const only = process.argv[2];
+const [width, height] = (process.argv[3] ?? '1280x720').split('x').map(Number);
+const suffix = process.argv[3] ? `-${process.argv[3]}` : '';
 
 await mkdir('test-results', { recursive: true });
 const server = await serve('dist', 4195);
 const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+const page = await browser.newPage({ viewport: { width, height } });
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e)));
 for (const [mission, hostile] of Object.entries(WORLDS)) {
@@ -33,8 +36,8 @@ for (const [mission, hostile] of Object.entries(WORLDS)) {
   await page.evaluate(() => window.__qf.scenery(true));
   await page.addStyleTag({ content: 'body *:not(canvas) { visibility: hidden !important } canvas { visibility: visible !important }' });
   await page.waitForTimeout(1500);
-  await page.screenshot({ path: `test-results/scene-${mission}.png` });
-  console.log(`Wrote test-results/scene-${mission}.png`);
+  await page.screenshot({ path: `test-results/scene-${mission}${suffix}.png` });
+  console.log(`Wrote test-results/scene-${mission}${suffix}.png`);
 }
 await browser.close();
 server.close();
