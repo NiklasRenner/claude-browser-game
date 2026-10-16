@@ -16,6 +16,7 @@ import { bayer } from './pixel/noise';
 import { fromInt, glowOf } from './pixel/palette';
 import type { RGB } from './pixel/palette';
 import { buildBackdrop } from './scenes/backdrop';
+import { FEET } from './scenes/depth';
 import type { Backdrop } from './scenes/backdrop';
 import { heroFigure, hostileFigure, loadSheets, paintFigure } from './sprites';
 import type { Figure } from './sprites';
@@ -33,7 +34,7 @@ const SLOTS: Record<number, [number, number][]> = {
   3: [[0.6, 0.67], [0.73, 0.75], [0.86, 0.69]],
 };
 const HERO_X = { battle: 0.3, ship: 0.42, field: 0.44 };
-const HERO_Y = 0.73;
+const HERO_Y = FEET;
 /** On tall (phone) screens the panels cover more of the bottom, so the action moves up. */
 const PORTRAIT_LIFT = 0.11;
 
@@ -206,6 +207,7 @@ export class Stage {
     actors.sort((a, b) => a.y - b.y);
     actors.forEach((a, i) => this.drawActor(a, a === this.hero, i));
     if (!this.sceneryOnly) this.targetArrow();
+    bd.drawNear(ctx, glow, this.time);
     this.fx.draw(ctx, glow, dt);
     bd.drawFront(ctx, glow, this.time, dt);
 

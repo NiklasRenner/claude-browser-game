@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { HOSTILES } from '../src/core/data/hostiles';
 import { frameAt } from '../src/render/sprites/hostiles';
+import { MISSION_ORDER } from '../src/core/data';
+import { PX_PER_M, depthOf } from '../src/render/scenes/depth';
+import { locationOf } from '../src/render/scenes/locations';
 import { SHEETS } from '../src/render/sprites/sheet-data';
 
 describe('sprite sheets', () => {
@@ -24,6 +27,31 @@ describe('sprite sheets', () => {
       const sheet = SHEETS[sp.sheet as keyof typeof SHEETS];
       assert.ok(sheet, `${h.id}: no sheet ${sp.sheet}`);
       for (const f of [...sp.idle, ...(sp.attack ?? [])]) assert.ok(f >= 0 && f < sheet.frames, `${h.id}: frame ${f}`);
+    }
+  });
+
+  // One scale for everything on the fighters' line (see src/render/scenes/depth.ts): the officer is 1.8 m
+  // and 82 px. A hostile drawn from a sprite declares its real height, and its sprite must match it, so a
+  // new monster can't come out twice the size it should be.
+  it('hostile sprites are sized for their real height', () => {
+    for (const h of Object.values(HOSTILES)) {
+      const sp = h.look.sprite;
+      if (!sp) continue;
+      assert.ok(h.look.height, `${h.id}: a sprite hostile needs look.height (metres)`);
+      const px = SHEETS[sp.sheet as keyof typeof SHEETS].h - 2, want = h.look.height * PX_PER_M;
+      assert.ok(Math.abs(px / want - 1) <= 0.15, `${h.id}: ${px} px tall, ${Math.round(want)} px expected for ${h.look.height} m`);
+    }
+  });
+
+  it('set pieces on the ground or the skyline stand at a sensible depth for their size', () => {
+    for (const id of MISSION_ORDER) {
+      for (const p of locationOf(id).pieces ?? []) {
+        if (p.at !== 'ground' && p.at !== 'far') continue;
+        assert.ok(p.height, `${id} ${p.sheet}: needs a height (metres)`);
+        const d = depthOf(SHEETS[p.sheet].h - 2, p.height);
+        if (p.at === 'ground') assert.ok(d > 0.45 && d < 1.8, `${id} ${p.sheet}: depth ${d.toFixed(2)} (generate it at about ${Math.round(p.height * PX_PER_M)} px for the fighters' line)`);
+        else assert.ok(d < 0.25, `${id} ${p.sheet}: depth ${d.toFixed(2)} is too near for the skyline`);
+      }
     }
   });
 });

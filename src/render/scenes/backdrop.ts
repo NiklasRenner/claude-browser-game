@@ -11,7 +11,8 @@ import { Ambient } from './ambient';
 import { paintGround } from './ground';
 import { Layer } from './layer';
 import { locationOf } from './locations';
-import { Pieces, drawEdge, paintDistant } from './pieces';
+import { FEET } from './depth';
+import { Pieces, drawEdge, paintFar } from './pieces';
 import { paintEclipse, paintMoon, paintSky } from './sky';
 import { paintHaze, paintRank } from './skyline';
 import { FRAME_WIDTH, paintFrame, paintProp } from './structures';
@@ -21,6 +22,8 @@ export interface Backdrop {
   readonly rim: RGB;
   /** Sky, sky effects, skyline, ground and set pieces. */
   drawBack(ctx: CanvasRenderingContext2D, glow: CanvasRenderingContext2D, t: number, dt: number): void;
+  /** Set pieces nearer than the fighters' line, drawn over the figures. */
+  drawNear(ctx: CanvasRenderingContext2D, glow: CanvasRenderingContext2D, t: number): void;
   /** Fire, fog and weather in front of the figures, then the vignette. */
   drawFront(ctx: CanvasRenderingContext2D, glow: CanvasRenderingContext2D, t: number, dt: number): void;
 }
@@ -32,6 +35,7 @@ const HORIZON = 0.56;
 export function buildBackdrop(key: string, W: number, H: number, lift = 0): Backdrop {
   const loc = locationOf(key);
   const horizon = Math.round(H * (HORIZON - lift));
+  const feet = Math.round(H * (FEET - lift));
 
   const sky = new Layer(W, H);
   paintSky(sky, loc.sky, horizon);
@@ -42,10 +46,10 @@ export function buildBackdrop(key: string, W: number, H: number, lift = 0): Back
   sky.commit();
 
   const scene = new Layer(W, H);
-  const distant = (loc.pieces ?? []).filter((p) => p.at === 'horizon');
+  const far = (loc.pieces ?? []).filter((p) => p.at === 'far');
   loc.skyline.forEach((rank, i) => {
     paintRank(scene, rank, horizon);
-    for (const p of distant) if ((p.rank ?? loc.skyline.length - 1) === i) paintDistant(scene, p, horizon, loc.haze);
+    for (const p of far) if ((p.rank ?? loc.skyline.length - 1) === i) paintFar(scene, p, horizon, feet, loc.haze);
   });
   if (loc.skyline.length) paintHaze(scene, horizon, loc.haze, Math.round(horizon * 0.25));
   if (loc.interior) paintNave(scene, horizon);
@@ -58,7 +62,7 @@ export function buildBackdrop(key: string, W: number, H: number, lift = 0): Back
   for (const side of [1, -1] as const) {
     // A generated structure for this edge, if the location has one (and its sheet is in).
     const edge = loc.pieces?.find((p) => p.at === (side === 1 ? 'left' : 'right'));
-    if (edge && drawEdge(scene.ctx, scene.gctx, edge, W, H)) continue;
+    if (edge && drawEdge(scene.ctx, scene.gctx, edge, W, H, loc.haze)) continue;
     fp.begin(0, 0, s);
     paintFrame(fp, loc.frames[side === 1 ? 0 : 1], side, loc.accent);
     fp.finish({ inner: 0.5, rimDir: [side, 0], rimCol: loc.rim, rimAmt: 0.18 });
@@ -80,7 +84,7 @@ export function buildBackdrop(key: string, W: number, H: number, lift = 0): Back
     if (flame) flames.push([px + flame[0], propY + flame[1]]);
   }
 
-  const pieces = new Pieces(loc.pieces ?? [], W, H, propY, loc.haze);
+  const pieces = new Pieces(loc.pieces ?? [], W, horizon, feet, loc.haze);
   const ambient = new Ambient(loc.ambient, W, H, horizon, flames);
   const vignette = buildVignette(W, H);
   return {
@@ -93,8 +97,11 @@ export function buildBackdrop(key: string, W: number, H: number, lift = 0): Back
       ctx.drawImage(scene.img, 0, 0);
       glow.globalAlpha = 0.8 + Math.sin(t * 5.3) * 0.08 + Math.sin(t * 13) * 0.04;
       glow.drawImage(scene.glow, 0, 0);
-      pieces.draw(ctx, glow, t);
+      pieces.draw(ctx, glow, t, false);
       glow.globalAlpha = 1;
+    },
+    drawNear(ctx, glow, t) {
+      pieces.draw(ctx, glow, t, true);
     },
     drawFront(ctx, glow, t, dt) {
       ambient.drawFront(ctx, glow, t, dt);

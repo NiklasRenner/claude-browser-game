@@ -9,7 +9,7 @@ const hostiles: HostileDef[] = [
       { name: 'Bile Spit', element: 'corrosive', damage: [2, 4], weight: 1, effect: { status: 'corrode', chance: 30, turns: 3, power: 2 } },
     ],
     xp: 14, credits: [6, 12], drops: [{ itemId: 'medkit', chance: 10 }],
-    look: { body: 'blob', color: 0x3a4a2a, accent: 0x9aff6a, scale: 0.9, sprite: { sheet: 'fen_leech', idle: [0, 1, 2, 3, 4, 3, 2, 1], attack: [5, 6, 7, 8, 9, 10], fps: 5 } } },
+    look: { body: 'blob', color: 0x3a4a2a, accent: 0x9aff6a, scale: 0.9, sprite: { sheet: 'fen_leech', idle: [0, 1, 2, 3, 4, 3, 2, 1], attack: [5, 6, 7, 8, 9, 10], fps: 5 }, height: 1.2 } },
   { id: 'rotwired_penitent', name: 'Rotwired Penitent', level: 2, hp: 40, accuracy: 78, evasion: 3, crit: 4, speed: 90,
     resist: { plasma: 125, corrosive: 60 },
     attacks: [
@@ -17,7 +17,7 @@ const hostiles: HostileDef[] = [
       { name: 'Bile Retch', element: 'corrosive', damage: [3, 5], weight: 1, effect: { status: 'corrode', chance: 35, turns: 3, power: 2 } },
     ],
     xp: 20, credits: [8, 15],
-    look: { body: 'husk', color: 0x6a6e5a, accent: 0x9aff6a, scale: 1, sprite: { sheet: 'rotwired_penitent', idle: [0, 1, 2, 3, 4, 3, 2, 1], attack: [5, 6, 7, 8, 9, 10], fps: 5 } } },
+    look: { body: 'husk', color: 0x6a6e5a, accent: 0x9aff6a, scale: 1, sprite: { sheet: 'rotwired_penitent', idle: [0, 1, 2, 3, 4, 3, 2, 1], attack: [5, 6, 7, 8, 9, 10], fps: 5 }, height: 2.1 } },
   { id: 'choir_cantor', name: 'Choir Cantor', level: 3, hp: 42, accuracy: 80, evasion: 5, crit: 5, speed: 100,
     resist: {},
     attacks: [
@@ -25,7 +25,7 @@ const hostiles: HostileDef[] = [
       { name: 'Litany Flare', element: 'photon', damage: [3, 5], weight: 1, effect: { status: 'blind', chance: 40, turns: 2, power: 25 } },
     ],
     xp: 26, credits: [15, 30], drops: [{ itemId: 'medkit', chance: 25 }],
-    look: { body: 'humanoid', color: 0x3a4232, accent: 0x9aff6a, scale: 1, features: ['coat', 'staff'], sprite: { sheet: 'choir_cantor', idle: [0, 1, 2, 3], attack: [5, 6, 7, 8, 0], fps: 5 } } },
+    look: { body: 'humanoid', color: 0x3a4232, accent: 0x9aff6a, scale: 1, features: ['coat', 'staff'], sprite: { sheet: 'choir_cantor', idle: [0, 1, 2, 3], attack: [5, 6, 7, 8, 0], fps: 5 }, height: 2.25 } },
   { id: 'archcantor', name: 'The Bloated Archcantor', level: 4, hp: 115, accuracy: 80, evasion: 1, crit: 4, speed: 90, boss: true,
     resist: { kinetic: 85, plasma: 125 },
     attacks: [
@@ -34,7 +34,7 @@ const hostiles: HostileDef[] = [
       { name: 'Crushing Bulk', element: 'kinetic', damage: [11, 15], weight: 1 },
     ],
     xp: 70, credits: [60, 90], drops: [{ itemId: 'trauma_kit', chance: 50 }],
-    look: { body: 'brute', color: 0x4a5236, accent: 0x9aff6a, scale: 1.45, features: ['crown'], sprite: { sheet: 'archcantor', idle: [0, 1, 2, 3, 4, 3, 2, 1], attack: [5, 6, 7, 8, 9, 10], fps: 5 } } },
+    look: { body: 'brute', color: 0x4a5236, accent: 0x9aff6a, scale: 1.45, features: ['crown'], sprite: { sheet: 'archcantor', idle: [0, 1, 2, 3, 4, 3, 2, 1], attack: [5, 6, 7, 8, 9, 10], fps: 5 }, height: 2.7 } },
 
   // ── Kethra Mining Moon (volcanic) ──
   { id: 'cave_glider', name: 'Cave Glider', level: 4, hp: 26, accuracy: 82, evasion: 35, crit: 5, speed: 125,
@@ -157,7 +157,7 @@ const hostiles: HostileDef[] = [
       { name: 'Pounce', element: 'kinetic', damage: [21, 27], weight: 1 },
     ],
     xp: 60, credits: [10, 16], drops: [{ itemId: 'medkit', chance: 10 }],
-    look: { body: 'insect', color: 0x2e2a1c, accent: 0xffb000, scale: 0.8, sprite: { sheet: 'brood_minions', idle: [0] } } },
+    look: { body: 'insect', color: 0x2e2a1c, accent: 0xffb000, scale: 0.8, sprite: { sheet: 'brood_minions', idle: [0] }, height: 1.15 } },
   { id: 'hive_spitter', name: 'Hive Spitter', level: 15, hp: 90, accuracy: 100, evasion: 7, crit: 5, speed: 100,
     resist: { corrosive: 0, cryo: 150, kinetic: 90 },
     attacks: [
@@ -165,7 +165,7 @@ const hostiles: HostileDef[] = [
       { name: 'Spine Volley', element: 'kinetic', damage: [4, 6], hits: 3, hit: 88, weight: 2 },
     ],
     xp: 75, credits: [12, 20], drops: [{ itemId: 'energy_cell', chance: 15 }],
-    look: { body: 'insect', color: 0x5a6b2a, accent: 0xc8ff3a, scale: 0.8, features: ['wings', 'sac'], sprite: { sheet: 'brood_minions', idle: [1] } } },
+    look: { body: 'insect', color: 0x5a6b2a, accent: 0xc8ff3a, scale: 0.8, features: ['wings', 'sac'], sprite: { sheet: 'brood_minions', idle: [1] }, height: 1.15 } },
   { id: 'hive_guardian', name: 'Hive Guardian', level: 16, hp: 280, accuracy: 99, evasion: 0, crit: 4, speed: 85,
     resist: { kinetic: 60, ion: 150, plasma: 125, corrosive: 50 },
     attacks: [
@@ -173,7 +173,7 @@ const hostiles: HostileDef[] = [
       { name: 'Carapace Slam', element: 'kinetic', damage: [22, 28], weight: 1 },
     ],
     xp: 170, credits: [30, 45], drops: [{ itemId: 'trauma_kit', chance: 25 }],
-    look: { body: 'insect', color: 0x3a3020, accent: 0xffb000, scale: 1.25, features: ['armor'], sprite: { sheet: 'brood_minions', idle: [2] } } },
+    look: { body: 'insect', color: 0x3a3020, accent: 0xffb000, scale: 1.25, features: ['armor'], sprite: { sheet: 'brood_minions', idle: [2] }, height: 1.15 } },
   { id: 'brood_matriarch', name: 'The Brood Matriarch', level: 18, hp: 1250, accuracy: 104, evasion: 6, crit: 6, speed: 105, boss: true,
     resist: { corrosive: 25, kinetic: 80, plasma: 140, cryo: 125 },
     attacks: [
@@ -182,7 +182,7 @@ const hostiles: HostileDef[] = [
       { name: 'Hive Shriek', element: 'ion', damage: [20, 26], weight: 1, effect: { status: 'stun', chance: 20, turns: 1, power: 0 } },
     ],
     xp: 1400, credits: [800, 1000], drops: [{ itemId: 'nano_restorer', chance: 100 }],
-    look: { body: 'insect', color: 0x4a2a4a, accent: 0xffc040, scale: 1.45, features: ['crown', 'armor'], sprite: { sheet: 'plague_matriarch', idle: [0, 1, 2, 3, 4, 5, 6, 7, 6, 5, 4, 3, 2, 1], attack: [8, 9, 10, 11, 12], fps: 8 } } },
+    look: { body: 'insect', color: 0x4a2a4a, accent: 0xffc040, scale: 1.45, features: ['crown', 'armor'], sprite: { sheet: 'plague_matriarch', idle: [0, 1, 2, 3, 4, 5, 6, 7, 6, 5, 4, 3, 2, 1], attack: [8, 9, 10, 11, 12], fps: 8 }, height: 2.35 } },
 ];
 
 export const HOSTILES: Record<string, HostileDef> = Object.fromEntries(hostiles.map((m) => [m.id, m]));

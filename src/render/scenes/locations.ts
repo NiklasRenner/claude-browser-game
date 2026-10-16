@@ -55,15 +55,17 @@ const LOCATIONS: Record<string, Location> = {
     ground: { style: 'moss', shades: ['#0c0e0c', '#151a16', '#1f261f', '#2a332a', '#384336', '#4a5646'], haze: '#22302a', pools: { col: '#0c1a18', glint: '#2a5a4a', amount: 0.3 } },
     frames: ['trunk', 'wall'],
     props: [],
-    // The Choir's chapel-forge across the water (behind the near tree line), a reliquary under the tree,
-    // leaking barrels at the foot of the colony building, a lantern hung from the branch.
+    // Generated set pieces; the painted sky, tree lines, fog and floor stay. Heights in metres place
+    // them in depth (see depth.ts): the chapel-forge far across the water, the reliquary on the fighters'
+    // line, leaking barrels a little behind it, a lantern on the tree's branch, the tree and the colony
+    // house framing the edges.
     pieces: [
-      { sheet: 'fen_chapel', x: 0.43, at: 'horizon', rank: 1, sink: 12, haze: 0.4 },
-      { sheet: 'fen_shrine', x: 0.14, at: 'ground', fps: 7 },
-      { sheet: 'fen_barrels', x: 0.7, at: 'ground', y: 0.81, haze: 0.12, fps: 6 },
+      { sheet: 'fen_chapel', x: 0.43, at: 'far', rank: 1, height: 28 },
+      { sheet: 'fen_shrine', x: 0.14, at: 'ground', height: 1.2, fps: 7 },
+      { sheet: 'fen_barrels', x: 0.5, at: 'ground', height: 0.9, fps: 6 },
       { sheet: 'fen_lantern', x: 0, at: 'hang', from: [62, 52], chain: 10, fps: 6 },
       { sheet: 'fen_tree', x: 0, at: 'left' },
-      { sheet: 'fen_house', x: 1, at: 'right' },
+      { sheet: 'fen_house', x: 1, at: 'right', flip: true },
     ],
     accent: 0x3a6a3a,
     ambient: { weather: 'spores', tint: '#9affb0', fog: '#4a6a5a', sky: ['lightning'], skyAt: [0.6, 0.2] },

@@ -171,6 +171,8 @@ export interface HostileLook {
    * The body plan is the fallback until the sheet has loaded.
    */
   sprite?: { sheet: string; idle: number[]; attack?: number[]; fps?: number };
+  /** Real height in metres of what the sprite shows (its whole frame); its pixel size must match (1.8 m = 82 px). */
+  height?: number;
 }
 
 export interface HostileDef {
