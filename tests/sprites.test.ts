@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { HOSTILES } from '../src/core/data/hostiles';
+import { MISSION_ORDER } from '../src/core/data/missions';
 import { frameAt } from '../src/render/sprites/hostiles';
-import { expectedPx } from '../src/render/scenes/scale';
+import { sizeFit } from '../src/render/scenes/scale';
 import { LAYOUT_DATA, LOCATION_IDS, locationOf } from '../src/render/scenes/locations';
 import { PIECE_SIZES } from '../src/render/sprites/sizes';
 import { SHEETS } from '../src/render/sprites/sheet-data';
@@ -34,15 +35,13 @@ describe('sprite sheets', () => {
   // made for a plane farther back is drawn smaller by that plane's factor. Each generated asset declares
   // its real height and plane, and its sprite must match, so a new monster or barrel can't come out twice
   // the size it should be. (Where it's drawn is up to the layout; this only checks the art.)
-  const fits = (px: number, want: number) => Math.abs(px / want - 1) <= 0.15;
-
   it('hostile sprites are sized for their real height on the fighters\' line', () => {
     for (const h of Object.values(HOSTILES)) {
       const sp = h.look.sprite;
       if (!sp) continue;
       assert.ok(h.look.height, `${h.id}: a sprite hostile needs look.height (metres)`);
-      const px = SHEETS[sp.sheet as keyof typeof SHEETS].h - 2, want = expectedPx(h.look.height, 'fighters');
-      assert.ok(fits(px, want), `${h.id}: ${px} px tall, ${Math.round(want)} px expected for ${h.look.height} m`);
+      const { px, expected, ok } = sizeFit(SHEETS[sp.sheet as keyof typeof SHEETS].h, h.look.height, 'fighters');
+      assert.ok(ok, `${h.id}: ${px} px tall, ${expected} px expected for ${h.look.height} m`);
     }
   });
 
@@ -52,10 +51,14 @@ describe('sprite sheets', () => {
         if (l.part !== 'sprite') continue;
         const size = PIECE_SIZES[l.sheet];
         assert.ok(size, `${l.sheet}: add its real height and plane to src/render/sprites/sizes.ts`);
-        const px = SHEETS[l.sheet].h - 2, want = expectedPx(size.metres, size.plane);
-        assert.ok(fits(px, want), `${l.sheet}: ${px} px tall, ${Math.round(want)} px expected for ${size.metres} m on the ${size.plane} plane`);
+        const { px, expected, ok } = sizeFit(SHEETS[l.sheet].h, size.metres, size.plane);
+        assert.ok(ok, `${l.sheet}: ${px} px tall, ${expected} px expected for ${size.metres} m on the ${size.plane} plane`);
       }
     }
+  });
+
+  it('every world and the ship has its own location (an unknown one would quietly fall back to Veridia)', () => {
+    for (const id of ['ship', ...MISSION_ORDER]) assert.ok(LOCATION_IDS.includes(id), `no location look for ${id}`);
   });
 
   it('every location has a valid saved layout (layouts.json, written by the scene editor)', () => {

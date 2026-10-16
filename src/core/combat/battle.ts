@@ -59,18 +59,23 @@ export function damageHostile(ctx: Ctx, foe: number, amount: number) {
   if (!isAlive(m)) ctx.events.push({ type: 'hostileDown', foe });
 }
 
+/** The next living hostile after the current target, going right (1) or left (−1) and wrapping; null if it's the only one. */
+export function nextLivingTarget(battle: BattleState, dir: 1 | -1 = 1): number | null {
+  const n = battle.hostiles.length;
+  for (let step = 1; step < n; step++) {
+    const i = (battle.target + (dir === 1 ? step : n - step)) % n;
+    if (isAlive(battle.hostiles[i]!)) return i;
+  }
+  return null;
+}
+
 /** If the current target is down, moves it to the next living hostile (wrapping). */
 export function fixTarget(battle: BattleState, events: GameEvent[]): void {
   if (isAlive(battle.hostiles[battle.target]!)) return;
-  const n = battle.hostiles.length;
-  for (let step = 1; step < n; step++) {
-    const i = (battle.target + step) % n;
-    if (isAlive(battle.hostiles[i]!)) {
-      battle.target = i;
-      events.push({ type: 'targeted', foe: i });
-      return;
-    }
-  }
+  const i = nextLivingTarget(battle);
+  if (i === null) return;
+  battle.target = i;
+  events.push({ type: 'targeted', foe: i });
 }
 
 // ─── Status effects ────────────────────────────────────────────────────────

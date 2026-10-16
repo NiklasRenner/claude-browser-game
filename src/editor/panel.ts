@@ -5,7 +5,7 @@
  */
 import { layerName } from '../render/scenes/backdrop';
 import type { Location, SceneLayer } from '../render/scenes/locations';
-import { isPlaced, sizeCheck } from './model';
+import { isPiece, isPlaced, sizeCheck } from './model';
 
 export interface PanelState {
   loc: string;
@@ -25,7 +25,7 @@ export interface PanelState {
   sheet: string;
 }
 
-const esc = (s: string) => s.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const check = (act: string, on: boolean, label: string, extra = '') =>
   `<label class="check"><input type="checkbox" data-act="${act}" ${extra}${on ? ' checked' : ''}> ${label}</label>`;
 
@@ -48,7 +48,7 @@ function inspector(s: PanelState): string {
       ? `<p class="size ${c.ok ? 'ok' : 'bad'}">Made for <b>${c.plane}</b> (×${c.scale}): ${c.metres} m → ${c.expected} px expected, sprite is ${c.px} px ${c.ok ? '✓' : '✗'}<br><small>The ${c.plane} line is shown in the scene.</small></p>`
       : '<p class="size">No size label (src/render/sprites/sizes.ts).</p>');
   }
-  const buttons = l.part === 'body' ? '' : '<div class="row"><button data-act="dup">Duplicate</button><button data-act="del" class="danger">Delete</button></div>';
+  const buttons = !isPiece(l) ? '' : '<div class="row"><button data-act="dup">Duplicate</button><button data-act="del" class="danger">Delete</button></div>';
   return name + rows.join('') + buttons;
 }
 

@@ -6,7 +6,7 @@
  * server; unsaved edits survive a reload. It runs its own copy of the game
  * state, so the game's save is never touched.
  */
-import { HOSTILES, drillRoster, getHostile, initialState, step } from '../core';
+import { HOSTILES, MAX_HOSTILES, drillRoster, getHostile, initialState, step } from '../core';
 import type { GameState } from '../core';
 import { Stage } from '../render/stage';
 import { layerBox } from '../render/scenes/backdrop';
@@ -16,7 +16,7 @@ import type { Location, SceneLayer } from '../render/scenes/locations';
 import { loadSheets } from '../render/sprites/sheets';
 import { SHEETS } from '../render/sprites/sheet-data';
 import type { SheetId } from '../render/sprites/sheet-data';
-import { History, clone, isPlaced, moveTo, newSprite, pick, reorder, sizeCheck } from './model';
+import { History, clone, isPiece, isPlaced, moveTo, newSprite, pick, reorder, sizeCheck } from './model';
 import { renderPanel } from './panel';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#scene')!;
@@ -184,8 +184,8 @@ panel.addEventListener('click', (e) => {
       sel = at;
       break;
     }
-    case 'dup': if (l && i !== null && isPlaced(l) && l.part !== 'body') { change(); layers.splice(i + 1, 0, clone(l)); sel = i + 1; } break;
-    case 'del': if (l && i !== null && (l.part === 'sprite' || l.part === 'prop')) { change(); layers.splice(i, 1); sel = null; } break;
+    case 'dup': if (i !== null && isPiece(l)) { change(); layers.splice(i + 1, 0, clone(l)); sel = i + 1; } break;
+    case 'del': if (i !== null && isPiece(l)) { change(); layers.splice(i, 1); sel = null; } break;
     case 'bloom': bloom = !bloom; store.set('bloom', bloom); break;
     case 'guides': guides = !guides; store.set('guides', guides); break;
     case 'collapse':
@@ -196,7 +196,7 @@ panel.addEventListener('click', (e) => {
       return;
     case 'lineup': {
       const id = el.dataset.id!;
-      lineup = lineup.includes(id) ? lineup.filter((h) => h !== id) : [...lineup, id].slice(-3);
+      lineup = lineup.includes(id) ? lineup.filter((h) => h !== id) : [...lineup, id].slice(-MAX_HOSTILES);
       store.set(`lineup:${loc}`, lineup);
       showFighters();
       break;
@@ -249,7 +249,7 @@ window.addEventListener('keydown', (e) => {
   else if (key === 'h') { if (!hidden.delete(l)) hidden.add(l); }
   else if (key === 'p' && isPlaced(l)) { change(); if (l.pinned) delete l.pinned; else l.pinned = true; }
   else if (key === 'f' && l.part === 'sprite') { change(); if (l.flip) delete l.flip; else l.flip = true; }
-  else if ((e.key === 'Delete' || e.key === 'Backspace') && (l.part === 'sprite' || l.part === 'prop')) { change(); layers.splice(sel, 1); sel = null; }
+  else if ((e.key === 'Delete' || e.key === 'Backspace') && isPiece(l)) { change(); layers.splice(sel, 1); sel = null; }
   else return;
   refresh();
 });

@@ -90,6 +90,9 @@ export class Painter {
   private part = new Int32Array(0);
   private emissive = new Uint8Array(0);
   private filled = new Uint8Array(0);
+  /** The finished pixels and the glowing ones, reused frame to frame (a figure is repainted every frame). */
+  private out: ImageData | null = null;
+  private em: ImageData | null = null;
   private noLine = new Uint8Array(4096);
   private k = 0;
   private ox = 0;
@@ -115,6 +118,7 @@ export class Painter {
     this.part = new Int32Array(w * h);
     this.emissive = new Uint8Array(w * h);
     this.filled = new Uint8Array(w * h);
+    this.out = this.em = null;
   }
 
   /** Clears the buffer and puts local (0, 0) at buffer pixel (ox, oy), `s` buffer pixels per unit. */
@@ -311,7 +315,10 @@ export class Painter {
   /** Bakes the buffer into `canvas` (and its glowing pixels into `glowCanvas`). */
   finish(o: FinishOpts = {}) {
     const { w, h, c, part, emissive: e, noLine: nl, filled: A } = this;
-    const out = new Uint8ClampedArray(c);
+    this.out ??= new ImageData(w, h);
+    this.em ??= new ImageData(w, h);
+    const out = this.out.data;
+    out.set(c);
     for (let i = 0; i < w * h; i++) A[i] = c[i * 4 + 3]! && !(o.dissolve && hash(i * 7 + 3, 91) < o.dissolve) ? 1 : 0;
     const ol = o.outline === false ? null : o.outline ?? OUTLINE;
     const tint = (j: number, col: RGB, t: number) => {
@@ -351,12 +358,13 @@ export class Painter {
         }
       }
     }
-    this.g.putImageData(new ImageData(out, w, h), 0, 0);
-    const em = new Uint8ClampedArray(w * h * 4);
+    this.g.putImageData(this.out, 0, 0);
+    const em = this.em.data;
+    em.fill(0);
     for (let i = 0; i < w * h; i++) {
       if (!e[i] || !A[i]) continue;
       em[i * 4] = c[i * 4]!; em[i * 4 + 1] = c[i * 4 + 1]!; em[i * 4 + 2] = c[i * 4 + 2]!; em[i * 4 + 3] = 255;
     }
-    this.gg.putImageData(new ImageData(em, w, h), 0, 0);
+    this.gg.putImageData(this.em, 0, 0);
   }
 }

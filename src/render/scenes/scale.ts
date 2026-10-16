@@ -41,7 +41,18 @@ export const PLANES = {
 export type Plane = keyof typeof PLANES;
 
 /** How tall (pixels) something this many metres tall should be drawn for its plane. */
-export const expectedPx = (metres: number, plane: Plane) => metres * PX_PER_M * PLANES[plane];
+const expectedPx = (metres: number, plane: Plane) => metres * PX_PER_M * PLANES[plane];
+
+/** A sprite sheet is this much taller than the figure in it; sizes are checked on the figure. */
+const SHEET_MARGIN = 2;
+/** How far off its expected size a piece may be. */
+const SIZE_TOLERANCE = 0.15;
+
+/** How a sprite sheet `sheetH` px tall compares with `metres` on `plane`: its art's height, the expected one, and whether it fits. */
+export function sizeFit(sheetH: number, metres: number, plane: Plane): { px: number; expected: number; ok: boolean } {
+  const px = sheetH - SHEET_MARGIN, expected = expectedPx(metres, plane);
+  return { px, expected: Math.round(expected), ok: Math.abs(px / expected - 1) <= SIZE_TOLERANCE };
+}
 
 /** Where the feet of something on this plane would be (a guide line in the editor). */
 export const planeLine = (plane: Plane) => Math.round(HORIZON + PLANES[plane] * (FEET - HORIZON));

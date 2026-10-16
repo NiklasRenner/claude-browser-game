@@ -334,7 +334,14 @@ export type GameEvent =
   | { type: 'error'; reason: string }
   | { type: 'message'; text: string }
   | { type: 'battleStart'; hostileIds: string[]; boss: boolean }
-  | { type: 'attack'; actor: Actor; foe: number; name: string; element: Element; hit: boolean; crit: boolean; damage: number }
+  /**
+   * One strike. `strike` counts the strikes of one attack on one target (0, 1, …); `abilityId` is set
+   * when the strike is part of the player's ability (so the stage knows which look it has).
+   */
+  | {
+      type: 'attack'; actor: Actor; foe: number; name: string; element: Element; hit: boolean; crit: boolean; damage: number;
+      strike: number; abilityId?: string;
+    }
   | { type: 'abilityUsed'; actor: Actor; abilityId: string; name: string }
   | { type: 'heal'; actor: Actor; amount: number; energy: number }
   | { type: 'statusApplied'; target: Actor; foe?: number; status: StatusId; turns: number }

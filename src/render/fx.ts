@@ -10,9 +10,33 @@ import type { Tweens } from './tween';
 import { easeInOutSine } from './tween';
 
 interface Particle { x: number; y: number; vx: number; vy: number; g: number; life: number; age: number; col: RGB; glow: boolean }
-type Drawable = (ctx: CanvasRenderingContext2D, glow: CanvasRenderingContext2D) => void;
+type Ctx = CanvasRenderingContext2D;
+type Drawable = (ctx: Ctx, glow: Ctx) => void;
 
-const WHITE: RGB = [255, 255, 255];
+/** Effect colours used in more than one place (element and status colours are in src/game/elements.ts). */
+export const FX_COLORS = {
+  white: [255, 255, 255],
+  shield: [120, 200, 255],
+  heal: [125, 255, 138],
+  energy: [122, 184, 255],
+  laser: [255, 60, 50],
+  gold: [255, 211, 77],
+  /** Warm white (equipping). */
+  cream: [255, 241, 194],
+  /** A critical hit's sword arc. */
+  crit: [255, 220, 140],
+  /** Pale dust (hostiles condensing out of the dark). */
+  dust: [216, 200, 168],
+} as const satisfies Record<string, RGB>;
+const WHITE = FX_COLORS.white;
+
+/** One pixel on the scene, and (if `lit`) on the glow layer too, so it blooms. */
+export function plot(ctx: Ctx, glow: Ctx, x: number, y: number, col: RGB | string, lit = true) {
+  const c = typeof col === 'string' ? col : css(col);
+  x = Math.round(x); y = Math.round(y);
+  ctx.fillStyle = c; ctx.fillRect(x, y, 1, 1);
+  if (lit) { glow.fillStyle = c; glow.fillRect(x, y, 1, 1); }
+}
 
 export class Effects {
   private particles: Particle[] = [];
@@ -58,47 +82,39 @@ export class Effects {
 
   /** A glowing orb that flies from one point to another (arcing `arc` pixels high), trailing sparks. */
   projectile(from: [number, number], to: [number, number], col: RGB, seconds = 0.35, arc = 12): Promise<void> {
-    let k = 0;
-    const draw: Drawable = (ctx, glow) => {
+    const shades = [css(mix(col, WHITE, 0.8)), css(col), css(mix(col, [0, 0, 0], 0.4))];
+    return this.run(seconds, (k, ctx, glow) => {
       const x = from[0] + (to[0] - from[0]) * k, y = from[1] + (to[1] - from[1]) * k - Math.sin(k * Math.PI) * arc;
       for (let yy = -2; yy <= 2; yy++) {
         for (let xx = -2; xx <= 2; xx++) {
           const d = Math.hypot(xx, yy);
-          if (d > 2.4) continue;
-          const c = css(d < 1 ? mix(col, WHITE, 0.8) : d < 1.8 ? col : mix(col, [0, 0, 0], 0.4));
-          ctx.fillStyle = c; ctx.fillRect(Math.round(x + xx), Math.round(y + yy), 1, 1);
-          glow.fillStyle = c; glow.fillRect(Math.round(x + xx), Math.round(y + yy), 1, 1);
+          if (d <= 2.4) plot(ctx, glow, x + xx, y + yy, shades[d < 1 ? 0 : d < 1.8 ? 1 : 2]!);
         }
       }
-      if (Math.random() < 0.8) this.particles.push({ x, y, vx: (Math.random() - 0.5) * 10, vy: (Math.random() - 0.5) * 10, g: 0, life: 0.35, age: 0, col, glow: true });
-    };
-    this.live.add(draw);
-    return this.tweens.run(seconds, (t) => { k = t; if (t >= 1) this.live.delete(draw); }, easeInOutSine);
+      if (Math.random() < 0.8) this.spark(x, y, (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10, col, 0.35);
+    }, easeInOutSine);
   }
 
   /** A fast straight streak (ranged weapon fire). */
   bolt(from: [number, number], to: [number, number], col: RGB, seconds = 0.12): Promise<void> {
-    let k = 0;
-    const draw: Drawable = (ctx, glow) => {
+    const hot = css(mix(col, WHITE, 0.7)), c = css(col);
+    this.burst(from[0], from[1], col, 5, 25, 0.15, 0);
+    return this.run(seconds, (k, ctx, glow) => {
       const dx = to[0] - from[0], dy = to[1] - from[1], len = Math.hypot(dx, dy) || 1;
       const head = k * len, tail = Math.max(0, head - 14);
       for (let d = tail; d <= head; d++) {
         const x = Math.round(from[0] + (dx * d) / len), y = Math.round(from[1] + (dy * d) / len);
-        const c = css(d > head - 4 ? mix(col, WHITE, 0.7) : col);
-        ctx.fillStyle = c; ctx.fillRect(x, y, 1, 1);
-        glow.fillStyle = c; glow.fillRect(x, y - 1, 1, 3);
+        ctx.fillStyle = glow.fillStyle = d > head - 4 ? hot : c;
+        ctx.fillRect(x, y, 1, 1);
+        glow.fillRect(x, y - 1, 1, 3);
       }
-    };
-    this.live.add(draw);
-    this.burst(from[0], from[1], col, 5, 25, 0.15, 0);
-    return this.tweens.run(seconds, (t) => { k = t; if (t >= 1) this.live.delete(draw); }, (t) => t);
+    });
   }
 
   /** A sword arc across a target. */
   slash(x: number, y: number, col: RGB, r = 14, seconds = 0.35): Promise<void> {
-    let k = 0;
     const cols = [css(mix(col, WHITE, 0.85)), css(mix(col, WHITE, 0.4)), css(col)];
-    const draw: Drawable = (ctx, glow) => {
+    return this.run(seconds, (k, ctx, glow) => {
       const sweep = Math.min(1, k * 2.2), fade = k < 0.45 ? 1 : 1 - (k - 0.45) / 0.55;
       const a0 = -2.3, a1 = a0 + 3.2 * sweep;
       for (let i = 0; i < 40; i++) {
@@ -111,16 +127,13 @@ export class Effects {
           glow.fillStyle = cols[1]!; glow.fillRect(px, py, 1, 1);
         }
       }
-    };
-    this.live.add(draw);
-    return this.tweens.run(seconds, (t) => { k = t; if (t >= 1) this.live.delete(draw); }, (t) => t);
+    });
   }
 
   /** A dithered ellipse expanding on the ground (casting, buffs, level-up). */
   ring(x: number, y: number, col: RGB, radius = 22, seconds = 0.6): Promise<void> {
-    let k = 0;
     const c = css(col), bright = css(mix(col, WHITE, 0.6));
-    const draw: Drawable = (ctx, glow) => {
+    return this.run(seconds, (k, ctx, glow) => {
       const r = 4 + radius * k;
       for (let a = 0; a < Math.PI * 2; a += 1 / r) {
         const px = Math.round(x + Math.cos(a) * r), py = Math.round(y + Math.sin(a) * r * 0.3);
@@ -128,16 +141,14 @@ export class Effects {
         ctx.fillStyle = Math.sin(a * 9) > 0.6 ? bright : c; ctx.fillRect(px, py, 1, 1);
         glow.fillStyle = c; glow.fillRect(px, py, 1, 1);
       }
-    };
-    this.live.add(draw);
-    return this.tweens.run(seconds, (t) => { k = t; if (t >= 1) this.live.delete(draw); }, (t) => t);
+    });
   }
 
   /**
    * A custom effect: `paint(k, ctx, glow)` every frame for `seconds`, k going 0 → 1 (eased).
    * For effects built elsewhere (ability visuals, see ability-fx.ts).
    */
-  run(seconds: number, paint: (k: number, ctx: CanvasRenderingContext2D, glow: CanvasRenderingContext2D) => void, ease: (t: number) => number = (t) => t): Promise<void> {
+  run(seconds: number, paint: (k: number, ctx: Ctx, glow: Ctx) => void, ease: (t: number) => number = (t) => t): Promise<void> {
     let k = 0;
     const draw: Drawable = (ctx, glow) => paint(k, ctx, glow);
     this.live.add(draw);
@@ -150,7 +161,7 @@ export class Effects {
     this.particles.push({ x, y, vx, vy, g: gravity, life, age: 0, col, glow: true });
   }
 
-  draw(ctx: CanvasRenderingContext2D, glow: CanvasRenderingContext2D, dt: number) {
+  draw(ctx: Ctx, glow: Ctx, dt: number) {
     for (const d of this.live) d(ctx, glow);
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i]!;

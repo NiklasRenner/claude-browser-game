@@ -3,6 +3,7 @@
  * a strip of frames with a glow mask below it. Sheets load in the background;
  * until one has loaded, figures that use it draw their painted fallback.
  */
+import { fromHsl, toHsl } from '../pixel/palette';
 import type { RGB } from '../pixel/palette';
 import { SHEETS } from './sheet-data';
 import type { SheetId } from './sheet-data';
@@ -80,18 +81,10 @@ export function tinted(id: SheetId, to: RGB): Frame[] | null {
   return frames;
 }
 
-function hueOf([r, g, b]: RGB): number {
-  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min || 1;
-  const h = max === r ? (g - b) / d : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
-  return ((h * 60) + 360) % 360;
-}
+const hueOf = (c: RGB): number => toHsl(c)[0];
 
 /** Same lightness and saturation, new hue. */
-function withHue([r, g, b]: RGB, hue: number): RGB {
-  const max = Math.max(r, g, b) / 255, min = Math.min(r, g, b) / 255;
-  const l = (max + min) / 2, s = max === min ? 0 : (max - min) / (1 - Math.abs(2 * l - 1));
-  const k = (n: number) => (n + hue / 30) % 12;
-  const a = s * Math.min(l, 1 - l);
-  const f = (n: number) => l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1));
-  return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
+function withHue(c: RGB, hue: number): RGB {
+  const [, s, l] = toHsl(c);
+  return fromHsl(hue, s, l);
 }

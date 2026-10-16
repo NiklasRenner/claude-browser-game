@@ -34,10 +34,15 @@ export class Ambient {
   private riftData = new ImageData(48, 84);
   private bolt: { pts: [number, number][]; life: number } | null = null;
   private nextBolt = 4;
-  private tint: RGB;
+  /** The aurora, one band at a time (drawn as pixels, then laid over the sky). */
+  private auroraCan: HTMLCanvasElement | null = null;
+  private auroraData: ImageData | null = null;
+  /** Weather colours: small motes, big ones, and their glow. */
+  private tintCss: [string, string, string];
 
   constructor(private spec: AmbientSpec, private W: number, private H: number, private horizon: number, private flames: [number, number][]) {
-    this.tint = hex(spec.tint);
+    const tint = hex(spec.tint);
+    this.tintCss = [css(tint, 0.6), css(tint, 1), css(tint)];
     const count = Math.round((W * H) / (spec.weather === 'snow' ? 500 : 800));
     this.motes = Array.from({ length: count }, (_, i) => ({ x: hash(i, 1) * W, y: hash(i, 2) * H, s: 3 + hash(i, 3) * 9, ph: hash(i, 4) * 6 }));
     this.fog = makeFog(W, hex(spec.fog));
@@ -94,18 +99,26 @@ export class Ambient {
   }
 
   private aurora(ctx: CanvasRenderingContext2D, g: CanvasRenderingContext2D, t: number) {
+    const { W, H } = this;
+    const can = (this.auroraCan ??= makeCanvas(W, H)), img = (this.auroraData ??= new ImageData(W, H)), d = img.data;
+    const glowAlpha = g.globalAlpha;
     for (let band = 0; band < 2; band++) {
-      for (let x = 0; x < this.W; x++) {
+      d.fill(0);
+      for (let x = 0; x < W; x++) {
         const base = this.horizon * (0.18 + band * 0.12) + Math.sin(x * 0.03 + t * 0.4 + band) * 8 + noise(x * 0.05, t * 0.3 + band * 5) * 10;
         const len = 10 + noise(x * 0.08 + band * 9, t * 0.5) * 22;
         for (let k = 0; k < len; k++) {
           const v = 1 - k / len + Math.sin(x * 0.2 + t * 2) * 0.1;
-          if (bayer(x, k) + 0.5 > v * 1.2) continue;
+          const y = Math.round(base + k);
+          if (bayer(x, k) + 0.5 > v * 1.2 || y < 0 || y >= H) continue;
           const col = AURORA[Math.max(0, Math.min(3, Math.floor((1 - v) * 3 + band)))]!;
-          ctx.globalAlpha = 0.45; ctx.fillStyle = css(col); ctx.fillRect(x, Math.round(base + k), 1, 1);
-          ctx.globalAlpha = 1; g.fillStyle = css(col, 0.4); g.fillRect(x, Math.round(base + k), 1, 1);
+          const j = (y * W + x) * 4;
+          d[j] = col[0]; d[j + 1] = col[1]; d[j + 2] = col[2]; d[j + 3] = 255;
         }
       }
+      can.getContext('2d')!.putImageData(img, 0, 0);
+      ctx.globalAlpha = 0.45; ctx.drawImage(can, 0, 0); ctx.globalAlpha = 1;
+      g.globalAlpha = 0.4; g.drawImage(can, 0, 0); g.globalAlpha = glowAlpha;
     }
   }
 
@@ -192,10 +205,10 @@ export class Ambient {
       const big = m.s > 9;
       const twinkle = !glows || Math.sin(t * 2 + m.ph * 3) > -0.2;
       if (!twinkle) continue;
-      ctx.fillStyle = css(this.tint, big ? 1 : 0.6);
+      ctx.fillStyle = this.tintCss[big ? 1 : 0];
       const sz = kind === 'snow' && big ? 2 : kind === 'debris' && big ? 2 : 1;
       ctx.fillRect(Math.round(m.x), Math.round(m.y), sz, sz);
-      if (glows) { g.fillStyle = css(this.tint); g.fillRect(Math.round(m.x), Math.round(m.y), 1, 1); }
+      if (glows) { g.fillStyle = this.tintCss[2]; g.fillRect(Math.round(m.x), Math.round(m.y), 1, 1); }
     }
   }
 }

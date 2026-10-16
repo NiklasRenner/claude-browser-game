@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { moveTo, reorder } from '../src/editor/model';
+import { History, isPiece, moveTo, reorder } from '../src/editor/model';
 import { locationOf } from '../src/render/scenes/locations';
 import type { SceneLayer } from '../src/render/scenes/locations';
 import { shiftX } from '../src/render/scenes/scale';
@@ -28,5 +28,27 @@ describe('scene layout', () => {
     const pinned: SceneLayer = { part: 'sprite', sheet: 'fen_barrels', x: 250, y: 90, pinned: true };
     moveTo(loc, pinned, 384, 330, 90);
     assert.deepEqual([pinned.x, pinned.y], [266, 90]);
+  });
+
+  it('undo and redo step through whole-layout snapshots; a new change clears the redo', () => {
+    const h = new History();
+    let layers: SceneLayer[] = [{ part: 'ground' }];
+    h.push(layers);
+    layers = [{ part: 'ground' }, { part: 'fighters' }];
+    layers = h.undo(layers)!;
+    assert.deepEqual(layers, [{ part: 'ground' }]);
+    layers = h.redo(layers)!;
+    assert.equal(layers.length, 2);
+    h.push(layers);
+    assert.equal(h.redo(layers), null);
+    const first = h.undo(h.undo(layers)!)!;
+    assert.deepEqual(first, [{ part: 'ground' }]);
+    assert.equal(h.undo(first), null, 'nothing before the first change');
+  });
+
+  it('only set pieces (sprites, props) can be duplicated or deleted', () => {
+    assert.ok(isPiece({ part: 'sprite', sheet: 'fen_tree', x: 0, y: 0 }));
+    assert.ok(!isPiece({ part: 'fighters' }));
+    assert.ok(!isPiece({ part: 'body', x: 0, y: 0 }));
   });
 });

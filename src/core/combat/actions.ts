@@ -15,6 +15,8 @@ import { exposure, hostileDamageTaken, hostileHitChance, mitigate, resolveElemen
 
 interface Volley {
   name: string;
+  /** The ability this volley belongs to (unset for a weapon attack). */
+  abilityId?: string;
   element: Element;
   /** Base hit chance before blind, level gap and the target's evasion. */
   hit: number;
@@ -38,7 +40,10 @@ function strike(ctx: Ctx, foe: number, volley: Volley): boolean {
   let landed = false;
   for (let i = 0; i < volley.hits && isAlive(target); i++) {
     const raw = volley.roll();
-    const base = { type: 'attack', actor: 'player', foe, name: volley.name, element: volley.element } as const;
+    const base = {
+      type: 'attack', actor: 'player', foe, name: volley.name, element: volley.element, strike: i,
+      ...(volley.abilityId ? { abilityId: volley.abilityId } : {}),
+    } as const;
     if (!rng.chance(strikeChance(player, battle, foe, volley.hit))) {
       events.push({ ...base, hit: false, crit: false, damage: 0 });
       continue;
@@ -88,6 +93,7 @@ export function playerUseAbility(ctx: Ctx, abilityId: string): void {
       const dice = effect.useWeapon ? getWeapon(player.weapon).damage : effect.dice;
       const volley: Volley = {
         name: ability.name,
+        abilityId,
         element: resolveElement(player, effect.element),
         ...strikeProfile(player, effect),
         extraCrit: effect.extraCrit ?? 0,
@@ -156,7 +162,7 @@ export function hostileAct(ctx: Ctx, foe: number): void {
   const base = { type: 'attack', actor: 'hostile', foe, name: attack.name, element: attack.element } as const;
   for (let i = 0; i < (attack.hits ?? 1) && player.hp > 0; i++) {
     if (!rng.chance(chance)) {
-      events.push({ ...base, hit: false, crit: false, damage: 0 });
+      events.push({ ...base, strike: i, hit: false, crit: false, damage: 0 });
       continue;
     }
     const crit = rng.chance(def.crit);
@@ -166,7 +172,7 @@ export function hostileAct(ctx: Ctx, foe: number): void {
     const taken = derive(player).damageTaken[attack.element] * exposure(battle.playerStatuses);
     const damage = mitigate(raw, taken, statusPower(battle.playerStatuses, 'shield'));
     player.hp = Math.max(0, player.hp - damage);
-    events.push({ ...base, hit: true, crit, damage });
+    events.push({ ...base, strike: i, hit: true, crit, damage });
     if (attack.effect && player.hp > 0 && rng.chance(attack.effect.chance)) {
       const power = inflictedPower(attack.effect.status, attack.effect.power, self.power ?? 1);
       applyStatus(battle.playerStatuses, 'player', attack.effect.status, attack.effect.turns, power, events);

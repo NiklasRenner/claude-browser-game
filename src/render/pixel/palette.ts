@@ -37,7 +37,8 @@ export const R = {
 export const FIRE = ramp('#5a1a12', '#a8361c', '#e0662a', '#ffa842', '#ffe08a', '#fff8d8');
 export const WARP = ramp('#1c0a28', '#3e1458', '#6b228f', '#a44ccc', '#d98cf0', '#fbe6ff');
 
-function toHsl([r, g, b]: RGB): [number, number, number] {
+/** Hue in degrees, saturation and lightness 0–1. */
+export function toHsl([r, g, b]: RGB): [number, number, number] {
   const rr = r / 255, gg = g / 255, bb = b / 255;
   const max = Math.max(rr, gg, bb), min = Math.min(rr, gg, bb), l = (max + min) / 2;
   if (max === min) return [0, 0, l];
@@ -46,7 +47,7 @@ function toHsl([r, g, b]: RGB): [number, number, number] {
   return [h * 60, s, l];
 }
 
-function fromHsl(h: number, s: number, l: number): RGB {
+export function fromHsl(h: number, s: number, l: number): RGB {
   const k = (n: number) => (n + h / 30) % 12;
   const a = s * Math.min(l, 1 - l);
   const f = (n: number) => l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1));

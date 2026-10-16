@@ -5,9 +5,10 @@
  * (stage.ts) plays them from the battle events; everything here is drawing
  * with the effects layer (fx.ts), in scene pixels.
  */
+import { FX_COLORS, plot as dot } from './fx';
 import type { Effects } from './fx';
 import { bayer } from './pixel/noise';
-import { css, mix } from './pixel/palette';
+import { mix } from './pixel/palette';
 import type { RGB } from './pixel/palette';
 import { easeInOutSine, easeOutCubic } from './tween';
 
@@ -41,16 +42,7 @@ export const ABILITY_LOOKS: Record<string, { cast?: Cast; travel?: Travel }> = {
   suppressive_fire: { travel: 'barrage' },
 };
 
-const WHITE: RGB = [255, 255, 255];
-const SHIELD: RGB = [120, 200, 255];
-const HEAL: RGB = [125, 255, 138];
-const LASER: RGB = [255, 60, 50];
-
-function dot(ctx: Ctx, glow: Ctx, x: number, y: number, col: RGB, lit = true) {
-  const c = css(col);
-  ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), 1, 1);
-  if (lit) { glow.fillStyle = c; glow.fillRect(Math.round(x), Math.round(y), 1, 1); }
-}
+const { white: WHITE, shield: SHIELD, heal: HEAL, laser: LASER } = FX_COLORS;
 
 function line(ctx: Ctx, glow: Ctx, a: Pt, b: Pt, col: RGB, width = 1, from = 0, to = 1) {
   const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.max(1, Math.hypot(dx, dy));

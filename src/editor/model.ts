@@ -4,7 +4,7 @@
  */
 import { layerBox, spotSize } from '../render/scenes/backdrop';
 import type { Location, SceneLayer } from '../render/scenes/locations';
-import { PLANES, expectedPx, shiftX } from '../render/scenes/scale';
+import { FEET, MIN_W, PLANES, shiftX, sizeFit } from '../render/scenes/scale';
 import type { Plane } from '../render/scenes/scale';
 import { framesOf } from '../render/sprites/sheets';
 import { SHEETS } from '../render/sprites/sheet-data';
@@ -49,6 +49,9 @@ export function moveTo(loc: Location, l: SceneLayer, W: number, x: number, y: nu
   l.y = Math.round(y);
 }
 
+/** Sprites and props are set pieces: they can be added, duplicated and deleted (the rest belongs to the location's look). */
+export const isPiece = (l: SceneLayer | undefined): l is Extract<SceneLayer, { part: 'sprite' | 'prop' }> => l?.part === 'sprite' || l?.part === 'prop';
+
 /** Swaps layer i with its neighbour toward the front (1) or the back (-1); returns its new index. */
 export function reorder(layers: SceneLayer[], i: number, dir: 1 | -1): number {
   const j = i + dir;
@@ -60,15 +63,14 @@ export function reorder(layers: SceneLayer[], i: number, dir: 1 | -1): number {
 /** A new sprite layer, in the middle of the scene, standing on the fighters' line. */
 export function newSprite(sheet: SheetId): SceneLayer {
   const { w, h } = SHEETS[sheet];
-  return { part: 'sprite', sheet, x: Math.round(160 - w / 2), y: 131 - h };
+  return { part: 'sprite', sheet, x: Math.round(MIN_W / 2 - w / 2), y: FEET - h };
 }
 
 /** How a sprite's size compares with what its label (metres, plane) asks for; null if it has no label. */
 export function sizeCheck(sheet: SheetId): { metres: number; plane: Plane; scale: number; px: number; expected: number; ok: boolean } | null {
   const s = PIECE_SIZES[sheet];
   if (!s) return null;
-  const px = SHEETS[sheet].h - 2, expected = Math.round(expectedPx(s.metres, s.plane));
-  return { ...s, scale: PLANES[s.plane], px, expected, ok: Math.abs(px / expected - 1) <= 0.15 };
+  return { ...s, scale: PLANES[s.plane], ...sizeFit(SHEETS[sheet].h, s.metres, s.plane) };
 }
 
 /** Undo / redo over whole-layout snapshots. */

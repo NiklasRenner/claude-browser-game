@@ -76,8 +76,10 @@ export function buildBackdrop(key: string, W: number, H: number, opts: BackdropO
   const horizon = HORIZON, feet = FEET;
   if (paintedFor !== `${key}@${W}x${H}`) { painted.clear(); paintedFor = `${key}@${W}x${H}`; }
 
+  // A painted part is known by everything it depends on (worked out once, not every frame).
+  const ids = new Map(loc.layers.map((l) => [l, JSON.stringify(l)]));
   const paint = (l: SceneLayer) => {
-    const id = JSON.stringify(l);
+    const id = ids.get(l)!;
     let c = painted.get(id);
     if (!c) {
       c = paintPart(loc, l, W, H) ?? undefined;

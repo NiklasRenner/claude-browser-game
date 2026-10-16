@@ -1,4 +1,4 @@
-import { getAbility, getArmor, getWeapon, abilitiesFor } from './data';
+import { getAbility, getArmor, getItem, getWeapon, abilitiesFor } from './data';
 import { ELEMENTS, STATS } from './types';
 import {
   BASE_CRIT, MAX_LEVEL, PLAYER_EVASION_CAP, STAT_POINTS_PER_LEVEL, baseStats, damageMultiplier, luckCrit, maxEnergyFor, maxHpFor,
@@ -58,6 +58,9 @@ export const START_POINTS = 5;
  * officer starts at exactly speed 100 (its curve is steep on purpose, see stats.ts).
  */
 export const defaultStart = (): Stats => ({ pow: 1, spd: 0, int: 1, end: 2, luk: 1 });
+
+/** Starting points not yet spread. */
+export const startPointsLeft = (start: Partial<Stats>): number => STATS.reduce((n, k) => n - (start[k] ?? 0), START_POINTS);
 
 /** Why this spread of starting points isn't allowed, or null if it is. */
 export function checkStart(start: unknown): string | null {
@@ -148,6 +151,11 @@ export function learn(player: Player, abilityId: string, events: GameEvent[]) {
 /** Abilities learned by level, then the ones bought in the Scriptorium (in the order bought). */
 export function knownAbilities(player: Player): AbilityDef[] {
   return [...abilitiesFor(player.level), ...player.learned.map(getAbility)];
+}
+
+/** The consumables the officer carries (medkits, stims…), in inventory order. */
+export function ownedConsumables(player: Player): string[] {
+  return Object.keys(player.inventory).filter((id) => getItem(id).kind === 'consumable');
 }
 
 export function countItem(player: Player, itemId: string): number {
