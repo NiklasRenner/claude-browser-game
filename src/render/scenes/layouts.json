@@ -28,10 +28,10 @@
       { "part": "ground" },
       { "part": "sprite", "sheet": "fen_barrels", "x": 15, "y": 94, "fps": 6, "fog": 0.1, "pinned": true },
       { "part": "sprite", "sheet": "fen_lantern", "x": 35, "y": 60, "fps": 6, "pinned": true },
-      { "part": "sprite", "sheet": "fen_house", "x": 238, "y": 0, "flip": true, "pinned": true },
-      { "part": "sprite", "sheet": "fen_tree", "x": 0, "y": 0, "pinned": true },
-      { "part": "sprite", "sheet": "fen_shrine", "x": 257, "y": 120, "fps": 7, "pinned": true },
       { "part": "fighters" },
+      { "part": "sprite", "sheet": "fen_house", "x": 268, "y": 12, "flip": true, "pinned": true },
+      { "part": "sprite", "sheet": "fen_shrine", "x": 279, "y": 130, "fps": 7, "pinned": true },
+      { "part": "sprite", "sheet": "fen_tree", "x": 0, "y": 0, "pinned": true },
       { "part": "weather" },
       { "part": "vignette" }
     ]
