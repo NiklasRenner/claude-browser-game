@@ -52,14 +52,14 @@ The e2e test needs a Playwright Chromium (`npx playwright install chromium` once
 
   | Type | Effect | What it does |
   | --- | --- | --- |
-  | plasma | Burn | Heavy damage every turn, short (2 turns); a new burn replaces the old one |
+  | plasma | Burn | Heavy damage every turn, short (2 turns); burns don't add up (the stronger and the longer one count) |
   | corrosive | Corrode | Poison: lighter damage every turn for longer (4 turns), and each new dose stacks, up to 3× |
   | cryo | Chill | Slowed: −25–30% speed, so turns come later on the timeline |
   | ion | Stun | Skips the next turn |
   | photon | Blind | −hit chance |
   | void | Exposed | Takes extra damage from everything |
 
-  Statuses work the same on both sides. Abilities also give shield (−damage taken), evasive (+evasion) and marked (−evasion). Chips and tooltips name each effect and its strength (`src/core/data/effects.ts`).
+  Statuses work the same on both sides. Burn and corrode damage grows with the attacker's damage (Power, or a patrol hostile's scaling); the other effects keep the strength they were made with. Every status's rules (name, what its power means, damage over time, stacking) are one row in `STATUSES` (`src/core/data/effects.ts`). Abilities also give shield (−damage taken), evasive (+evasion) and marked (−evasion). Chips and tooltips name each effect and its strength.
 - **Level gap:** your hit chance drops 10% per level a hostile is above you (no bonus below). Escape chance is 60% at equal level, ±12% per level of difference (5–95%), plus a little from speed; the Beam out button shows it. Story bosses fight at the mission's recommended level + 1 (`bossLevel` on a mission overrides it).
 - **Progression:** XP levels grant 4 stat points; abilities unlock by level; going down costs 10% credits.
 - **Saves:** autosaved to `localStorage` after every action; *Resume duty* on the title screen. Saves are versioned (see `src/core/save.ts`); the history was reset at version 1, so pre-reset saves no longer load.

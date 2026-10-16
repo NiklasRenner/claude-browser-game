@@ -1,11 +1,6 @@
 /** Human-readable text for events — used by the in-game log and golden test transcripts. */
-import { FINAL_MISSION, getMission, getItem, getHostile, getAbility } from './data';
-import type { GameEvent, GameState, StatusId, StepResult } from './types';
-
-const STATUS_TEXT: Record<StatusId, string> = {
-  burn: 'burning', corrode: 'corroding', stun: 'stunned', shield: 'shielded', evasive: 'evasive', chill: 'chilled (slowed)', marked: 'marked',
-  blind: 'blinded', exposed: 'exposed',
-};
+import { FINAL_MISSION, STATUSES, getMission, getItem, getHostile, getAbility } from './data';
+import type { GameEvent, GameState, StepResult } from './types';
 
 interface DescribeContext {
   you: string;
@@ -103,9 +98,9 @@ function describeEvent(event: GameEvent, { you, foes }: DescribeContext): string
       const parts = [event.amount > 0 && `+${event.amount} HP`, event.energy > 0 && `+${event.energy} EN`].filter(Boolean);
       return parts.length ? `${who(event.actor)} recovers ${parts.join(', ')}.` : null;
     }
-    case 'statusApplied': return `${who(event.target, event.foe)} is ${STATUS_TEXT[event.status]} (${event.turns}).`;
+    case 'statusApplied': return `${who(event.target, event.foe)} is ${STATUSES[event.status].adjective} (${event.turns}).`;
     case 'statusTick': return `${who(event.target, event.foe)} takes ${event.damage} from ${event.status}.`;
-    case 'statusExpired': return `${who(event.target, event.foe)} is no longer ${STATUS_TEXT[event.status]}.`;
+    case 'statusExpired': return `${who(event.target, event.foe)} is no longer ${STATUSES[event.status].adjective}.`;
     case 'stunned': return `${who(event.actor, event.foe)} is stunned and cannot act!`;
     case 'equip': return `Equipped ${getItem(event.itemId).name}.`;
     case 'fled': return event.success ? 'Emergency beam-out successful!' : 'Transporter lock failed!';

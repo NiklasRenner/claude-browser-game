@@ -7,7 +7,7 @@
  * a whole number, so every art pixel is the same size. Glowing pixels are
  * also drawn into a glow canvas that is blurred and added on top (bloom).
  */
-import { getAbility, getHostile, getWeapon, resolveElement } from '../core';
+import { STATUSES, getAbility, getHostile, getWeapon, resolveElement } from '../core';
 import type { Element, GameEvent, GameState, StatusId } from '../core';
 import { ELEMENT_COLORS, STATUS_COLORS, STATUS_ICONS } from '../game/elements';
 import { ABILITY_LOOKS, dome, playCast, playTravel, reticle } from './ability-fx';
@@ -607,7 +607,7 @@ export class Stage {
         if (!a) return;
         this.flash(a, 0.5);
         this.fx.burst(...this.center(a), fromInt(STATUS_COLORS[e.status]), 10, 25, 0.5, -30);
-        this.fx.popText(...this.head(a), `${e.damage}`, `pop-tick el-${e.status === 'burn' ? 'plasma' : 'corrosive'}`);
+        this.fx.popText(...this.head(a), `${e.damage}`, `pop-tick el-${STATUSES[e.status].dot}`);
         await this.tweens.wait(0.3);
         return;
       }

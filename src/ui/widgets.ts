@@ -1,6 +1,6 @@
 /** Reusable bits of UI: chips for damage types, hit chances, statuses and item stats. */
 import {
-  ELEMENT_EFFECTS, STATUS_INFO, damageMultiplier, enduranceHp, getHostile, intellectEnergy, luckCrit, hostileDamageTaken,
+  ELEMENT_EFFECTS, STATUSES, damageMultiplier, enduranceHp, getHostile, intellectEnergy, luckCrit, hostileDamageTaken,
   playerHitChance, resolveElement, speedBonus, strikeProfile,
 } from '../core';
 import type {
@@ -28,25 +28,11 @@ export function statEffect(stat: Stat, v: number): string {
 
 // ─── Ability / element tags ─────────────────────────────────────────────────
 
-/** How strong a status is, in words: "−30% speed", "5 damage/turn"… */
-function statusAmount(id: StatusId, power: number): string {
-  switch (id) {
-    case 'burn': case 'corrode': return `${power} damage/turn`;
-    case 'chill': return `−${power}% speed`;
-    case 'blind': return `−${power}% hit`;
-    case 'exposed': return `+${power}% damage taken`;
-    case 'shield': return `−${power}% damage taken`;
-    case 'evasive': return `+${power} evasion`;
-    case 'marked': return `−${power} evasion`;
-    case 'stun': return 'skips a turn';
-  }
-}
-
 /** Chip for a status an ability, weapon or attack can inflict. */
 function statusTag(id: StatusId, power: number, turns: number, chance: number | undefined, self: boolean): string {
-  const info = STATUS_INFO[id];
+  const info = STATUSES[id];
   const odds = chance !== undefined ? ` (${chance}%)` : '';
-  const title = `${self ? 'You gain' : 'Inflicts'} ${info.name}: ${statusAmount(id, power)} for ${turns} turn(s)${odds}. ${info.help}`;
+  const title = `${self ? 'You gain' : 'Inflicts'} ${info.name}: ${info.amount(power)} for ${turns} turn(s)${odds}. ${info.help}`;
   return `<span class="chip tag-status tag-${id}" title="${esc(title)}">${STATUS_ICONS[id]} ${info.name.toLowerCase()}${odds}</span>`;
 }
 
@@ -57,7 +43,7 @@ function statusTag(id: StatusId, power: number, turns: number, chance: number | 
 export function elementChip(el: Element, foe: HostileDef | null, iconOnly = false): string {
   let eff = '';
   const effect = ELEMENT_EFFECTS[el];
-  let title = effect ? `${el} (can inflict ${STATUS_INFO[effect].name}: ${STATUS_INFO[effect].help.toLowerCase()})` : el;
+  let title = effect ? `${el} (can inflict ${STATUSES[effect].name}: ${STATUSES[effect].help.toLowerCase()})` : el;
   if (foe) {
     const pct = hostileDamageTaken(foe, el);
     if (pct === 0) { eff = '<b class="eff eff-immune">✕</b>'; title += ` — ${foe.name} is immune`; }
@@ -87,8 +73,8 @@ export function abilityTags(p: Player, ability: AbilityDef, battle: BattleState 
 
 export function statusChips(statuses: StatusEffect[]) {
   return statuses.map((st) => {
-    const info = STATUS_INFO[st.id];
-    const title = `${info.name}: ${statusAmount(st.id, st.power)}, ${st.turns} turn(s) left. ${info.help}`;
+    const info = STATUSES[st.id];
+    const title = `${info.name}: ${info.amount(st.power)}, ${st.turns} turn(s) left. ${info.help}`;
     return `<span class="status" title="${esc(title)}">${STATUS_ICONS[st.id]}${st.turns}</span>`;
   }).join('');
 }

@@ -6,8 +6,7 @@
  * hp 0 so indices stay stable; `battle.target` always points at a living one.
  * Statuses work the same way on the player and on hostiles.
  */
-import { getHostile } from '../data';
-import { CORRODE_MAX_STACKS } from '../stats';
+import { STATUSES, getHostile } from '../data';
 import type { Rng } from '../rng';
 import type { Actor, BattleState, Element, GameEvent, Hostile, Player, StatusEffect, StatusId } from '../types';
 
@@ -78,14 +77,14 @@ export function hasStatus(statuses: StatusEffect[], id: StatusId): boolean {
   return statuses.some((s) => s.id === id);
 }
 
-/** Applies or refreshes a status (corrode stacks). Always inserts a new object (see endTurn). `foe` = hostile index when target is 'hostile'. */
+/** Applies or refreshes a status (see StatusRule.stacks). Always inserts a new object (see endTurn). `foe` = hostile index when target is 'hostile'. */
 export function applyStatus(
   statuses: StatusEffect[], target: Actor, id: StatusId, turns: number, power: number, events: GameEvent[], foe?: number,
 ): void {
   const i = statuses.findIndex((s) => s.id === id);
   const prev = i >= 0 ? statuses[i]! : null;
-  // Corrode (poison) stacks: each dose adds up, to CORRODE_MAX_STACKS× the dose. Everything else keeps the stronger value.
-  const stacked = id === 'corrode' && prev ? Math.min(prev.power + power, power * CORRODE_MAX_STACKS) : power;
+  const { stacks } = STATUSES[id];
+  const stacked = stacks && prev ? Math.min(prev.power + power, power * stacks) : power;
   const next: StatusEffect = {
     id,
     turns: Math.max(turns, prev?.turns ?? 0),
@@ -121,8 +120,8 @@ export function tickDots(
 ): number {
   let total = 0;
   for (const s of statuses) {
-    if (s.id !== 'burn' && s.id !== 'corrode') continue;
-    const element: Element = s.id === 'burn' ? 'plasma' : 'corrosive';
+    const element = STATUSES[s.id].dot;
+    if (!element) continue;
     const dmg = Math.round((s.power * damageTaken(element)) / 100);
     total += dmg;
     events.push({ type: 'statusTick', target, ...(foe !== undefined ? { foe } : {}), status: s.id, damage: dmg });

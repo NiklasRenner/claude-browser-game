@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-  ELEMENT_EFFECTS, FLEE_BASE, FLEE_MAX, FLEE_MIN, FLEE_PER_LEVEL, LEVEL_HIT_PENALTY, MISSIONS, applyStatus, bossLevel,
+  ELEMENT_EFFECTS, FLEE_BASE, inflictedPower, FLEE_MAX, FLEE_MIN, FLEE_PER_LEVEL, LEVEL_HIT_PENALTY, MISSIONS, applyStatus, bossLevel,
   fleeChance, getMission, hostileHitChance, playerHitChance, step, upcomingTurns, validateContent,
 } from '../src/core';
 import type { GameEvent, StatusEffect } from '../src/core';
@@ -25,6 +25,18 @@ describe('element effects', () => {
     applyStatus(burn, 'hostile', 'burn', 2, 5, ev, 0);
     applyStatus(burn, 'hostile', 'burn', 2, 5, ev, 0);
     assert.deepEqual(burn, [{ id: 'burn', turns: 2, power: 5 }]);
+  });
+
+  it('only damage over time grows with the attacker\'s damage; other statuses keep their authored power', () => {
+    assert.equal(inflictedPower('burn', 5, 1.5), 8);
+    assert.equal(inflictedPower('corrode', 3, 2), 6);
+    assert.equal(inflictedPower('chill', 25, 1.5), 25);
+    assert.equal(inflictedPower('blind', 25, 3), 25);
+    // A strong officer's Cryo Carbine still chills by exactly its 25%.
+    let s = sureHit(endlessFight('choir_cantor', { weapon: 'cryo_carbine', seed: 4 }));
+    s.player!.stats.pow = 60;
+    for (let i = 0; i < 40 && !s.battle!.hostiles[0]!.statuses.some((st) => st.id === 'chill'); i++) s = act(s, { type: 'attack' }).state;
+    assert.deepEqual(s.battle!.hostiles[0]!.statuses.find((st) => st.id === 'chill')?.power, 25);
   });
 
   it('chill slows: a hostile at −50% speed gets half as many turns', () => {

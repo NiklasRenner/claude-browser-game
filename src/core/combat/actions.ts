@@ -3,7 +3,7 @@
  * hostile's attack. Each function mutates the (already cloned) state in `ctx`
  * and pushes events describing what happened.
  */
-import { getConsumable, getAbility, getWeapon, getHostile } from '../data';
+import { getConsumable, getAbility, getWeapon, getHostile, inflictedPower } from '../data';
 import { derive, removeItem } from '../player';
 import { FLEE_BASE, FLEE_MAX, FLEE_MIN, FLEE_PER_LEVEL, PLAYER_CRIT_MULT, healMultiplier } from '../stats';
 import type { Element, GameEvent, Player, StatusEffect } from '../types';
@@ -70,7 +70,7 @@ export function playerAttack(ctx: Ctx): void {
     roll: () => rng.int(...weapon.damage) * power,
     onLand: () => {
       if (proc && isAlive(target) && rng.chance(proc.chance)) {
-        applyStatus(target.statuses, 'hostile', proc.status, proc.turns, Math.round(proc.power * power), events, foe);
+        applyStatus(target.statuses, 'hostile', proc.status, proc.turns, inflictedPower(proc.status, proc.power, power), events, foe);
       }
     },
   });
@@ -106,13 +106,11 @@ export function playerUseAbility(ctx: Ctx, abilityId: string): void {
       if (effect.chance !== undefined && !rng.chance(effect.chance)) continue;
       applyStatus(battle.playerStatuses, 'player', effect.status, effect.turns, effect.power, events);
     } else {
-      // Damage-over-time riders scale with Power like direct damage.
-      const dot = effect.status === 'burn' || effect.status === 'corrode';
       for (const foe of landedOn) {
         const m = battle.hostiles[foe]!;
         if (!isAlive(m)) continue;
         if (effect.chance !== undefined && !rng.chance(effect.chance)) continue;
-        applyStatus(m.statuses, 'hostile', effect.status, effect.turns, dot ? Math.round(effect.power * power) : effect.power, events, foe);
+        applyStatus(m.statuses, 'hostile', effect.status, effect.turns, inflictedPower(effect.status, effect.power, power), events, foe);
       }
     }
   }
@@ -172,7 +170,7 @@ export function hostileAct(ctx: Ctx, foe: number): void {
     player.hp = Math.max(0, player.hp - damage);
     events.push({ ...base, hit: true, crit, damage });
     if (attack.effect && player.hp > 0 && rng.chance(attack.effect.chance)) {
-      const power = self.power !== undefined ? Math.round(attack.effect.power * self.power) : attack.effect.power;
+      const power = inflictedPower(attack.effect.status, attack.effect.power, self.power ?? 1);
       applyStatus(battle.playerStatuses, 'player', attack.effect.status, attack.effect.turns, power, events);
     }
   }

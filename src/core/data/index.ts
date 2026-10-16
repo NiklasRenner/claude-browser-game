@@ -4,11 +4,12 @@ import { MISSIONS, MISSION_ORDER } from './missions';
 import { ITEMS, QUARTERMASTER_STOCK } from './items';
 import { HOSTILES } from './hostiles';
 import { ABILITIES } from './abilities';
-import { ELEMENT_EFFECTS } from './effects';
+import { ELEMENT_EFFECTS, STATUSES } from './effects';
 
 export { MISSIONS, MISSION_ORDER, ITEMS, HOSTILES, QUARTERMASTER_STOCK, ABILITIES };
 export { FINAL_MISSION } from './missions';
-export { ELEMENT_EFFECTS, STATUS_INFO } from './effects';
+export { ELEMENT_EFFECTS, STATUSES, inflictedPower } from './effects';
+export type { StatusRule } from './effects';
 
 function lookup<T>(table: Record<string, T>, id: string, what: string): T {
   const value = table[id];
@@ -111,5 +112,8 @@ export function validateContent(): string[] {
     for (const mid of adds) if (!HOSTILES[mid] || HOSTILES[mid]!.boss) problems.push(`${id}: bad boss add ${mid}`);
   }
   for (const id of QUARTERMASTER_STOCK) if (!ITEMS[id]) problems.push(`shop: unknown item ${id}`);
+  for (const [id, rule] of Object.entries(STATUSES)) {
+    if (rule.dot && ELEMENT_EFFECTS[rule.dot] !== id) problems.push(`status ${id}: deals ${rule.dot} damage, but that isn't ${rule.dot}'s effect`);
+  }
   return problems;
 }

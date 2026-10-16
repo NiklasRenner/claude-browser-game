@@ -1,6 +1,5 @@
 // ─── Shared game types. Everything here is plain, JSON-serializable data. ───
-// Internal field names (credits, energy, abilities, mission, hostile) are mechanical; the
-// player-facing terms (credits, energy, abilities, mission, hostile) live in UI text.
+// (step() copies state as JSON, and saves are JSON: no undefined-valued keys, Maps, Sets or classes.)
 
 export const ELEMENTS = ['kinetic', 'plasma', 'cryo', 'ion', 'photon', 'void', 'corrosive'] as const;
 export type Element = (typeof ELEMENTS)[number];
@@ -16,12 +15,10 @@ export type Resistances = Partial<Record<Element, number>>;
 
 /**
  * Element effects (one per damage type, see ELEMENT_EFFECTS; an attack *may* carry it):
- *   burn (plasma): heavy damage `power` at the start of each owner turn; short, doesn't stack.
- *   corrode (corrosive): weaker damage per turn, but every new dose adds to it (up to CORRODE_MAX_STACKS×); long.
- *   chill (cryo): owner's speed −`power`%. stun (ion): owner skips its next turn.
- *   blind (photon): owner's hit chance −`power`. exposed (void): owner takes +`power`% damage.
- * Other statuses: shield: owner takes `power`% less damage. evasive: owner's evasion +`power`.
- * marked: owner's evasion −`power`. Statuses work the same on the player and on hostiles.
+ * burn (plasma), corrode (corrosive), chill (cryo), stun (ion), blind (photon), exposed (void).
+ * Other statuses come from abilities: shield, evasive, marked. What each one's `power` means,
+ * and how doses combine, is in STATUSES (data/effects.ts). Statuses work the same on the player
+ * and on hostiles.
  */
 export type StatusId = 'burn' | 'corrode' | 'chill' | 'stun' | 'blind' | 'exposed' | 'shield' | 'evasive' | 'marked';
 

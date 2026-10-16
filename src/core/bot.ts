@@ -4,7 +4,7 @@
  * balance probe (`npm run sim`).
  */
 import { aliveIndices, averageEffectDamage, hitChance, hostileDamageTaken, playerHitChance, resolveElement, strikeProfile } from './combat';
-import { MISSION_ORDER, ITEMS, getAbility, getMission, getHostile } from './data';
+import { MISSION_ORDER, ITEMS, STATUSES, getAbility, getMission, getHostile } from './data';
 import { initialState, step } from './game';
 import { missionEncounters } from './flow';
 import { checkAction, legalActions } from './rules';
@@ -206,7 +206,7 @@ function battleAction(state: GameState, p: Player): Action {
           const m = getHostile(battle.hostiles[i]!.defId);
           score += averageEffectDamage(p, e) * strikes * (hostileDamageTaken(m, element) / 100) * (playerHitChance(p, battle, i, e) / 100);
         }
-      } else if (e.type === 'status' && e.target === 'enemy' && (e.status === 'corrode' || e.status === 'burn')) {
+      } else if (e.type === 'status' && e.target === 'enemy' && STATUSES[e.status].dot) {
         if (!target.statuses.some((s) => s.id === e.status)) score += e.power * e.turns * ((e.chance ?? 100) / 100);
       } else if (e.type === 'status' && e.target === 'enemy' && e.status === 'marked') {
         // Painting pays off when the next few attacks would otherwise miss a lot, on something worth the time.
