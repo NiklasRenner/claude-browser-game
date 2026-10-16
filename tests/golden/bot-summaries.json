@@ -1,10 +1,10 @@
 [
   {
     "seed": 1,
-    "steps": 336,
+    "steps": 419,
     "completed": true,
     "level": 16,
-    "credits": 3323,
+    "credits": 2359,
     "cleared": [
       "veridia",
       "kethra",
@@ -17,10 +17,10 @@
   },
   {
     "seed": 2,
-    "steps": 397,
+    "steps": 432,
     "completed": true,
     "level": 16,
-    "credits": 2739,
+    "credits": 2612,
     "cleared": [
       "veridia",
       "kethra",
@@ -33,10 +33,10 @@
   },
   {
     "seed": 3,
-    "steps": 421,
+    "steps": 404,
     "completed": true,
     "level": 16,
-    "credits": 2300,
+    "credits": 2314,
     "cleared": [
       "veridia",
       "kethra",
@@ -49,10 +49,10 @@
   },
   {
     "seed": 4,
-    "steps": 456,
+    "steps": 471,
     "completed": true,
     "level": 16,
-    "credits": 2746,
+    "credits": 2410,
     "cleared": [
       "veridia",
       "kethra",

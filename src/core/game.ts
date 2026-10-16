@@ -6,7 +6,7 @@
  *   (legality lives in rules.ts).
  */
 import { fleeChance, playerAttack, playerUseAbility, toughestAliveLevel, useConsumable } from './combat';
-import { getMission, getItem } from './data';
+import { getAbility, getMission, getItem } from './data';
 import { addItem, allocateStat, clampVitals, createPlayer, fullRestore, removeItem } from './player';
 import { drillWorld } from './drill';
 import { endDrill, leaveMission, resolveBattleRound, startNextBattle } from './flow';
@@ -15,7 +15,7 @@ import { Rng } from './rng';
 import { checkAction, treatmentCost, sellPrice } from './rules';
 import type { Action, GameEvent, GameState, StepResult } from './types';
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 export function initialState(seed = 1): GameState {
   return {
@@ -91,6 +91,13 @@ function apply(state: GameState, action: Action, rng: Rng, events: GameEvent[]):
     case 'allocateStat':
       allocateStat(player, action.stat);
       return;
+    case 'learnAbility': {
+      const ability = getAbility(action.abilityId);
+      player.credits -= ability.shop!.price;
+      player.learned.push(ability.id);
+      events.push({ type: 'learned', abilityId: ability.id });
+      return;
+    }
     case 'useItem': {
       if (state.mode === 'battle') {
         resolveBattleRound(state, rng, events, () => useConsumable(player, action.itemId, state.battle!.playerStatuses, events));

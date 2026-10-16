@@ -8,8 +8,9 @@
  * also drawn into a glow canvas that is blurred and added on top (bloom).
  */
 import { getAbility, getHostile, getWeapon, resolveElement } from '../core';
-import type { Element, GameEvent, GameState } from '../core';
+import type { Element, GameEvent, GameState, StatusId } from '../core';
 import { ELEMENT_COLORS, STATUS_COLORS, STATUS_ICONS } from '../game/elements';
+import { ABILITY_LOOKS, dome, playCast, playTravel, reticle } from './ability-fx';
 import { Effects } from './fx';
 import { Painter, makeCanvas } from './pixel/painter';
 import { bayer } from './pixel/noise';
@@ -60,6 +61,8 @@ interface Actor {
   /** Lying down (defeat), radians. */
   fall: number;
   visible: boolean;
+  /** Lasting effects drawn on it: a shield dome, a holo-decoy afterimage, a target mark. */
+  statuses: Set<StatusId>;
 }
 
 const elementColor = (el: Element): RGB => glowOf(ELEMENT_COLORS[el]);
@@ -68,6 +71,8 @@ export class Stage {
   readonly tweens = new Tweens();
   private ctx: CanvasRenderingContext2D;
   private glowCan = makeCanvas(1, 1);
+  /** Scratch canvas for the holo-decoy afterimage. */
+  private holo = makeCanvas(1, 1);
   private glow: CanvasRenderingContext2D;
   private blur = [makeCanvas(1, 1), makeCanvas(1, 1), makeCanvas(1, 1)];
   private W = 1;
@@ -178,6 +183,7 @@ export class Stage {
       h.visible = true;
       h.ox = 0; h.oy = 0; h.attack = 0; h.dissolve = 0;
       h.fall = state.mode === 'defeated' ? -Math.PI / 2 : 0;
+      h.statuses = new Set(state.battle?.playerStatuses.map((x) => x.id) ?? []);
     } else {
       this.hero = null;
       this.heroKey = '';
@@ -195,7 +201,7 @@ export class Stage {
     if (battle) {
       battle.hostiles.forEach((inst, i) => {
         const a = this.hostiles[i];
-        if (a) { a.visible = inst.hp > 0; a.ox = 0; a.oy = 0; a.attack = 0; a.dissolve = 0; }
+        if (a) { a.visible = inst.hp > 0; a.ox = 0; a.oy = 0; a.attack = 0; a.dissolve = 0; a.statuses = new Set(inst.statuses.map((x) => x.id)); }
       });
       this.targetIdx = battle.target;
     }
@@ -246,6 +252,7 @@ export class Stage {
       // The officer first, then the hostiles in lineup order: each one to the right is drawn over the one
       // to its left (a boss stands in the middle, see bossInMiddle in src/core/flow.ts).
       actors.forEach((a, i) => this.drawActor(a, a === this.hero, i));
+      for (const a of actors) this.lasting(a);
       this.targetArrow();
       this.fx.draw(ctx, glow, dt);
     });
@@ -271,8 +278,36 @@ export class Stage {
       this.ctx.restore();
       return;
     }
+    if (a.statuses.has('evasive')) {
+      // Holo-decoy: a cyan, scanlined copy flickering a step behind.
+      const src = a.painter.canvas, h = this.holo;
+      h.width = src.width; h.height = src.height;
+      const g = h.getContext('2d')!;
+      g.drawImage(src, 0, 0);
+      g.globalCompositeOperation = 'source-atop';
+      g.fillStyle = '#6ee8ff';
+      g.fillRect(0, 0, h.width, h.height);
+      g.globalCompositeOperation = 'destination-out';
+      for (let row = Math.floor(this.time * 20) % 3; row < h.height; row += 3) g.fillRect(0, row, h.width, 1);
+      g.globalCompositeOperation = 'source-over';
+      const hx = x - (isHero ? 10 : -10) + Math.round(Math.sin(this.time * 2) * 2);
+      this.ctx.globalAlpha = 0.45 + Math.sin(this.time * 9) * 0.1;
+      this.ctx.drawImage(h, hx, y);
+      this.ctx.globalAlpha = 1;
+      this.glow.globalAlpha = 0.35;
+      this.glow.drawImage(h, hx, y);
+      this.glow.globalAlpha = 1;
+    }
     this.ctx.drawImage(a.painter.canvas, x, y);
     this.glow.drawImage(a.painter.glowCanvas, x, y);
+  }
+
+  /** Lasting ability effects: a shield dome while shielded, a target mark on a painted hostile. */
+  private lasting(a: Actor) {
+    if (a.dissolve > 0.5 || a.fall) return;
+    const height = a.figure.height * a.figure.scale;
+    if (a.statuses.has('shield')) dome(this.ctx, this.glow, this.center(a), height, 2, [120, 200, 255], this.time);
+    if (a.statuses.has('marked')) reticle(this.ctx, this.glow, this.center(a), 9 + Math.sin(this.time * 3), [255, 60, 50], this.time);
   }
 
   private shadow(a: Actor) {
@@ -388,6 +423,22 @@ export class Stage {
     return { from, to: [tx, from[1] + Math.tan(m[2]) * (tx - from[0])] };
   }
 
+  /** Where an actor's weapon is: the muzzle of a gun, else just in front of the body. */
+  private hand(a: Actor): [number, number] {
+    const m = a.figure.muzzle?.(this.time), s = a.figure.scale;
+    if (m) return [a.x + a.ox + m[0] * s, a.y + a.oy + (m[1] - a.figure.hover) * s];
+    const [cx, cy] = this.center(a);
+    return [cx + (a === this.hero ? 12 : -12), cy - 4];
+  }
+
+  /** The middle of the living hostiles (where a grenade lands). */
+  private groupCenter(): [number, number] {
+    const alive = this.hostiles.filter((h) => h.visible);
+    if (!alive.length) return [this.W * 0.7, this.H * 0.6];
+    const pts = alive.map((h) => this.center(h));
+    return [pts.reduce((n, p) => n + p[0], 0) / pts.length, pts.reduce((n, p) => n + p[1], 0) / pts.length];
+  }
+
   private head(a: Actor | null, extra = 4): [number, number] {
     if (!a) return [0, 0];
     const s = a.figure.scale;
@@ -413,19 +464,23 @@ export class Stage {
 
   async animate(events: GameEvent[], before: GameState, after: GameState): Promise<void> {
     if (before.mode !== 'title') this.sync({ ...before });
-    let pendingAbility: string | null = null;
+    // The player's ability being played: its strikes are the attack events that carry its name.
+    let cast: { id: string; name: string; strikes: number } | null = null;
     let prev: GameEvent | null = null;
     for (const e of events) {
       const followUp = e.type === 'attack' && prev?.type === 'attack' && prev.actor === e.actor && prev.foe === e.foe && prev.name === e.name;
-      await this.play(e, before, after, pendingAbility, followUp);
+      if (e.type === 'abilityUsed') cast = e.actor === 'player' ? { id: e.abilityId, name: e.name, strikes: 0 } : null;
+      else if (e.type === 'attack' && (e.actor !== 'player' || e.name !== cast?.name)) cast = null;
+      await this.play(e, before, after, cast, followUp);
+      if (e.type === 'attack' && cast) cast.strikes++;
       prev = e;
-      pendingAbility = e.type === 'abilityUsed' && e.actor === 'player' ? e.abilityId : e.type === 'attack' ? null : pendingAbility;
     }
     this.tweens.flush();
     this.sync(after);
   }
 
-  private async play(e: GameEvent, before: GameState, after: GameState, pendingAbility: string | null, followUp: boolean) {
+  private async play(e: GameEvent, before: GameState, after: GameState, cast: { id: string; strikes: number } | null, followUp: boolean) {
+    const pendingAbility = cast?.id ?? null;
     switch (e.type) {
       case 'battleStart': {
         this.sync(after);
@@ -466,7 +521,13 @@ export class Stage {
         const shot = this.shot(attacker, target);
         const from = shot?.from ?? [cx + 12 * dir, cy - 4];
         const impact = style === 'melee' ? this.center(target) : shot?.to ?? this.center(target);
-        if (followUp) {
+        const travel = cast ? ABILITY_LOOKS[cast.id]?.travel : undefined;
+        if (travel && style !== 'melee' && (!followUp || travel === 'pulses')) {
+          // The ability's own way of striking (see ability-fx.ts).
+          void this.tweens.run(0.3, (t) => { attacker.attack = t >= 1 ? 0 : t; });
+          if (travel === 'orbital' || travel === 'heavy') this.shake = 4;
+          await playTravel(this.fx, travel, col, from, impact, cast!.strikes === 0, this.groupCenter());
+        } else if (followUp) {
           if (style !== 'melee') await this.fx.bolt(from, impact, col, 0.07);
         } else if (style === 'orb') {
           void this.tweens.run(0.45, (t) => { attacker.attack = t >= 1 ? 0 : t; });
@@ -507,7 +568,14 @@ export class Stage {
         const dmg = ability.effects.find((x) => x.type === 'damage');
         const el = dmg?.type === 'damage' ? resolveElement(after.player!, dmg.element) : 'photon';
         this.fx.popText(...this.head(a, 10), ability.name, 'pop-ability');
-        await this.fx.ring(a.x, a.y, elementColor(el));
+        const look = e.actor === 'player' ? ABILITY_LOOKS[ability.id] : undefined;
+        if (look?.cast) {
+          const target = this.hostiles[this.targetIdx];
+          const hand = this.hand(a);
+          await playCast(this.fx, look.cast, elementColor(el), this.center(a), hand, target ? this.center(target) : hand, a.figure.height * a.figure.scale);
+        } else {
+          await this.fx.ring(a.x, a.y, elementColor(el));
+        }
         return;
       }
       case 'heal': {
@@ -519,9 +587,14 @@ export class Stage {
         await this.tweens.wait(0.35);
         return;
       }
+      case 'statusExpired': {
+        this.actorFor(e.target, e.foe)?.statuses.delete(e.status);
+        return;
+      }
       case 'statusApplied': {
         const a = this.actorFor(e.target, e.foe);
         if (!a) return;
+        a.statuses.add(e.status);
         this.fx.popText(...this.head(a, 10), `${STATUS_ICONS[e.status]} ${e.status}`, 'pop-status');
         await this.fx.ring(a.x, a.y, glowOf(STATUS_COLORS[e.status]), 16, 0.4);
         return;
@@ -603,5 +676,5 @@ export class Stage {
 }
 
 function makeActor(figure: Figure): Actor {
-  return { figure, painter: new Painter(1, 1), x: 0, y: 0, ox: 0, oy: 0, attack: 0, flash: 0, dissolve: 0, fall: 0, visible: true };
+  return { figure, painter: new Painter(1, 1), x: 0, y: 0, ox: 0, oy: 0, attack: 0, flash: 0, dissolve: 0, fall: 0, visible: true, statuses: new Set() };
 }

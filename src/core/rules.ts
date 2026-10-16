@@ -6,7 +6,7 @@
  */
 import { aliveIndices, isAlive } from './combat';
 import { checkDrill, drillRoster } from './drill';
-import { MISSION_ORDER, QUARTERMASTER_STOCK, getMission, getItem, getHostile, getAbility } from './data';
+import { ABILITIES, MISSION_ORDER, QUARTERMASTER_STOCK, SCRIPTORIUM, getMission, getItem, getHostile, getAbility } from './data';
 import { checkStart, countItem, derive, knownAbilities } from './player';
 import { STATS } from './types';
 import type { Action, GameState, Player } from './types';
@@ -80,6 +80,14 @@ export function checkAction(state: GameState, action: Action): string | null {
       if (!outOfBattle) return 'Train aboard the ship or between fights';
       if (!STATS.includes(action.stat)) return 'Unknown stat';
       return player.statPoints > 0 ? null : 'No stat points';
+    case 'learnAbility': {
+      if (mode !== 'ship') return 'The Scriptorium is aboard the ship';
+      const ability = ABILITIES[action.abilityId];
+      if (!ability?.shop) return 'Not taught here';
+      if (knownAbilities(player).some((a) => a.id === ability.id)) return 'Already known';
+      if (player.level < ability.shop.level) return `Requires level ${ability.shop.level}`;
+      return player.credits >= ability.shop.price ? null : 'Not enough credits';
+    }
     case 'startMission':
       if (mode !== 'ship') return 'Missions launch from the ship';
       if (!MISSION_ORDER.includes(action.missionId)) return 'Unknown mission';
@@ -140,6 +148,7 @@ export function legalActions(state: GameState): Action[] {
       candidates.push({ type: 'sell', itemId }, { type: 'equip', itemId }, { type: 'useItem', itemId });
     }
     for (const stat of STATS) candidates.push({ type: 'allocateStat', stat });
+    for (const a of SCRIPTORIUM) candidates.push({ type: 'learnAbility', abilityId: a.id });
     for (const missionId of MISSION_ORDER) candidates.push({ type: 'startMission', missionId: missionId });
     // Drills take any lineup; list one per world (its boss) rather than every combination.
     for (const world of drillRoster()) candidates.push({ type: 'startDrill', hostileIds: [world.hostileIds.at(-1)!] });

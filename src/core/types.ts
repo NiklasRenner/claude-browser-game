@@ -120,8 +120,10 @@ export type AbilityEffect =
 export interface AbilityDef {
   id: string;
   name: string;
-  /** The level every officer learns it at; without one it isn't learnable yet (kept for the ability shop to come). */
+  /** The level every officer learns it at (for free). */
   level?: number;
+  /** Or: taught in the Scriptorium from this level, for this many credits. */
+  shop?: { level: number; price: number };
   energy: number;
   effects: AbilityEffect[];
   description: string;
@@ -229,6 +231,8 @@ export interface Player {
   energy: number;
   stats: Stats;
   statPoints: number;
+  /** Abilities bought in the Scriptorium (in the order learned). */
+  learned: string[];
   weapon: string;
   armor: string;
   /** Item id → count. Equipped items are also listed here (count ≥ 1). */
@@ -298,6 +302,8 @@ export type Action =
   | { type: 'sell'; itemId: string }
   | { type: 'equip'; itemId: string }
   | { type: 'allocateStat'; stat: Stat }
+  /** Buy an ability in the Scriptorium (on the ship). */
+  | { type: 'learnAbility'; abilityId: string }
   | { type: 'startMission'; missionId: string }
   /** Random run: unlocked world, random lineups scaled to the player's level, then a boss. */
   | { type: 'startPatrol' }

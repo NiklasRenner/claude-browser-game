@@ -4,7 +4,7 @@
  * balance probe (`npm run sim`).
  */
 import { aliveIndices, averageEffectDamage, hitChance, hostileDamageTaken, playerHitChance, resolveElement, strikeProfile } from './combat';
-import { MISSION_ORDER, ITEMS, getMission, getHostile } from './data';
+import { MISSION_ORDER, ITEMS, getAbility, getMission, getHostile } from './data';
 import { initialState, step } from './game';
 import { missionEncounters } from './flow';
 import { checkAction, legalActions } from './rules';
@@ -53,6 +53,12 @@ function armorScore(a: ArmorDef): number {
   return a.block * 3 + a.hp + Object.values(a.resist).reduce((s, v) => s + v, 0) * 0.3;
 }
 
+/** The order the bot learns Scriptorium abilities in (when it can). */
+const ABILITY_PRIORITY = [
+  'plasma_burst', 'personal_shield', 'ion_storm', 'exploit_weakness', 'field_repair', 'cryo_grenade',
+  'deflector_field', 'photon_pulse', 'overload', 'suppressive_fire', 'orbital_strike',
+];
+
 /** How the bot spends stat points (repeating). */
 const STAT_PRIORITY = ['pow', 'end', 'spd', 'pow', 'int', 'end'] as const;
 
@@ -93,6 +99,12 @@ function shipAction(state: GameState, p: Player): Action {
   const bestArmor = armors.filter((a) => countItem(p, a.id) > 0 && p.level >= a.level)
     .sort((a, b) => armorScore(b) - armorScore(a))[0];
   if (bestArmor && bestArmor.id !== p.armor) return { type: 'equip', itemId: bestArmor.id };
+
+  // 3b. Learn an ability in the Scriptorium, when it costs at most half the purse (gear comes first).
+  for (const id of ABILITY_PRIORITY) {
+    const a = { type: 'learnAbility', abilityId: id } as const;
+    if (ok(state, a) && getAbility(id).shop!.price <= p.credits / 2) return a;
+  }
 
   // 4. Stock up on potions.
   const potion = p.level >= 8 ? 'trauma_kit' : 'medkit';

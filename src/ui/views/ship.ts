@@ -1,7 +1,7 @@
-/** The ship: Mission Board, Quartermaster, Locker, Personnel File and Sickbay tabs. */
+/** The ship: Mission Board, Quartermaster, Scriptorium, Locker, Personnel File and Sickbay tabs. */
 import {
   MAX_HOSTILES, MISSION_ORDER, ELEMENTS, PATROL_CONTACTS, PLAYER_EVASION_CAP, QUARTERMASTER_STOCK, STATS, STAT_INFO, countItem, derive, getMission,
-  drillHostile, drillRoster, drillWorld, getHostile, getItem, hostileLevel, isMissionUnlocked, isEquipped, knownAbilities, patrolReward, patrolWorlds, treatmentCost, sellPrice,
+  drillHostile, drillRoster, drillWorld, getHostile, getItem, hostileLevel, isMissionUnlocked, isEquipped, knownAbilities, patrolReward, SCRIPTORIUM, patrolWorlds, treatmentCost, sellPrice,
 } from '../../core';
 import type { GameState, ItemDef, Player } from '../../core';
 import { ELEMENT_ICONS } from '../../game/elements';
@@ -9,16 +9,17 @@ import { esc } from '../html';
 import type { BtnFn } from '../html';
 import { abilityTags, itemStats, speedText, statEffect, weaponHitText } from '../widgets';
 
-export type ShipTab = 'missions' | 'quartermaster' | 'locker' | 'personnel' | 'sickbay';
+export type ShipTab = 'missions' | 'quartermaster' | 'scriptorium' | 'locker' | 'personnel' | 'sickbay';
 
 /** `drill`: the hostiles picked for a combat drill, one id per slot ('' = empty slot). */
 export function shipView(s: GameState, btn: BtnFn, tab: ShipTab, drill: string[]) {
-  const tabs: [ShipTab, string][] = [['missions', 'Mission Board'], ['quartermaster', 'Quartermaster'], ['locker', 'Locker'], ['personnel', 'Personnel File'], ['sickbay', 'Sickbay']];
+  const tabs: [ShipTab, string][] = [['missions', 'Missions'], ['quartermaster', 'Quartermaster'], ['scriptorium', 'Scriptorium'], ['locker', 'Locker'], ['personnel', 'Personnel'], ['sickbay', 'Sickbay']];
   const p = s.player!;
   let body = '';
   switch (tab) {
     case 'missions': body = missionBoard(s, btn) + drillPanel(btn, drill); break;
     case 'quartermaster': body = quartermaster(p, btn); break;
+    case 'scriptorium': body = scriptorium(p, btn); break;
     case 'locker': body = locker(p, btn); break;
     case 'personnel': body = personnel(p, btn); break;
     case 'sickbay': body = sickbay(p, btn); break;
@@ -90,6 +91,22 @@ function quartermaster(p: Player, btn: BtnFn) {
     return `<h3>${title}</h3><div class="list">${rows}</div>`;
   };
   return section('weapon', 'Weapons') + section('armor', 'Armor & suits') + section('consumable', 'Medical & supplies');
+}
+
+/** Techniques kept in the ship's archive, taught for credits once you're ready for them. */
+function scriptorium(p: Player, btn: BtnFn) {
+  const known = new Set(knownAbilities(p).map((a) => a.id));
+  const rows = SCRIPTORIUM.map((a) => {
+    const shop = a.shop!;
+    const action = known.has(a.id) ? '<span class="badge good">Learned</span>' : btn({ type: 'learnAbility', abilityId: a.id }, `◈ ${shop.price}`, 'buy');
+    return `<div class="row ${shop.level > p.level ? 'locked' : ''}">
+      <div class="row-main"><strong>${a.name}</strong> <span class="energy-cost">${a.energy} EN</span>${abilityTags(p, a, null)}
+        <div class="muted small">${a.description} · Lv ${shop.level}</div></div>
+      ${action}
+    </div>`;
+  }).join('');
+  return `<p class="muted small">The archivists keep every technique the Meridian's officers have survived long enough to write down.
+    Learned ones join your abilities for good.</p><div class="list">${rows}</div>`;
 }
 
 function locker(p: Player, btn: BtnFn) {

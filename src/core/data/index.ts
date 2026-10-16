@@ -40,6 +40,10 @@ export function getConsumable(id: string): ConsumableDef {
 /** The boss's level in a story mission: its `bossLevel`, or recommended level + 1. */
 export const bossLevel = (mission: MissionDef): number => mission.bossLevel ?? mission.minLevel + 1;
 
+/** Abilities taught in the Scriptorium, by level then price. */
+export const SCRIPTORIUM: AbilityDef[] = Object.values(ABILITIES).filter((a) => a.shop)
+  .sort((a, b) => a.shop!.level - b.shop!.level || a.shop!.price - b.shop!.price);
+
 /** Abilities an officer knows at a given level, in learning order. */
 export function abilitiesFor(level: number): AbilityDef[] {
   return Object.values(ABILITIES).filter((s) => s.level !== undefined && s.level <= level).sort((a, b) => a.level! - b.level!);
@@ -64,6 +68,10 @@ export function validateContent(): string[] {
     if (item.kind === 'weapon' && item.proc) elementEffect(item.id, item.element, item.proc.status);
   }
   if (!Object.values(ABILITIES).some((s) => s.level === 1)) problems.push('no level-1 ability');
+  for (const a of Object.values(ABILITIES)) {
+    if (a.level !== undefined && a.shop) problems.push(`${a.id}: learned by level and sold`);
+    if (a.shop && !(a.shop.level >= 1 && a.shop.price > 0)) problems.push(`${a.id}: bad shop entry`);
+  }
   for (const ability of Object.values(ABILITIES)) {
     if (ability.energy <= 0) problems.push(`${ability.id}: energy must be positive`);
     for (const e of ability.effects) if (e.type !== 'status') range(ability.id, e.dice);

@@ -133,6 +133,23 @@ export class Effects {
     return this.tweens.run(seconds, (t) => { k = t; if (t >= 1) this.live.delete(draw); }, (t) => t);
   }
 
+  /**
+   * A custom effect: `paint(k, ctx, glow)` every frame for `seconds`, k going 0 → 1 (eased).
+   * For effects built elsewhere (ability visuals, see ability-fx.ts).
+   */
+  run(seconds: number, paint: (k: number, ctx: CanvasRenderingContext2D, glow: CanvasRenderingContext2D) => void, ease: (t: number) => number = (t) => t): Promise<void> {
+    let k = 0;
+    const draw: Drawable = (ctx, glow) => paint(k, ctx, glow);
+    this.live.add(draw);
+    return this.tweens.run(seconds, (t) => { k = t; if (t >= 1) this.live.delete(draw); }, ease);
+  }
+
+  /** One particle (see burst for the units). */
+  spark(x: number, y: number, vx: number, vy: number, col: RGB, life = 0.4, gravity = 0) {
+    if (this.tweens.speed === 0) return;
+    this.particles.push({ x, y, vx, vy, g: gravity, life, age: 0, col, glow: true });
+  }
+
   draw(ctx: CanvasRenderingContext2D, glow: CanvasRenderingContext2D, dt: number) {
     for (const d of this.live) d(ctx, glow);
     for (let i = this.particles.length - 1; i >= 0; i--) {

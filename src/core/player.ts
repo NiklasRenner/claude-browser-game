@@ -1,7 +1,7 @@
-import { getArmor, getWeapon, abilitiesFor } from './data';
+import { getAbility, getArmor, getWeapon, abilitiesFor } from './data';
 import { ELEMENTS, STATS } from './types';
 import {
-  PLAYER_EVASION_CAP, baseStats, damageMultiplier, enduranceHp, intellectEnergy, luckCrit, speedBonus,
+  PLAYER_EVASION_CAP, baseStats, damageMultiplier, enduranceHp, maxEnergyFor, luckCrit, speedBonus,
 } from './stats';
 import type { Element, GameEvent, Player, Resistances, AbilityDef, Stat, Stats } from './types';
 
@@ -33,7 +33,7 @@ export function derive(player: Player): DerivedStats {
   const { pow, spd, int, end, luk } = player.stats;
   return {
     maxHp: 40 + player.level * 12 + enduranceHp(end) + armor.hp,
-    maxEnergy: 15 + player.level * 4 + intellectEnergy(int) + armor.energy,
+    maxEnergy: maxEnergyFor(player.level, int) + armor.energy,
     evasion: Math.min(PLAYER_EVASION_CAP, armor.block),
     critChance: 5 + luckCrit(luk) + weapon.crit,
     damage: damageMultiplier(pow),
@@ -82,6 +82,7 @@ export function createPlayer(name: string, start: Partial<Stats> = defaultStart(
     energy: 1,
     stats,
     statPoints: 0,
+    learned: [],
     weapon: START_WEAPON,
     armor: START_ARMOR,
     inventory: { [START_WEAPON]: 1, [START_ARMOR]: 1, medkit: 2 },
@@ -130,8 +131,9 @@ export function allocateStat(player: Player, stat: Stat): void {
   player.energy += after.maxEnergy - before.maxEnergy;
 }
 
+/** Abilities learned by level, then the ones bought in the Scriptorium (in the order bought). */
 export function knownAbilities(player: Player): AbilityDef[] {
-  return abilitiesFor(player.level);
+  return [...abilitiesFor(player.level), ...player.learned.map(getAbility)];
 }
 
 export function countItem(player: Player, itemId: string): number {

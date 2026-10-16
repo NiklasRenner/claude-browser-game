@@ -72,16 +72,20 @@ try {
 
   // Visit each ship tab; the header and tab bar must stay fully visible even when the list is long.
   const squashed = [];
-  for (const tab of ['quartermaster', 'locker', 'personnel', 'sickbay', 'missions']) {
+  for (const tab of ['quartermaster', 'scriptorium', 'locker', 'personnel', 'sickbay', 'missions']) {
     await page.click(`[data-ui="tab:${tab}"]`);
     const ok = await page.evaluate(() => {
       const tabs = document.querySelector('.tabs');
       const header = document.querySelector('.ship-header');
-      return tabs.clientHeight >= 30 && tabs.scrollHeight <= tabs.clientHeight && header.getBoundingClientRect().top >= 0;
+      return tabs.clientHeight >= 30 && tabs.scrollHeight <= tabs.clientHeight && tabs.scrollWidth <= tabs.clientWidth + 1 && header.getBoundingClientRect().top >= 0;
     });
     if (!ok) squashed.push(tab);
   }
   check(squashed.length === 0, `ship tab bar stays visible on every tab${squashed.length ? ` (broken on: ${squashed.join(', ')})` : ''}`);
+
+  await page.click('[data-ui="tab:scriptorium"]');
+  check(await page.locator('[data-action*="learnAbility"]').count() >= 10, 'the Scriptorium lists abilities to learn');
+  await page.screenshot({ path: `${OUT}/02b-scriptorium.png` });
 
   // Acting inside a scrolled list (buying from the bottom of the stock) must not jump back to the top.
   await page.click('[data-ui="tab:quartermaster"]');

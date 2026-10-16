@@ -3,7 +3,7 @@
  * Loading validates every id against the content tables, so a corrupt or
  * outdated save is rejected instead of crashing the game later.
  */
-import { MISSIONS, ITEMS, HOSTILES } from './data';
+import { ABILITIES, MISSIONS, ITEMS, HOSTILES } from './data';
 import { SAVE_VERSION } from './game';
 import { checkDrill } from './drill';
 import { clampVitals } from './player';
@@ -26,6 +26,8 @@ export type LoadResult = { ok: true; state: GameState } | { ok: false; error: st
 const MIGRATIONS: Record<number, (state: any) => void> = {
   // 1 → 2: divisions (classes) are gone; every officer learns the same abilities by level.
   1: (state) => { if (state.player) delete state.player.divisionId; },
+  // 2 → 3: abilities can be bought in the Scriptorium.
+  2: (state) => { if (state.player) state.player.learned = []; },
 };
 
 export function deserialize(text: string): LoadResult {
@@ -61,6 +63,7 @@ function validateState(s: any): string | null {
     if (!isInt(p.level, 1) || !isInt(p.xp) || !isInt(p.credits) || !isInt(p.statPoints)) return 'bad player numbers';
     if (!isInt(p.hp) || !isInt(p.energy)) return 'bad vitals';
     if (!STATS.every((k) => isInt(p.stats?.[k]))) return 'bad stats';
+    if (!Array.isArray(p.learned) || !p.learned.every((id: string) => ABILITIES[id]?.shop) || new Set(p.learned).size !== p.learned.length) return 'bad learned abilities';
     if (typeof p.inventory !== 'object' || p.inventory === null) return 'bad inventory';
     for (const [id, n] of Object.entries(p.inventory)) if (!(id in ITEMS) || !isInt(n, 1)) return `bad item ${id}`;
     if (ITEMS[p.weapon]?.kind !== 'weapon' || !p.inventory[p.weapon]) return 'bad weapon';

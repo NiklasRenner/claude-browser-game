@@ -60,7 +60,10 @@ const TURN_LENGTH = 100;
 /** Endurance: HP per point. */
 const END_PER_POINT = 6;
 /** Intellect: max energy per point. */
-const INT_PER_POINT = 4;
+const INT_PER_POINT = 5;
+/** Max energy everyone has, and what each level adds (kept low, so Intellect is what buys more casts). */
+const BASE_ENERGY = 15;
+const ENERGY_PER_LEVEL = 2;
 /** Luck: crit% = CRIT_MAX · luk / (luk + CRIT_K). */
 const CRIT_MAX = 100;
 const CRIT_K = 35;
@@ -78,6 +81,8 @@ export const speedBonus = (spd: number) => {
 export const turnDelay = (speed: number) => (TURN_LENGTH * 100) / Math.max(1, speed);
 export const enduranceHp = (end: number) => end * END_PER_POINT;
 export const intellectEnergy = (int: number) => int * INT_PER_POINT;
+/** Max energy before armor: base, level and Intellect. */
+export const maxEnergyFor = (level: number, int: number) => BASE_ENERGY + level * ENERGY_PER_LEVEL + intellectEnergy(int);
 export const luckCrit = (luk: number) => (CRIT_MAX * Math.max(0, luk)) / (Math.max(0, luk) + CRIT_K);
 /** Share of max energy recovered after each won fight on a mission or patrol. */
 export const ENERGY_RECOVERY = 0.15;
