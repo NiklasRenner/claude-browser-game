@@ -164,6 +164,62 @@ def dehalo(rgba: np.ndarray) -> np.ndarray:
     return a
 
 
+def lock_head(rig, rigs_py, name, order, frames, shift):
+    """Every frame gets the same head: the one from the first animation's base sprite.
+
+    Each PixelLab frame redraws the face, so hair, glasses and features drift between frames and
+    between animations. The head barely turns in side view, so it can be cut once and pasted back:
+    find where each frame's head is (near where the skeleton puts it, then the best colour match),
+    clear that frame's head and draw the canonical one there. Arms raised over the head are kept."""
+    file, j = rigs_py.base_of(rig, order[0][0])
+    base = np.array(Image.open(ROOT / 'art' / 'pixellab' / name / file).convert('RGBA'))
+    bx0, bx1 = int(j['NECK'][0]) - 9, int(j['NOSE'][0]) + 4
+    by1 = int(j['NECK'][1])
+    rows = np.nonzero(base[:by1, bx0:bx1, 3] > 127)[0]
+    by0 = rows.min()
+    head = base[by0:by1, bx0:bx1].copy()
+    mask = head[:, :, 3] > 127
+    hh, hw = mask.shape
+    sx, sy = shift[order[0][0]]
+    for k, (anim, i) in enumerate(order):
+        f = frames[k]
+        _, bj = rigs_py.base_of(rig, anim)
+        pj = rigs_py.anim_joints(rig, anim)[i]
+        dx, dy = shift[anim]
+        # Where the skeleton puts this frame's nose, relative to the canonical head's nose.
+        px = pj['NOSE'][0] + dx - (j['NOSE'][0] + sx)
+        py = pj['NOSE'][1] + dy - (j['NOSE'][1] + sy)
+        best = None
+        for oy in range(round(py) - 3, round(py) + 4):
+            for ox in range(round(px) - 3, round(px) + 4):
+                y, x = by0 + sy + oy, bx0 + sx + ox
+                region = f[y:y + hh, x:x + hw]
+                if region.shape[:2] != mask.shape:
+                    continue
+                solid = region[:, :, 3] > 0
+                diff = np.abs(region[:, :, :3].astype(int) - head[:, :, :3]).sum(axis=2)
+                score = np.where(mask & solid, diff, 0).sum() + (mask & ~solid).sum() * 300 + (~mask & solid)[:-3].sum() * 100
+                if best is None or score < best[0]:
+                    best = (score, x, y)
+        _, x, y = best
+        # Keep arm pixels that cross the head (a fist raised overhead).
+        keep = np.zeros(f.shape[:2], bool)
+        for side in ('RIGHT', 'LEFT'):
+            pts = [pj[f'{side} {part}'] for part in ('SHOULDER', 'ELBOW', 'ARM')]
+            for (ax_, ay_), (bx_, by_) in zip(pts, pts[1:]):
+                if min(ay_, by_) + dy >= by1 + sy - 2:
+                    continue
+                for t in np.linspace(0, 1, 24):
+                    cx, cy = int(round(ax_ + (bx_ - ax_) * t + dx)), int(round(ay_ + (by_ - ay_) * t + dy))
+                    keep[max(0, cy - 3):cy + 4, max(0, cx - 3):cx + 4] = True
+        clear = np.zeros(f.shape[:2], bool)
+        clear[y - 1:y + hh - 3, x - 1:x + hw + 1] = True
+        f[clear & ~keep] = 0
+        region = f[y:y + hh, x:x + hw]
+        paste = mask & ~keep[y:y + hh, x:x + hw]
+        region[paste] = head[paste]
+
+
 def write_rigged(name: str, hues, rigs: dict) -> tuple:
     """A rigged sheet: frames art/pixellab/<name>/<animation>-<i>.png, one shared crop."""
     import rig as rigs_py
@@ -191,6 +247,7 @@ def write_rigged(name: str, hues, rigs: dict) -> tuple:
             keep = np.zeros(n, bool)
             keep[1:] = stats[1:, 4] >= stats[1:, 4].max() * 0.02
             f[~keep[lab]] = 0
+    lock_head(rig, rigs_py, name, order, frames, shift)
     solid = np.any(np.stack([f[:, :, 3] > 0 for f in frames]), axis=0)
     ys, xs = np.nonzero(solid)
     x0, y0, x1, y1 = max(0, xs.min() - 1), max(0, ys.min() - 1), xs.max() + 2, ys.max() + 1
@@ -213,14 +270,16 @@ def write_rigged(name: str, hues, rigs: dict) -> tuple:
         # The skeleton says where the fist should be; the drawn fist can land a few pixels off (an arm
         # foreshortened in the base looks short in the pose). Take the arm's tip as drawn: the solid
         # pixel furthest along the forearm, near where the skeleton put the wrist.
-        (ex, ey), (wx, wy) = rigs_py.forearm(rig, *fr, side)
+        (sx, sy), (ex, ey), (wx, wy) = rigs_py.arm(rig, *fr, side)
         _, _, angle = rigs_py.hand(rig, *fr, side)
         dx, dy = shift[fr[0]]
-        ex, ey, wx, wy = ex + dx, ey + dy, wx + dx, wy + dy
+        sx, sy, ex, ey, wx, wy = sx + dx, sy + dy, ex + dx, ey + dy, wx + dx, wy + dy
         n = np.hypot(wx - ex, wy - ey) or 1
         ux, uy = (wx - ex) / n, (wy - ey) / n
+        reach = np.hypot(ex - sx, ey - sy) + n
         ys, xs = np.nonzero(frames[k][:, :, 3])
-        near = (xs - wx) ** 2 + (ys - wy) ** 2 <= 12 ** 2
+        # Near the posed wrist, and out at the end of the arm (not the chest or belt behind it).
+        near = ((xs - wx) ** 2 + (ys - wy) ** 2 <= 12 ** 2) & (np.hypot(xs - sx, ys - sy) >= reach * 0.7)
         if near.any():
             proj = (xs[near] - ex) * ux + (ys[near] - ey) * uy
             tip = np.argmax(proj)
@@ -234,6 +293,68 @@ def write_rigged(name: str, hues, rigs: dict) -> tuple:
     rigs[name] = (anims, weapon_hand, rel('LEFT'))
     print(f'{name}: {len(frames)} rigged frames of {fw}×{fh}')
     return (name, len(frames), fw, fh, ax)
+
+
+# Weapons (art/pixellab/weapons/<id>.png, PixelLab "1-direction object", side view pointing right).
+# Optional: source scale (the long ones were drawn at double size), the kind (decides where the grip is
+# found) or the grip itself where finding it goes wrong.
+WEAPONS = {
+    'sidearm_mk1': {}, 'sonic_emitter': {}, 'gauss_pistol': {}, 'flechette_pistol': {}, 'plasma_pistol': {},
+    'corrosive_needler': {}, 'cryo_carbine': {}, 'mass_driver': {}, 'photon_rifle': {}, 'plasma_cannon': {},
+    'stasis_projector': {}, 'pulse_repeater': {}, 'nova_rifle': {'scale': 2, 'grip': (12, 6)},
+    'ion_lance': {'scale': 2, 'kind': 'pole'}, 'singularity_edge': {'scale': 2, 'kind': 'sword'}, 'mag_wrench': {'kind': 'tool'},
+}
+
+
+def weapon_anchors(a: np.ndarray, kind: str) -> tuple:
+    """Grip (where the hand holds it) and muzzle (where shots leave) of a weapon pointing right."""
+    solid = a[:, :, 3] > 0
+    h, w = solid.shape
+    counts = solid.sum(axis=1)
+    if kind == 'gun':
+        # The barrel: the fullest row in the top half; the muzzle: its right end.
+        barrel = int(np.argmax(counts[: max(2, h * 3 // 5)]))
+        rows = solid[max(0, barrel - 1):barrel + 2]
+        muzzle = (int(np.nonzero(rows.any(axis=0))[0].max()), barrel)
+        # The handle: what hangs below the body, in the left part; held just under the body.
+        below = solid.copy()
+        below[: barrel + max(2, (h - barrel) // 3)] = False
+        below[:, int(w * 0.65):] = False
+        ys, xs = np.nonzero(below)
+        gx = int(np.median(xs)) if len(xs) else w // 3
+        return (gx, min(h - 1, barrel + max(2, (h - barrel) // 3))), muzzle
+    mid = int(np.median(np.nonzero(solid)[0]))
+    if kind == 'sword':
+        # The guard is the tallest column in the left third; the hand sits just behind it.
+        cols = solid.sum(axis=0)
+        guard = int(np.argmax(cols[: w // 3]))
+        return (max(0, guard - 4), mid), (w - 1, mid)
+    # Pole arms and tools: held about a quarter along.
+    return (int(w * (0.3 if kind == 'pole' else 0.2)), mid), (w - 1, mid)
+
+
+def write_weapons(meta: list) -> list:
+    """One strip of equal cells (top-left aligned), glow mask below; returns the anchors."""
+    items = []
+    for wid, opt in WEAPONS.items():
+        a = np.array(Image.open(ROOT / 'art' / 'pixellab' / 'weapons' / f'{wid}.png').convert('RGBA'))
+        a[:, :, 3] = np.where(a[:, :, 3] > 127, 255, 0)
+        if opt.get('scale', 1) > 1:
+            a = shrink(a, opt['scale'])
+        a = trim(a)
+        grip, muzzle = weapon_anchors(a, opt.get('kind', 'gun'))
+        items.append((wid, a, (opt.get('grip', grip), muzzle)))
+    cw, ch = max(a.shape[1] for _, a, _ in items), max(a.shape[0] for _, a, _ in items)
+    sheet = np.zeros((ch * 2, cw * len(items), 4), np.uint8)
+    for k, (_, a, _) in enumerate(items):
+        sheet[:a.shape[0], k * cw:k * cw + a.shape[1]] = a
+        hsv = cv2.cvtColor(np.ascontiguousarray(a[:, :, :3]), cv2.COLOR_RGB2HSV).astype(int)
+        glow = (hsv[:, :, 1] > 110) & (hsv[:, :, 2] > 190) & (a[:, :, 3] > 0)
+        sheet[ch:ch + a.shape[0], k * cw:k * cw + a.shape[1]][glow] = [255, 255, 255, 255]
+    Image.fromarray(sheet).save(OUT / 'weapons.png')
+    meta.append(('weapons', len(items), cw, ch, 0))
+    print(f'weapons: {len(items)} of {cw}×{ch}')
+    return [(wid, k, grip, muzzle) for k, (wid, _, (grip, muzzle)) in enumerate(items)]
 
 
 def main():
@@ -268,6 +389,7 @@ def main():
     rigs = {}
     for name, hues in RIGGED:
         meta.append(write_rigged(name, hues, rigs))
+    weapons = write_weapons(meta)
     pts = lambda h: '[' + ', '.join(f'[{x}, {y}, {t}]' for x, y, t in h) + ']'
     lines = [
         '// Generated by scripts/sprites.py — do not edit by hand.',
@@ -286,6 +408,11 @@ def main():
         'export const RIGS = {',
         *[f"  {n}: {{ anims: {{ {', '.join(f'{a}: [{s}, {l}, {c}]' for a, (s, l, c) in an.items())} }}, hands: {pts(h)}, front: {pts(f)} }}," for n, (an, h, f) in rigs.items()],
         '} as const;',
+        '',
+        '/** Weapon sprites: frame in the `weapons` sheet, the grip (where the hand holds it) and the muzzle, in the frame\'s pixels. */',
+        'export const WEAPONS: Record<string, { frame: number; grip: readonly [number, number]; muzzle: readonly [number, number] }> = {',
+        *[f"  {wid}: {{ frame: {k}, grip: [{g[0]}, {g[1]}], muzzle: [{m[0]}, {m[1]}] }}," for wid, k, g, m in weapons],
+        '};',
         '',
     ]
     TS.write_text('\n'.join(lines))

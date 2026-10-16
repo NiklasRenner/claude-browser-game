@@ -161,11 +161,8 @@ export class Painter {
    * A ready-made bitmap (a sprite frame) with its top-left at local (x, y),
    * scaled by the transform with nearest-neighbour sampling. Pixels set in
    * `glow` are emissive. It is one part, so it gets the outline, rim light,
-   * flash and dissolve like painted figures.
-   */
-  /**
-   * `clip` = [cx, cy, r] in image pixels: only that disc is drawn (e.g. a fist
-   * re-drawn over the weapon it holds).
+   * flash and dissolve like painted figures. `clip` = [cx, cy, r] in image
+   * pixels: only that disc is drawn (e.g. a fist re-drawn over the weapon it holds).
    */
   image(img: { w: number; h: number; rgba: Uint8ClampedArray; glow: Uint8Array }, x: number, y: number, clip?: readonly [number, number, number]) {
     this.nextPart({ noLine: true });
@@ -178,6 +175,31 @@ export class Painter {
         if (img.rgba[k * 4 + 3]! < 128) continue;
         if (clip && (sx - clip[0]) ** 2 + (sy - clip[1]) ** 2 > clip[2] ** 2) continue;
         this.put(X0 + i, Y0 + j, [img.rgba[k * 4]!, img.rgba[k * 4 + 1]!, img.rgba[k * 4 + 2]!], img.glow[k] === 1);
+      }
+    }
+  }
+
+  /**
+   * A bitmap turned by `angle` (radians) about its pixel (px, py), which lands
+   * on local (x, y): a held weapon. Nearest-neighbour, so it stays pixel art.
+   * `sub` = [sx, sy, w, h]: the part of the bitmap to draw (one cell of a sheet).
+   */
+  rotated(img: { w: number; rgba: Uint8ClampedArray; glow: Uint8Array }, sub: readonly [number, number, number, number],
+    px: number, py: number, x: number, y: number, angle: number) {
+    this.nextPart({ noLine: true });
+    const [sx0, sy0, w, h] = sub;
+    const c = Math.cos(angle), sn = Math.sin(angle), s = this.s;
+    const X0 = this.X(x), Y0 = this.Y(y);
+    const r = Math.ceil(Math.hypot(Math.max(px, w - px), Math.max(py, h - py)) * s) + 1;
+    for (let j = -r; j <= r; j++) {
+      for (let i = -r; i <= r; i++) {
+        // Screen offset → bitmap pixel (inverse rotation).
+        const dx = (i + 0.5) / s, dy = (j + 0.5) / s;
+        const u = Math.floor(px + c * dx + sn * dy), v = Math.floor(py - sn * dx + c * dy);
+        if (u < 0 || v < 0 || u >= w || v >= h) continue;
+        const k = (sy0 + v) * img.w + sx0 + u;
+        if (img.rgba[k * 4 + 3]! < 128) continue;
+        this.put(Math.floor(X0) + i, Math.floor(Y0) + j, [img.rgba[k * 4]!, img.rgba[k * 4 + 1]!, img.rgba[k * 4 + 2]!], img.glow[k] === 1);
       }
     }
   }

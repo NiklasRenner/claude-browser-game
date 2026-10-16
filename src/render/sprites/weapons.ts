@@ -9,6 +9,8 @@ import type { Painter } from '../pixel/painter';
 import { R, glowOf } from '../pixel/palette';
 import type { RGB } from '../pixel/palette';
 import { along } from './figure';
+import { WEAPONS } from './sheet-data';
+import { framesOf } from './sheets';
 
 export type WeaponShape = 'pistol' | 'needler' | 'flechette' | 'rifle' | 'driver' | 'repeater' | 'cannon' | 'emitter' | 'wrench' | 'lance' | 'blade';
 
@@ -42,6 +44,15 @@ function energy(weaponId: string): RGB {
  * it (lengths only) for bigger figures.
  */
 export function drawWeapon(p: Painter, weaponId: string, hx: number, hy: number, angle: number, t: number, charge: number, size = 1) {
+  const sprite = WEAPONS[weaponId], frames = framesOf('weapons');
+  if (sprite && frames) {
+    // A PixelLab weapon sprite: turned about its grip; the muzzle flares while firing.
+    const f = frames[sprite.frame]!;
+    const [gx, gy] = sprite.grip;
+    p.rotated(f, [0, 0, f.w, f.h], gx, gy, hx, hy, angle);
+    if (charge > 0.2 && charge < 0.7) p.glow(...along(hx, hy, angle)(sprite.muzzle[0] - gx + 1, sprite.muzzle[1] - gy), glowOf(ELEMENT_COLORS[getWeapon(weaponId).element]));
+    return;
+  }
   const shape = weaponShape(weaponId);
   const base = along(hx, hy, angle);
   const at = (u: number, v = 0) => base(u * size, v * size);

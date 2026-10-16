@@ -119,10 +119,10 @@ def frames(rig: dict) -> list:
     return [(a, i) for a in rig['animations'] for i in range(len(TEMPLATES[a]['poses']))]
 
 
-def forearm(rig: dict, anim: str, i: int, side: str) -> tuple:
-    """(elbow, wrist) of an arm in a frame, as posed (canvas pixels)."""
+def arm(rig: dict, anim: str, i: int, side: str) -> tuple:
+    """(shoulder, elbow, wrist) of an arm in a frame, as posed (canvas pixels)."""
     p = anim_joints(rig, anim)[i]
-    return p[f'{side} ELBOW'], p[f'{side} ARM']
+    return p[f'{side} SHOULDER'], p[f'{side} ELBOW'], p[f'{side} ARM']
 
 
 def hand(rig: dict, anim: str, i: int, side: str = 'RIGHT') -> tuple:

@@ -4,6 +4,7 @@ export const SHEETS = {
   brood_minions: { file: 'sprites/brood_minions.png', frames: 4, w: 79, h: 52, ax: 44 },
   plague_matriarch: { file: 'sprites/plague_matriarch.png', frames: 13, w: 80, h: 108, ax: 41 },
   officer: { file: 'sprites/officer.png', frames: 14, w: 57, h: 79, ax: 24 },
+  weapons: { file: 'sprites/weapons.png', frames: 16, w: 46, h: 24, ax: 0 },
 } as const;
 
 export type SheetId = keyof typeof SHEETS;
@@ -16,3 +17,23 @@ export type SheetId = keyof typeof SHEETS;
 export const RIGS = {
   officer: { anims: { aim: [0, 4, 6], swing: [6, 4, 8] }, hands: [[24.7, -59.3, -0.08], [24.7, -58.1, -0.08], [24.8, -56.7, -0.08], [24.7, -58.1, -0.08], [22.2, -67.0, -0.47], [24.6, -62.2, -0.22], [23.6, -40.8, -1.05], [22.7, -40.0, -1.05], [22.7, -39.1, -1.05], [22.7, -40.0, -1.05], [2.1, -76.0, -2.79], [24.1, -68.2, -1.22], [26.7, -48.7, 0.44], [23.7, -32.2, 0.96]], front: [[26.0, -57.5, -0.35], [26.0, -56.3, -0.35], [26.2, -54.9, -0.35], [26.0, -56.3, -0.35], [22.9, -65.5, -0.73], [25.5, -60.7, -0.49], [23.6, -40.8, -1.05], [22.7, -40.0, -1.05], [22.7, -39.1, -1.05], [22.7, -40.0, -1.05], [2.1, -76.0, -2.79], [24.1, -68.2, -1.22], [26.7, -48.7, 0.44], [23.7, -32.2, 0.96]] },
 } as const;
+
+/** Weapon sprites: frame in the `weapons` sheet, the grip (where the hand holds it) and the muzzle, in the frame's pixels. */
+export const WEAPONS: Record<string, { frame: number; grip: readonly [number, number]; muzzle: readonly [number, number] }> = {
+  sidearm_mk1: { frame: 0, grip: [4, 6], muzzle: [19, 2] },
+  sonic_emitter: { frame: 1, grip: [5, 9], muzzle: [20, 5] },
+  gauss_pistol: { frame: 2, grip: [4, 6], muzzle: [21, 2] },
+  flechette_pistol: { frame: 3, grip: [4, 6], muzzle: [18, 2] },
+  plasma_pistol: { frame: 4, grip: [4, 6], muzzle: [20, 2] },
+  corrosive_needler: { frame: 5, grip: [4, 7], muzzle: [21, 4] },
+  cryo_carbine: { frame: 6, grip: [18, 11], muzzle: [40, 5] },
+  mass_driver: { frame: 7, grip: [12, 8], muzzle: [43, 4] },
+  photon_rifle: { frame: 8, grip: [12, 7], muzzle: [43, 4] },
+  plasma_cannon: { frame: 9, grip: [16, 12], muzzle: [44, 7] },
+  stasis_projector: { frame: 10, grip: [13, 10], muzzle: [44, 6] },
+  pulse_repeater: { frame: 11, grip: [19, 9], muzzle: [43, 4] },
+  nova_rifle: { frame: 12, grip: [12, 6], muzzle: [37, 3] },
+  ion_lance: { frame: 13, grip: [13, 2], muzzle: [45, 2] },
+  singularity_edge: { frame: 14, grip: [6, 4], muzzle: [44, 4] },
+  mag_wrench: { frame: 15, grip: [8, 8], muzzle: [43, 8] },
+};
