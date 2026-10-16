@@ -164,10 +164,11 @@ export function heroFigure(divisionId: DivisionId, weaponId: string, armorId: st
       if (frames) drawSprite(p, frames, pose, weaponId);
       else draw(p, pose);
     },
-    muzzle: (pose) => {
+    // The shot leaves the barrel as it is aimed, just before the kick.
+    muzzle: (t) => {
       if (melee || !framesOf('officer')) return null;
-      const { hx, hy, angle } = held(pose, weaponId);
-      return muzzleOf(weaponId, hx, hy, angle, 1.4);
+      const { hx, hy, angle } = held({ t, attack: 0 }, weaponId);
+      return [...muzzleOf(weaponId, hx, hy, angle, 1.4), angle];
     },
   };
 }

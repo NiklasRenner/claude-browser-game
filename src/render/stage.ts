@@ -335,12 +335,17 @@ export class Stage {
     return [a.x + a.ox + (a.figure.right - a.figure.left) * s * 0.15, a.y - (a.figure.height * 0.5 + a.figure.hover) * s];
   }
 
-  /** The figure's muzzle on screen, at the first frame of an attack (null: it has none). */
-  private muzzle(a: Actor): [number, number] | null {
-    const m = a.figure.muzzle?.({ t: this.time, attack: 0.01 });
+  /**
+   * A gun's shot at a target: from the muzzle, straight along the barrel to where it crosses the target's
+   * middle (it can pass over or under a small one). Null for figures without a gun.
+   */
+  private shot(a: Actor, target: Actor): { from: [number, number]; to: [number, number] } | null {
+    const m = a.figure.muzzle?.(this.time);
     if (!m) return null;
     const s = a.figure.scale * this.zoom;
-    return [a.x + a.ox + m[0] * s, a.y + a.oy + (m[1] - a.figure.hover) * s];
+    const from: [number, number] = [a.x + a.ox + m[0] * s, a.y + a.oy + (m[1] - a.figure.hover) * s];
+    const tx = this.center(target)[0];
+    return { from, to: [tx, from[1] + Math.tan(m[2]) * (tx - from[0])] };
   }
 
   private head(a: Actor | null, extra = 4): [number, number] {
@@ -417,16 +422,18 @@ export class Stage {
         const col = elementColor(e.element);
         const style = this.attackStyle(e.actor, e.element, pendingAbility, after);
         const [cx, cy] = this.center(attacker);
-        // Shots leave the gun's muzzle as it is when the attack starts; otherwise the front of the body.
-        const from: [number, number] = this.muzzle(attacker) ?? [cx + 12 * dir, cy - 4];
+        // Gun shots fly straight out of the muzzle; anything else from the front of the body to the target.
+        const shot = this.shot(attacker, target);
+        const from = shot?.from ?? [cx + 12 * dir, cy - 4];
+        const impact = style === 'melee' ? this.center(target) : shot?.to ?? this.center(target);
         if (followUp) {
-          if (style !== 'melee') await this.fx.bolt(from, this.center(target), col, 0.07);
+          if (style !== 'melee') await this.fx.bolt(from, impact, col, 0.07);
         } else if (style === 'orb') {
           void this.tweens.run(0.45, (t) => { attacker.attack = t >= 1 ? 0 : t; });
-          await this.fx.projectile(from, this.center(target), col);
+          await this.fx.projectile(from, impact, col, 0.35, shot ? 0 : 12);
         } else if (style === 'bolt') {
           void this.tweens.run(0.18, (t) => { attacker.attack = t >= 1 ? 0 : t; });
-          await this.fx.bolt(from, this.center(target), col);
+          await this.fx.bolt(from, impact, col);
         } else {
           const gap = ((target.figure.left + attacker.figure.right) * 0.45) * this.zoom;
           const dist = Math.max(0, Math.abs(target.x - attacker.x) - gap - 10) * dir;
@@ -437,7 +444,7 @@ export class Stage {
         if (e.hit) {
           this.flash(target);
           this.shake = e.crit ? 5 : 2;
-          this.fx.burst(...this.center(target), col, e.crit ? 30 : 14, e.crit ? 70 : 45, 0.45);
+          this.fx.burst(...impact, col, e.crit ? 30 : 14, e.crit ? 70 : 45, 0.45);
           this.fx.popText(...this.head(target), `${e.damage}${e.crit ? '!' : ''}`,
             `${e.actor === 'player' ? 'pop-dmg' : 'pop-hurt'}${e.crit ? ' pop-crit' : ''} el-${e.element}`);
           void this.tweens.run(0.2, (t) => { target.ox = Math.sin(t * Math.PI) * 4 * dir; });

@@ -56,11 +56,11 @@ export class Effects {
     }
   }
 
-  /** A glowing orb that arcs from one point to another, trailing sparks. */
-  projectile(from: [number, number], to: [number, number], col: RGB, seconds = 0.35): Promise<void> {
+  /** A glowing orb that flies from one point to another (arcing `arc` pixels high), trailing sparks. */
+  projectile(from: [number, number], to: [number, number], col: RGB, seconds = 0.35, arc = 12): Promise<void> {
     let k = 0;
     const draw: Drawable = (ctx, glow) => {
-      const x = from[0] + (to[0] - from[0]) * k, y = from[1] + (to[1] - from[1]) * k - Math.sin(k * Math.PI) * 12;
+      const x = from[0] + (to[0] - from[0]) * k, y = from[1] + (to[1] - from[1]) * k - Math.sin(k * Math.PI) * arc;
       for (let yy = -2; yy <= 2; yy++) {
         for (let xx = -2; xx <= 2; xx++) {
           const d = Math.hypot(xx, yy);

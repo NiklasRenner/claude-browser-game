@@ -24,8 +24,8 @@ export interface Figure {
   /** Extra room on every side for things that stick out past the body, like a swung weapon (local units). */
   reach?: number;
   draw(p: Painter, pose: Pose): void;
-  /** Where its shots leave (a gun's muzzle), local units, in this pose; null = from the body. */
-  muzzle?(pose: Pose): [number, number] | null;
+  /** Where its shots leave (a gun's muzzle, local units) and their direction (radians) when it fires; null = from the body. */
+  muzzle?(t: number): [number, number, number] | null;
 }
 
 /** A point along a direction: `u` forward, `v` to the side. */

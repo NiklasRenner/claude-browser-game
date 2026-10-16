@@ -58,8 +58,9 @@ TEMPLATES = {
     # Ranged: aiming stance breathing, then a shot (kick up and back, settle). Long guns sit in the near
     # hand (the front hand steadies the barrel), sidearms in the front hand.
     # Both hands stay on the gun: in the idle loop the body breathes and the gun bobs only a little; the
-    # shot kicks the gun up and back, then it settles.
-    'aim': {'base': 'aim', 'loop': 4, 'hand': 'RIGHT', 'poses': [G(b, (b[0] * 0.3, b[1] * 0.3)) for b in BREATHE] + [
+    # shot kicks the gun up and back, then it settles. `drop`: the gun is carried this many degrees lower than
+    # the forearms point (the base sprite aims a little high; shots fly straight out of the barrel).
+    'aim': {'base': 'aim', 'loop': 4, 'hand': 'RIGHT', 'drop': 13, 'poses': [G(b, (b[0] * 0.3, b[1] * 0.3)) for b in BREATHE] + [
         G((-2, 0), (-4, -2), -12), G((-1, 0), (-2, -1), -5)]},
     # Melee: ready stance breathing, then cocked behind the head, over the top, coming down, the strike,
     # follow-through, low finish. The weapon is in the front (far) hand here: that's the arm that swings.
@@ -178,7 +179,8 @@ def hand(rig: dict, anim: str, i: int, side: str = 'RIGHT') -> tuple:
     x, y = wx + math.cos(fore) * 2, wy + math.sin(fore) * 2  # the fist sits just past the wrist
     if 'grip' in pose:  # on a gun: the base forearm's line, turned with the gun
         _, j = base_of(rig, anim)
-        return x, y, math.atan2(j[f'{side} ARM'][1] - j[f'{side} ELBOW'][1], j[f'{side} ARM'][0] - j[f'{side} ELBOW'][0]) + math.radians(pose['grip'][1])
+        fore = math.atan2(j[f'{side} ARM'][1] - j[f'{side} ELBOW'][1], j[f'{side} ARM'][0] - j[f'{side} ELBOW'][0])
+        return x, y, fore + math.radians(pose['grip'][1] + TEMPLATES[anim].get('drop', 0))
     return x, y, math.radians(pose['weapon']) if pose['weapon'] is not None else fore
 
 
