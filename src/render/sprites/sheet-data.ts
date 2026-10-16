@@ -3,7 +3,7 @@
 export const SHEETS = {
   brood_minions: { file: 'sprites/brood_minions.png', frames: 4, w: 79, h: 52, ax: 44 },
   plague_matriarch: { file: 'sprites/plague_matriarch.png', frames: 13, w: 80, h: 108, ax: 41 },
-  officer: { file: 'sprites/officer.png', frames: 14, w: 61, h: 103, ax: 22 },
+  officer: { file: 'sprites/officer.png', frames: 14, w: 60, h: 103, ax: 22 },
 } as const;
 
 export type SheetId = keyof typeof SHEETS;

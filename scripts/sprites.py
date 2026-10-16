@@ -146,6 +146,24 @@ def write_strip(name: str, sprites: list[np.ndarray], hues) -> tuple:
     return (name, len(sprites), fw, fh, ax)
 
 
+def dehalo(rgba: np.ndarray) -> np.ndarray:
+    """Removes the faint light fringe that skeleton animation leaves around moved limbs (pixels outside
+    the black outline), and loose light specks. A fringe pixel: light, touching transparency and the outline."""
+    a = rgba.copy()
+    for _ in range(2):
+        solid = a[:, :, 3] > 0
+        lum = a[:, :, :3].astype(int).mean(axis=2)
+        pad = lambda m, v: np.pad(m, 1, constant_values=v)
+        S, L = pad(solid, False), pad(lum, 0)
+        shifts = [(0, 1), (1, 0), (0, -1), (-1, 0)]
+        nb = lambda M, dy, dx: M[1 + dy:M.shape[0] - 1 + dy, 1 + dx:M.shape[1] - 1 + dx]
+        out = sum((~nb(S, dy, dx)).astype(int) for dy, dx in shifts)
+        dark = sum((nb(S, dy, dx) & (nb(L, dy, dx) < 40)).astype(int) for dy, dx in shifts)
+        kill = solid & (lum >= 70) & (((out >= 1) & (dark >= 1)) | (out >= 3))
+        a[kill] = 0
+    return a
+
+
 def write_rigged(name: str, hues, rigs: dict) -> tuple:
     """A rigged sheet: frames art/pixellab/<name>/<animation>-<i>.png, one shared crop."""
     import rig as rigs_py
@@ -154,6 +172,7 @@ def write_rigged(name: str, hues, rigs: dict) -> tuple:
     frames = [np.array(Image.open(ROOT / 'art' / 'pixellab' / name / f'{a}-{i}.png').convert('RGBA')) for a, i in order]
     for f in frames:
         f[:, :, 3] = np.where(f[:, :, 3] > 127, 255, 0)
+        f[:] = dehalo(f)
         # Drop stray specks (generation noise) not attached to the figure.
         n, lab, stats, _ = cv2.connectedComponentsWithStats((f[:, :, 3] > 0).astype(np.uint8))
         if n > 2:
