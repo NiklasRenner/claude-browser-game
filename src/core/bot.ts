@@ -3,8 +3,10 @@
  * so it doubles as an integration test of the whole game loop and as a
  * balance probe (`npm run sim`).
  */
-import { aliveIndices, averageEffectDamage, hitChance, hostileDamageTaken, playerHitChance, resolveElement, strikeProfile } from './combat';
-import { MISSION_ORDER, ITEMS, STATUSES, getAbility, getMission, getHostile } from './data';
+import {
+  aliveIndices, averageEffectDamage, averageWeaponDamage, hitChance, hostileDamageTaken, playerHitChance, resolveElement, strikeProfile,
+} from './combat';
+import { MISSION_ORDER, ITEMS, STATUSES, getAbility, getArmor, getItem, getMission, getHostile, getWeapon } from './data';
 import { initialState, step } from './game';
 import { missionEncounters } from './flow';
 import { checkAction, legalActions } from './rules';
@@ -14,7 +16,13 @@ import type { Action, ArmorDef, GameState, HostileDef, Player, StatusEffect, Wea
 
 const ok = (s: GameState, a: Action) => checkAction(s, a) === null;
 
-export function chooseAction(state: GameState): Action {
+/** The bot's next action; with `patrols`, it launches patrols instead of story missions. */
+export function chooseAction(state: GameState, { patrols = false } = {}): Action {
+  const a = chooseNext(state);
+  return patrols && a.type === 'startMission' ? { type: 'startPatrol' } : a;
+}
+
+function chooseNext(state: GameState): Action {
   const actions = legalActions(state);
   if (actions.length === 0) throw new Error(`No legal actions in mode ${state.mode}`);
   const p = state.player;
@@ -59,6 +67,10 @@ const ABILITY_PRIORITY = [
   'deflector_field', 'photon_pulse', 'overload', 'suppressive_fire', 'orbital_strike',
 ];
 
+// Content ids the bot names: fail at load (in every test) if one is renamed.
+for (const id of ['medkit', 'trauma_kit', 'nano_restorer']) getItem(id);
+for (const id of ABILITY_PRIORITY) getAbility(id);
+
 /** How the bot spends stat points (repeating). */
 const STAT_PRIORITY = ['pow', 'end', 'spd', 'pow', 'int', 'end'] as const;
 
@@ -84,7 +96,7 @@ function shipAction(state: GameState, p: Player): Action {
   if (buyWeapon) return { type: 'buy', itemId: buyWeapon.id };
 
   const armors = Object.values(ITEMS).filter((i): i is ArmorDef => i.kind === 'armor');
-  const currentArmor = ITEMS[p.armor] as ArmorDef;
+  const currentArmor = getArmor(p.armor);
   const buyArmor = armors
     .filter((a) => ok(state, { type: 'buy', itemId: a.id }) && p.credits - a.price >= potionReserve)
     .filter((a) => armorScore(a) > armorScore(currentArmor) * 1.2)
@@ -177,7 +189,7 @@ function battleAction(state: GameState, p: Player): Action {
   // Wrong tool for this hostile (e.g. plasma against a magma creature)? Swap to a much better owned weapon.
   if (target.hp > d.maxHp * 0.5) {
     const owned = Object.values(ITEMS).filter((i): i is WeaponDef => i.kind === 'weapon' && countItem(p, i.id) > 0);
-    const current = weaponScore(p, ITEMS[p.weapon] as WeaponDef, [hostile]);
+    const current = weaponScore(p, getWeapon(p.weapon), [hostile]);
     const better = owned.filter((w) => w.id !== p.weapon && weaponScore(p, w, [hostile]) > current * 1.6)
       .sort((x, y) => weaponScore(p, y, [hostile]) - weaponScore(p, x, [hostile]))[0];
     if (better && ok(state, { type: 'equip', itemId: better.id })) return { type: 'equip', itemId: better.id };
@@ -185,10 +197,9 @@ function battleAction(state: GameState, p: Player): Action {
 
   // Otherwise pick the highest expected damage option.
   let best: Action = { type: 'attack' };
-  const weapon = ITEMS[p.weapon] as WeaponDef;
+  const weapon = getWeapon(p.weapon);
   const weaponHit = playerHitChance(p, battle, battle.target) / 100;
-  let bestScore = averageEffectDamage(p, { type: 'damage', element: 'weapon', dice: [0, 0], useWeapon: true })
-    * (weapon.hits ?? 1) * (hostileDamageTaken(hostile, weapon.element) / 100) * weaponHit;
+  let bestScore = averageWeaponDamage(p) * (weapon.hits ?? 1) * (hostileDamageTaken(hostile, weapon.element) / 100) * weaponHit;
 
   // Keep enough MP for an emergency heal unless the hostile is almost dead.
   const attackScore = bestScore;

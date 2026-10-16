@@ -3,6 +3,7 @@
  * world they come from. A simulation for practice and testing: no rewards, no
  * losses, and HP and energy are restored when it ends (win, lose or beam out).
  */
+import { freshHostile } from './combat';
 import { MISSION_ORDER, bossLevel, getHostile, getMission } from './data';
 import { MAX_HOSTILES } from './types';
 import type { Hostile } from './types';
@@ -37,8 +38,5 @@ export function checkDrill(hostileIds: unknown): string | null {
 
 /** A hostile as it fights in a drill: its own stats; a boss at the level it has in its story mission. */
 export function drillHostile(defId: string): Hostile {
-  const def = getHostile(defId);
-  const hostile: Hostile = { defId, hp: def.hp, maxHp: def.hp, statuses: [] };
-  if (def.boss) hostile.level = bossLevel(getMission(drillWorld(defId)!));
-  return hostile;
+  return freshHostile(defId, getHostile(defId).boss ? bossLevel(getMission(drillWorld(defId)!)) : undefined);
 }

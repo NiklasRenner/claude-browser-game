@@ -2,8 +2,11 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { MAX_LOADOUT, getHostile, initialState, knownAbilities, step } from '../src/core';
+import { ABILITIES, HOSTILES, ITEMS, MAX_LOADOUT, MISSIONS, freshHostile, getHostile, getMission, initialState, knownAbilities, newRun, step } from '../src/core';
 import type { Action, GameState, StepResult } from '../src/core';
+
+// Content is fixed: any code (or test) writing to a content table throws.
+for (const table of [ABILITIES, HOSTILES, ITEMS, MISSIONS]) deepFreeze(table);
 
 /** Starts a new game in ship. */
 export function newGame(seed = 1): GameState {
@@ -34,14 +37,28 @@ export function actAll(state: GameState, actions: Action[]): GameState {
   return actions.reduce((s, a) => act(s, a).state, state);
 }
 
-/** Puts the player straight into a fight with `hostileId` (inside a run in the first mission). */
-export function inBattle(state: GameState, hostileId: string): GameState {
+/**
+ * Puts the player straight into a fight with these hostiles (in this order, at their own level), on a
+ * story run of `missionId`; a lineup with a boss is that run's boss fight.
+ */
+export function inBattle(state: GameState, hostileIds: string | string[], missionId = 'veridia'): GameState {
   const s = structuredClone(state);
-  const def = getHostile(hostileId);
+  const ids = typeof hostileIds === 'string' ? [hostileIds] : hostileIds;
   s.mode = 'battle';
-  s.mission = { missionId: 'veridia', cleared: def.boss ? 3 : 0, earnedXp: 0, earnedCredits: 0 };
-  s.battle = { hostiles: [{ defId: hostileId, hp: def.hp, maxHp: def.hp, statuses: [] }], target: 0, playerStatuses: [], round: 1 };
+  s.mission = newRun(missionId);
+  if (ids.some((id) => getHostile(id).boss)) s.mission = { ...s.mission, cleared: getMission(missionId).encounters };
+  s.battle = { hostiles: ids.map((id) => freshHostile(id)), target: 0, playerStatuses: [], round: 1 };
   return s;
+}
+
+/** Repeats `action` (default: attack) until the battle is over (at most `max` times); returns the last step. */
+export function fightOut(state: GameState, action: Action = { type: 'attack' }, max = 500): StepResult {
+  let r = act(state, action);
+  for (let i = 1; r.state.mode === 'battle'; i++) {
+    assert.ok(i < max, `the battle didn't end in ${max} turns`);
+    r = act(r.state, action);
+  }
+  return r;
 }
 
 /**

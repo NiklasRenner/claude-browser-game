@@ -9,6 +9,7 @@
  */
 import { MISSION_ORDER, getMission, getHostile } from './data';
 import type { Rng } from './rng';
+import { isMissionUnlocked } from './rules';
 import type { GameState, Hostile } from './types';
 
 export const PATROL_CONTACTS = 4;
@@ -55,10 +56,7 @@ export function scaledHostile(defId: string, level: number, packSize: number): H
 
 /** Worlds the player may patrol: any mission that is unlocked. */
 export function patrolWorlds(state: GameState): string[] {
-  return MISSION_ORDER.filter((id) => {
-    const mission = getMission(id);
-    return !mission.requires || state.clearedMissions.includes(mission.requires);
-  });
+  return MISSION_ORDER.filter((id) => isMissionUnlocked(state, id));
 }
 
 /** Lineup for a regular patrol contact. */

@@ -1,6 +1,6 @@
 import { MAX_HOSTILES } from '../types';
 import type { Element, StatusId, MissionDef, ArmorDef, ConsumableDef, ItemDef, HostileDef, AbilityDef, WeaponDef } from '../types';
-import { MISSIONS, MISSION_ORDER } from './missions';
+import { FINAL_MISSION, MISSIONS, MISSION_ORDER } from './missions';
 import { ITEMS, QUARTERMASTER_STOCK } from './items';
 import { HOSTILES } from './hostiles';
 import { ABILITIES } from './abilities';
@@ -79,6 +79,7 @@ export function validateContent(): string[] {
   for (const ability of Object.values(ABILITIES)) {
     if (ability.energy <= 0) problems.push(`${ability.id}: energy must be positive`);
     for (const e of ability.effects) if (e.type !== 'status') range(ability.id, e.dice);
+    for (const e of ability.effects) if (e.type === 'damage' && !e.useWeapon && !(e.dice[1] > 0)) problems.push(`${ability.id}: damage without dice`);
     // An element effect riding on an ability must belong to that ability's (fixed) damage type.
     const dmg = ability.effects.find((e) => e.type === 'damage');
     for (const e of ability.effects) {
@@ -98,6 +99,7 @@ export function validateContent(): string[] {
   for (const id of MISSION_ORDER) {
     const mission = MISSIONS[id]!;
     for (const mid of [...mission.hostiles, mission.boss]) if (!HOSTILES[mid]) problems.push(`${id}: unknown hostile ${mid}`);
+    for (const mid of mission.hostiles) if (HOSTILES[mid]?.boss) problems.push(`${id}: boss ${mid} in the regular pool`);
     if (!HOSTILES[mission.boss]?.boss) problems.push(`${id}: boss ${mission.boss} is not flagged boss`);
     if (mission.requires && !MISSIONS[mission.requires]) problems.push(`${id}: unknown requirement ${mission.requires}`);
     for (const group of mission.groups ?? []) {
@@ -111,6 +113,7 @@ export function validateContent(): string[] {
     if (adds.length > MAX_HOSTILES - 1) problems.push(`${id}: too many boss adds`);
     for (const mid of adds) if (!HOSTILES[mid] || HOSTILES[mid]!.boss) problems.push(`${id}: bad boss add ${mid}`);
   }
+  if (!MISSIONS[FINAL_MISSION]?.finale) problems.push(`final mission ${FINAL_MISSION} needs a finale`);
   for (const id of QUARTERMASTER_STOCK) if (!ITEMS[id]) problems.push(`shop: unknown item ${id}`);
   for (const [id, rule] of Object.entries(STATUSES)) {
     if (rule.dot && ELEMENT_EFFECTS[rule.dot] !== id) problems.push(`status ${id}: deals ${rule.dot} damage, but that isn't ${rule.dot}'s effect`);

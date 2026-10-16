@@ -6,9 +6,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-  HOSTILES, MISSION_ORDER, ITEMS, Rng, STATS, deserialize, derive, initialState, legalActions, serialize, ABILITIES, step,
+  HOSTILES, MAX_LOADOUT, MISSION_ORDER, ITEMS, Rng, STATS, deserialize, derive, initialState, knownAbilities, legalActions,
+  missionEncounters, serialize, ABILITIES, step,
 } from '../src/core';
-import type { Action, GameState } from '../src/core';
+import type { Action, GameState, StatusEffect } from '../src/core';
+import { deepFreeze } from './helpers';
 
 function checkInvariants(s: GameState, ctx: string): void {
   const fail = (msg: string) => assert.fail(`${msg} (${ctx})`);
@@ -26,6 +28,12 @@ function checkInvariants(s: GameState, ctx: string): void {
   if (p.hp === 0 && s.mode !== 'defeated') fail('dead but not defeated');
   if (!(p.inventory[p.weapon]! >= 1) || !(p.inventory[p.armor]! >= 1)) fail('equipped item not owned');
   for (const [id, n] of Object.entries(p.inventory)) if (!(n >= 1) || !ITEMS[id]) fail(`bad inventory ${id}=${n}`);
+  const known = new Set(knownAbilities(p).map((a) => a.id));
+  if (p.loadout.length > MAX_LOADOUT || new Set(p.loadout).size !== p.loadout.length || !p.loadout.every((id) => known.has(id))) {
+    fail(`bad loadout ${p.loadout}`);
+  }
+  if (s.mission && s.mission.cleared > missionEncounters(s.mission)) fail(`cleared ${s.mission.cleared} encounters`);
+  const unique = (list: StatusEffect[]) => new Set(list.map((st) => st.id)).size === list.length;
   if (s.battle) {
     const b = s.battle;
     if (b.hostiles.length < 1 || b.hostiles.length > 3) fail(`bad lineup size ${b.hostiles.length}`);
@@ -34,8 +42,10 @@ function checkInvariants(s: GameState, ctx: string): void {
     for (const m of b.hostiles) {
       if (!Number.isInteger(m.hp) || m.hp < 0 || m.hp > m.maxHp) fail(`bad hostile hp ${m.hp}`);
       for (const st of m.statuses) if (st.turns <= 0) fail('expired status lingering');
+      if (!unique(m.statuses)) fail('a status twice on one hostile');
     }
     for (const st of b.playerStatuses) if (st.turns <= 0) fail('expired status lingering');
+    if (!unique(b.playerStatuses)) fail('a status twice on the player');
   }
 }
 
@@ -48,6 +58,7 @@ function randomAction(s: GameState, rng: Rng): Action {
       { type: 'equip', itemId: rng.pick(Object.keys(ITEMS)) },
       { type: 'useItem', itemId: rng.pick(Object.keys(ITEMS)) },
       { type: 'useAbility', abilityId: rng.pick(Object.keys(ABILITIES)) },
+      { type: rng.pick(['slotAbility', 'unslotAbility', 'learnAbility'] as const), abilityId: rng.pick([...Object.keys(ABILITIES), 'nope']) },
       { type: 'startMission', missionId: rng.pick([...MISSION_ORDER, 'void']) },
       { type: 'startDrill', hostileIds: Array.from({ length: rng.int(0, 4) }, () => rng.pick([...Object.keys(HOSTILES), 'nope'])) },
       { type: 'allocateStat', stat: rng.pick(STATS) },
@@ -70,6 +81,8 @@ describe('fuzz', () => {
       let s = initialState(seed);
       for (let i = 0; i < 1500; i++) {
         const action = randomAction(s, rng);
+        // step() must never change its input (checked on a sample: freezing makes any write throw).
+        if (i % 7 === 0) deepFreeze(s);
         const before = s;
         const r = step(s, action);
         const err = r.events.find((e) => e.type === 'error');
@@ -80,15 +93,17 @@ describe('fuzz', () => {
     }
   });
 
-  it('every reachable state survives a save/load round trip', () => {
-    const rng = new Rng(4242);
-    let s = initialState(3);
-    for (let i = 0; i < 2000; i++) {
-      s = step(s, randomAction(s, rng)).state;
-      if (i % 50 === 0) {
-        const r = deserialize(serialize(s));
-        assert.ok(r.ok, r.ok ? '' : r.error);
-        assert.deepEqual(r.state, s);
+  it('reachable states survive a save/load round trip', () => {
+    for (const seed of [3, 4, 5]) {
+      const rng = new Rng(4242 + seed);
+      let s = initialState(seed);
+      for (let i = 0; i < 1500; i++) {
+        s = step(s, randomAction(s, rng)).state;
+        if (i % 5 === 0) {
+          const r = deserialize(serialize(s));
+          assert.ok(r.ok, r.ok ? '' : r.error);
+          assert.deepEqual(r.state, s);
+        }
       }
     }
   });

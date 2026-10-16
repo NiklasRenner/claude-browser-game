@@ -38,13 +38,6 @@ export class Layer {
     d[j + 2] = d[j + 2]! + (col[2] - d[j + 2]!) * a;
   }
 
-  /** Whether a pixel has been painted (to keep details on surfaces). */
-  has(x: number, y: number): boolean {
-    x = Math.round(x); y = Math.round(y);
-    if (x < 0 || y < 0 || x >= this.W || y >= this.H) return false;
-    return this.data.data[(y * this.W + x) * 4 + 3]! > 0;
-  }
-
   /** Writes the painted pixels to the canvases. Call once, then draw sprites on top with `ctx`. */
   commit() {
     this.img.getContext('2d')!.putImageData(this.data, 0, 0);

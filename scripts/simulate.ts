@@ -6,15 +6,33 @@
  *   npm run sim -- 100     # 100 seeds
  */
 import { MISSION_ORDER, STATS, STAT_INFO, chooseAction, derive, fullRestore, initialState, runBot, step } from '../src/core';
-import type { Action, GameState } from '../src/core';
+import type { GameState } from '../src/core';
 
 const seeds = Number(process.argv[2] ?? 20);
 const maxSteps = 30000;
 
 console.log(`Balance sim — ${seeds} seeds, max ${maxSteps} steps\n`);
-console.log('         done   avg steps  avg lvl  win%   deaths  level when each mission first cleared');
+console.log('done   avg steps  avg lvl  win%   deaths  level when each mission first cleared');
 
-for (const label of ['officer']) {
+/** A new bot officer, aboard. */
+const newBot = (seed: number) => step(initialState(seed), { type: 'newGame', name: 'Bot', seed }).state;
+
+/**
+ * Lets the bot play from `s` until the game is complete or 30000 steps have passed. Before each step
+ * `visit(s, next)` sees the state and the action about to be taken; returning false stops early.
+ */
+function play(s: GameState, visit: (s: GameState, next: ReturnType<typeof chooseAction>) => boolean | void = () => {}): GameState {
+  for (let i = 0; i < 30000; i++) {
+    const a = chooseAction(s);
+    if (visit(s, a) === false) break;
+    const r = step(s, a);
+    s = r.state;
+    if (r.events.some((e) => e.type === 'gameComplete')) break;
+  }
+  return s;
+}
+
+{
   const clearLevels: Record<string, number[]> = Object.fromEntries(MISSION_ORDER.map((a) => [a, []]));
   let done = 0, steps = 0, levels = 0, won = 0, lost = 0;
   for (let seed = 1; seed <= seeds; seed++) {
@@ -27,7 +45,7 @@ for (const label of ['officer']) {
   }
   const avg = (xs: number[]) => (xs.length ? (xs.reduce((a, b) => a + b, 0) / xs.length).toFixed(1) : '—');
   console.log(
-    `${label.padEnd(8)} ${`${done}/${seeds}`.padEnd(6)} ${String(Math.round(steps / seeds)).padStart(9)}  `
+    `${`${done}/${seeds}`.padEnd(6)} ${String(Math.round(steps / seeds)).padStart(9)}  `
     + `${(levels / seeds).toFixed(1).padStart(7)}  ${((100 * won) / (won + lost)).toFixed(1).padStart(5)}  `
     + `${(lost / seeds).toFixed(1).padStart(6)}  ${MISSION_ORDER.map((a) => `${a}:${avg(clearLevels[a]!)}`).join('  ')}`,
   );
@@ -40,18 +58,13 @@ for (const label of ['officer']) {
 const PATROL_LEVELS = [3, 6, 9, 12, 16];
 const patrolsPerSnapshot = 6;
 
-function patrolAction(s: GameState): Action {
-  const a = chooseAction(s);
-  return a.type === 'startMission' ? { type: 'startPatrol' } : a;
-}
-
 /** Runs `count` patrols from state `s`; returns stats. */
 function runPatrols(start: GameState, count: number) {
   let s = start;
   let done = 0, deaths = 0, steps = 0;
   const startLevel = s.player!.level;
   while (done + deaths < count && steps < 20000) {
-    const r = step(s, patrolAction(s));
+    const r = step(s, chooseAction(s, { patrols: true }));
     if (r.events.some((e) => e.type === 'error')) throw new Error(JSON.stringify(r.events));
     if (r.events.some((e) => e.type === 'patrolComplete')) done++;
     if (r.events.some((e) => e.type === 'defeat') && s.mission?.patrol) deaths++;
@@ -62,33 +75,28 @@ function runPatrols(start: GameState, count: number) {
 }
 
 console.log(`\nPatrols — ${patrolsPerSnapshot} per snapshot, ${Math.min(seeds, 10)} seeds`);
-console.log('         at level  patrols  deaths  death%');
-for (const label of ['officer']) {
+console.log('at level  patrols  deaths  death%');
+{
   const byLevel = new Map<number, { done: number; deaths: number }>();
   let post = { levels: 0, deaths: 0, patrols: 0 };
   for (let seed = 1; seed <= Math.min(seeds, 10); seed++) {
-    let s = step(initialState(seed), { type: 'newGame', name: 'Bot', seed }).state;
     const pending = [...PATROL_LEVELS];
-    let finished = false;
-    for (let i = 0; i < 30000 && !finished; i++) {
+    const s = play(newBot(seed), (s) => {
       if (pending.length && s.mode === 'ship' && s.player!.level >= pending[0]!) {
         const r = runPatrols(s, patrolsPerSnapshot);
         const agg = byLevel.get(pending[0]!) ?? { done: 0, deaths: 0 };
         byLevel.set(pending[0]!, { done: agg.done + r.done, deaths: agg.deaths + r.deaths });
         pending.shift();
       }
-      const r = step(s, chooseAction(s));
-      finished = r.events.some((e) => e.type === 'gameComplete');
-      s = r.state;
-    }
+    });
     const r = runPatrols(s, 40);
     post = { levels: post.levels + r.endLevel, deaths: post.deaths + r.deaths, patrols: post.patrols + r.done + r.deaths };
   }
   const rows = [...byLevel].map(([lvl, v]) =>
-    `${label.padEnd(8)} ${String(lvl).padStart(8)}  ${String(v.done + v.deaths).padStart(7)}  ${String(v.deaths).padStart(6)}  ${(100 * v.deaths / Math.max(1, v.done + v.deaths)).toFixed(0).padStart(5)}%`);
+    `${String(lvl).padStart(8)}  ${String(v.done + v.deaths).padStart(7)}  ${String(v.deaths).padStart(6)}  ${(100 * v.deaths / Math.max(1, v.done + v.deaths)).toFixed(0).padStart(5)}%`);
   console.log(rows.join('\n'));
   const n = Math.min(seeds, 10);
-  console.log(`${label.padEnd(8)} post-game (from level ~16): level ${(post.levels / n).toFixed(1)} after 40 patrols, deaths ${post.deaths}/${post.patrols} (${(100 * post.deaths / post.patrols).toFixed(0)}%)`);
+  console.log(`post-game (from level ~16): level ${(post.levels / n).toFixed(1)} after 40 patrols, deaths ${post.deaths}/${post.patrols} (${(100 * post.deaths / post.patrols).toFixed(0)}%)`);
 }
 
 // ─── Stat weights ──────────────────────────────────────────────────────────
@@ -127,12 +135,11 @@ function missionScore(start: GameState, runs: number): number {
 }
 
 console.log(`\nStat weights — % combat score per +1 point (+${BUMP} points, ${RUNS} missions each)`);
-console.log(`         level  ${STATS.map((k) => STAT_INFO[k].short.padStart(6)).join('')}`);
-for (const label of ['officer']) {
-  let s = step(initialState(11), { type: 'newGame', name: 'Bot', seed: 11 }).state;
+console.log(`level  ${STATS.map((k) => STAT_INFO[k].short.padStart(6)).join('')}`);
+{
   const pending = [...WEIGHT_LEVELS];
-  for (let i = 0; i < 30000 && pending.length; i++) {
-    const a = chooseAction(s);
+  play(newBot(11), (s, a) => {
+    if (!pending.length) return false;
     // Snapshot at the moment the bot launches a mission at/after the target level.
     if (a.type === 'startMission' && s.player!.level >= pending[0]!) {
       const level = pending.shift()!;
@@ -144,8 +151,7 @@ for (const label of ['officer']) {
         const pct = ((missionScore(v, RUNS) / base - 1) * 100) / BUMP;
         return pct.toFixed(1).padStart(6);
       });
-      console.log(`${label.padEnd(8)} ${String(level).padStart(5)}  ${cells.join('')}`);
+      console.log(`${String(level).padStart(5)}  ${cells.join('')}`);
     }
-    s = step(s, a).state;
-  }
+  });
 }

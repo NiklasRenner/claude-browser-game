@@ -3,7 +3,7 @@ export * from './types';
 export * from './data';
 export * from './game';
 export * from './rules';
-export { missionEncounters as missionEncounters } from './flow';
+export { missionEncounters, newRun } from './flow';
 export * from './player';
 export * from './combat';
 export * from './save';

@@ -2,15 +2,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-  PATROL_CONTACTS, chooseAction, describeStep, getHostile, initialState, patrolReward, scaledHostile, step,
+  PATROL_CONTACTS, chooseAction, newRun, describeStep, getHostile, initialState, patrolReward, scaledHostile, step,
 } from '../src/core';
 import type { Action, GameState } from '../src/core';
-import { act, expectGolden, newGame, sureHit } from './helpers';
+import { act, expectGolden, fightOut, newGame, sureHit } from './helpers';
 
-const patrolAction = (s: GameState): Action => {
-  const a = chooseAction(s);
-  return a.type === 'startMission' ? { type: 'startPatrol' } : a;
-};
+const patrolAction = (s: GameState): Action => chooseAction(s, { patrols: true });
 
 /** Wins every fight instantly so tests can walk through a whole patrol. */
 function winFight(s: GameState): GameState {
@@ -18,9 +15,7 @@ function winFight(s: GameState): GameState {
   t.player!.hp = 100_000;
   sureHit(t);
   for (const m of t.battle!.hostiles) m.hp = Math.min(m.hp, 1);
-  let r = act(t, { type: 'attack' });
-  while (r.state.mode === 'battle') r = act(r.state, { type: 'attack' });
-  return r.state;
+  return fightOut(t).state;
 }
 
 describe('patrols', () => {
@@ -62,8 +57,7 @@ describe('patrols', () => {
     t.player!.hp = 100_000;
     sureHit(t);
     for (const m of t.battle!.hostiles) m.hp = 1;
-    let r = act(t, { type: 'attack' });
-    while (r.state.mode === 'battle') r = act(r.state, { type: 'attack' });
+    const r = fightOut(t);
     const done = r.events.find((e) => e.type === 'patrolComplete');
     assert.ok(done && done.type === 'patrolComplete');
     assert.deepEqual({ xp: done.xp, credits: done.credits }, patrolReward(10));
@@ -92,7 +86,7 @@ describe('patrols', () => {
     s.player!.level = 20;
     s.player!.hp = 100_000;
     s.mode = 'battle';
-    s.mission = { missionId: 'veridia', patrol: { level: 20 }, cleared: 0, earnedXp: 0, earnedCredits: 0 };
+    s.mission = newRun('veridia', { patrol: { level: 20 } });
     const make = (scaled: boolean) => {
       const t = structuredClone(s);
       const base = { defId: 'fen_leech', hp: 5000, maxHp: 5000, statuses: [] };

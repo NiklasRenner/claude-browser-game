@@ -5,13 +5,11 @@
  */
 import { getConsumable, getAbility, getWeapon, getHostile, inflictedPower } from '../data';
 import { derive, removeItem } from '../player';
-import { FLEE_BASE, FLEE_MAX, FLEE_MIN, FLEE_PER_LEVEL, PLAYER_CRIT_MULT, healMultiplier } from '../stats';
+import { FLEE_BASE, FLEE_MAX, FLEE_MIN, FLEE_PER_LEVEL, HOSTILE_CRIT_MULT, PLAYER_CRIT_MULT, healMultiplier } from '../stats';
 import type { Element, GameEvent, Player, StatusEffect } from '../types';
 import { aliveIndices, applyStatus, clamp, damageHostile, isAlive, statusPower } from './battle';
 import type { Ctx } from './battle';
 import { exposure, hostileDamageTaken, hostileHitChance, mitigate, resolveElement, strikeChance, strikeProfile } from './formulas';
-
-const HOSTILE_CRIT_MULT = 1.5;
 
 // ─── Player ────────────────────────────────────────────────────────────────
 

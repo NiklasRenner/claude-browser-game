@@ -1,6 +1,5 @@
 /**
- * The five character stats. Each has exactly one job, and every class uses
- * them the same way — classes differ only in their ability kits and gear.
+ * The five character stats. Each has exactly one job:
  *
  *   Power      → all damage (weapon attacks, abilities, damage-over-time)
  *   Speed      → how often you act (diminishing: approaches +SPEED_MAX %)
@@ -69,10 +68,35 @@ const CRIT_MAX = 100;
 const CRIT_K = 35;
 /** Critical hits multiply damage by this. */
 export const PLAYER_CRIT_MULT = 2;
+/** Every officer's crit chance before Luck and weapon. */
+export const BASE_CRIT = 5;
+/** Max HP before Endurance and armor: base plus per level. */
+const BASE_HP = 40;
+const HP_PER_LEVEL = 12;
+
+// ─── Hostiles ──────────────────────────────────────────────────────────────
+
+/** A hostile's critical hit multiplies its damage by this. */
+export const HOSTILE_CRIT_MULT = 1.5;
+/** Hit chance a patrol-scaled hostile gains per level above its definition (player evasion doesn't grow with level). */
+export const HOSTILE_ACCURACY_PER_LEVEL = 0.5;
+
+// ─── Progression ───────────────────────────────────────────────────────────
+
+export const MAX_LEVEL = 30;
+export const STAT_POINTS_PER_LEVEL = 4;
+/** XP needed to go from `level` to `level + 1`. */
+export const xpToNext = (level: number) => Math.floor(30 * Math.pow(level, 1.45));
+/** Going down costs this share of your credits. */
+export const DEFEAT_CREDITS_PENALTY = 0.1;
+/** Sickbay treatment: credits per level (never more than you have). */
+export const TREATMENT_PER_LEVEL = 2;
 
 // ─── Formulas ──────────────────────────────────────────────────────────────
 
 export const damageMultiplier = (pow: number) => 1 + pow * POW_PER_POINT;
+/** Max HP before armor: base, level and Endurance. */
+export const maxHpFor = (level: number, end: number) => BASE_HP + level * HP_PER_LEVEL + enduranceHp(end);
 export const speedBonus = (spd: number) => {
   const x = Math.max(0, spd - BASE_STAT);
   return (SPEED_MAX * x) / (x + SPEED_K);

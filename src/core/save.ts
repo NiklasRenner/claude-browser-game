@@ -4,12 +4,13 @@
  * outdated save is rejected instead of crashing the game later.
  */
 import { ABILITIES, MISSIONS, ITEMS, HOSTILES } from './data';
-import { SAVE_VERSION } from './game';
 import { checkDrill } from './drill';
 import { MAX_LOADOUT, clampVitals, knownAbilities } from './player';
-import { MAX_HOSTILES, STATS } from './types';
+import { MAX_HOSTILES, MODES, STATS } from './types';
 import type { GameState } from './types';
 
+/** Bump when the shape of GameState changes, and add a MIGRATIONS entry below. */
+export const SAVE_VERSION = 4;
 const FORMAT = 'starward-save';
 
 export function serialize(state: GameState): string {
@@ -56,7 +57,7 @@ export function deserialize(text: string): LoadResult {
 const isInt = (v: unknown, min = 0) => Number.isInteger(v) && (v as number) >= min;
 
 function validateState(s: any): string | null {
-  if (!['title', 'ship', 'mission', 'battle', 'defeated'].includes(s.mode)) return 'bad mode';
+  if (!MODES.includes(s.mode)) return 'bad mode';
   if (!isInt(s.rng)) return 'bad rng';
   if (!Array.isArray(s.clearedMissions) || !s.clearedMissions.every((a: string) => a in MISSIONS)) return 'bad cleared missions';
   if (s.mode !== 'title' && !s.player) return 'missing player';

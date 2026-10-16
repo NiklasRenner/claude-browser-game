@@ -243,7 +243,7 @@ export interface Hostile {
   hp: number;
   maxHp: number;
   statuses: StatusEffect[];
-  /** Battle timeline: time of this hostile's next turn (unset = fresh battle, see combat.ts). */
+  /** Battle timeline: time of this hostile's next turn (unset = fresh battle, see combat/timeline.ts). */
   next?: number;
   /** Patrol scaling (absent in regular missions): effective level, damage and reward multipliers. */
   level?: number;
@@ -259,7 +259,7 @@ export interface BattleState {
   /** Index of the hostile the player is targeting (always a living one while the battle lasts). */
   target: number;
   playerStatuses: StatusEffect[];
-  /** Battle timeline: time of the player's next turn (unset = fresh battle, see combat.ts). */
+  /** Battle timeline: time of the player's next turn (unset = fresh battle, see combat/timeline.ts). */
   playerNext?: number;
   round: number;
 }
@@ -277,7 +277,8 @@ export interface MissionRun {
   earnedCredits: number;
 }
 
-export type Mode = 'title' | 'ship' | 'mission' | 'battle' | 'defeated';
+export const MODES = ['title', 'ship', 'mission', 'battle', 'defeated'] as const;
+export type Mode = (typeof MODES)[number];
 
 export interface GameState {
   version: number;

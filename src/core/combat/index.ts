@@ -7,10 +7,10 @@
  *   actions.ts   what a turn does: attack, abilities, items, hostile attacks
  *   round.ts     sequencing: run the player's action, then hostile turns until the player is up
  */
-export { aliveIndices, applyStatus, hostileLevel, isAlive, toughestAliveLevel } from './battle';
+export { aliveIndices, applyStatus, freshHostile, hostileLevel, isAlive, toughestAliveLevel } from './battle';
 export type { Ctx } from './battle';
 export {
-  HOSTILE_ACCURACY_PER_LEVEL, averageEffectDamage, hitChance, hostileEvasion, hostileHit, hostileHitChance,
+  averageEffectDamage, averageWeaponDamage, hitChance, hostileEvasion, hostileHit, hostileHitChance,
   mitigate, hostileDamageTaken, levelPenalty, playerEvasion, playerHitChance, resolveElement, strikeProfile,
 } from './formulas';
 export type { DamageEffect } from './formulas';

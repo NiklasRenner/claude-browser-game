@@ -8,13 +8,14 @@ import { aliveIndices, isAlive } from './combat';
 import { checkDrill, drillRoster } from './drill';
 import { ABILITIES, MISSION_ORDER, QUARTERMASTER_STOCK, SCRIPTORIUM, getMission, getItem, getHostile, getAbility } from './data';
 import { MAX_LOADOUT, checkStart, countItem, derive, knownAbilities } from './player';
+import { TREATMENT_PER_LEVEL } from './stats';
 import { STATS } from './types';
 import type { Action, GameState, Player } from './types';
 
 // ─── Queries (used by UI and bot) ──────────────────────────────────────────
 
 export function treatmentCost(player: Player): number {
-  return Math.min(player.credits, player.level * 2);
+  return Math.min(player.credits, player.level * TREATMENT_PER_LEVEL);
 }
 
 /** Half the purchase price; anything (even starter kit) sells for at least 1 credit. */

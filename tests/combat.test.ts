@@ -4,7 +4,7 @@ import {
   MAX_HIT, MIN_HIT, Rng, applyStatus, beginBattle, fleeChance, getHostile, hitChance, mitigate, runRound, step,
 } from '../src/core';
 import type { GameEvent } from '../src/core';
-import { act, inBattle, newGame, sureHit, endlessFight, teach } from './helpers';
+import { act, fightOut, inBattle, newGame, sureHit, endlessFight, teach } from './helpers';
 
 const sturdyBattle = (hostileId = 'fen_leech') => endlessFight(hostileId);
 
@@ -123,9 +123,8 @@ describe('battle outcomes', () => {
     // Make our attacks (almost) always miss and theirs always land.
     s.battle!.hostiles[0]!.statuses.push({ id: 'evasive', turns: 99, power: 1000 });
     s.battle!.playerStatuses.push({ id: 'marked', turns: 99, power: 1000 });
-    let r = act(s, { type: 'attack' });
-    // The bandit might miss a few times; keep swinging until we fall.
-    while (r.state.mode === 'battle') r = act(r.state, { type: 'attack' });
+    // The hostile might miss a few times; keep swinging until we fall.
+    const r = fightOut(s);
     assert.equal(r.state.mode, 'defeated');
     assert.ok(r.events.some((e) => e.type === 'defeat' && e.creditsLost === 10));
     assert.equal(r.state.player!.credits, 90);

@@ -9,13 +9,12 @@ import { fleeChance, playerAttack, playerUseAbility, toughestAliveLevel, useCons
 import { getAbility, getMission, getItem } from './data';
 import { addItem, allocateStat, clampVitals, createPlayer, fullRestore, learn, removeItem } from './player';
 import { drillWorld } from './drill';
-import { endDrill, leaveMission, resolveBattleRound, startNextBattle } from './flow';
+import { endDrill, leaveMission, newRun, resolveBattleRound, startNextBattle } from './flow';
 import { patrolWorlds } from './patrol';
 import { Rng } from './rng';
 import { checkAction, treatmentCost, sellPrice } from './rules';
+import { SAVE_VERSION } from './save';
 import type { Action, GameEvent, GameState, StepResult } from './types';
-
-export const SAVE_VERSION = 4;
 
 export function initialState(seed = 1): GameState {
   return {
@@ -114,19 +113,19 @@ function apply(state: GameState, action: Action, rng: Rng, events: GameEvent[]):
       return;
     }
     case 'startMission': {
-      state.mission = { missionId: action.missionId, cleared: 0, earnedXp: 0, earnedCredits: 0 };
+      state.mission = newRun(action.missionId);
       startNextBattle(state, rng, events);
       return;
     }
     case 'startPatrol': {
       const missionId = rng.pick(patrolWorlds(state));
-      state.mission = { missionId: missionId, patrol: { level: player.level }, cleared: 0, earnedXp: 0, earnedCredits: 0 };
+      state.mission = newRun(missionId, { patrol: { level: player.level } });
       events.push({ type: 'message', text: `Patrol launched: ${getMission(missionId).name} sector. Hostiles at level ${player.level}.` });
       startNextBattle(state, rng, events);
       return;
     }
     case 'startDrill': {
-      state.mission = { missionId: drillWorld(action.hostileIds[0]!)!, drill: { hostileIds: [...action.hostileIds] }, cleared: 0, earnedXp: 0, earnedCredits: 0 };
+      state.mission = newRun(drillWorld(action.hostileIds[0]!)!, { drill: { hostileIds: [...action.hostileIds] } });
       events.push({ type: 'message', text: 'Combat drill: a simulated engagement. Nothing gained, nothing lost.' });
       startNextBattle(state, rng, events);
       return;

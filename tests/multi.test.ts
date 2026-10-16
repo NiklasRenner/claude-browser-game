@@ -5,18 +5,12 @@ import {
   SAVE_VERSION, Rng, deserialize, describeStep, getMission, getHostile, hostileLabels, runRound, step,
 } from '../src/core';
 import type { GameEvent, GameState } from '../src/core';
-import { act, newGame, sureHit, teach } from './helpers';
+import { act, inBattle, newGame, sureHit, teach } from './helpers';
 
-/** A battle against an explicit lineup inside the Xenith mission. */
+/** A level-16 officer fighting an explicit lineup inside the Xenith mission. */
 function lineup(ids: string[], seed = 3): GameState {
-  const s = newGame(seed);
+  const s = inBattle(newGame(seed), ids, 'xenith');
   s.player!.level = 16;
-  s.mode = 'battle';
-  s.mission = { missionId: 'xenith', cleared: 0, earnedXp: 0, earnedCredits: 0 };
-  s.battle = {
-    hostiles: ids.map((defId) => ({ defId, hp: getHostile(defId).hp, maxHp: getHostile(defId).hp, statuses: [] })),
-    target: 0, playerStatuses: [], round: 1,
-  };
   return s;
 }
 

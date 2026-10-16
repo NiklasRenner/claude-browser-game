@@ -10,14 +10,11 @@
  */
 import { getArmor, getHostile, getWeapon } from '../data';
 import { derive } from '../player';
-import { ABILITY_HIT, LEVEL_HIT_PENALTY, MAX_HIT, MIN_HIT, PLAYER_EVASION_CAP } from '../stats';
+import { ABILITY_HIT, HOSTILE_ACCURACY_PER_LEVEL, LEVEL_HIT_PENALTY, MAX_HIT, MIN_HIT, PLAYER_EVASION_CAP } from '../stats';
 import type { AbilityEffect, BattleState, Element, Hostile, HostileAttack, HostileDef, Player, StatusEffect } from '../types';
 import { clamp, hostileLevel, statusPower } from './battle';
 
 export type DamageEffect = Extract<AbilityEffect, { type: 'damage' }>;
-
-/** Hit chance a patrol-scaled hostile gains per level above its definition (player evasion doesn't grow with level). */
-export const HOSTILE_ACCURACY_PER_LEVEL = 0.5;
 
 export function hitChance(hit: number, evasion: number): number {
   return clamp(hit - evasion, MIN_HIT, MAX_HIT);
@@ -96,10 +93,16 @@ export function resolveElement(player: Player, element: Element | 'weapon'): Ele
   return element === 'weapon' ? getWeapon(player.weapon).element : element;
 }
 
+const average = ([lo, hi]: [number, number]) => (lo + hi) / 2;
+
+/** Average damage of ONE strike of the equipped weapon, before hit, crits and resist (used by the bot). */
+export function averageWeaponDamage(player: Player): number {
+  return average(getWeapon(player.weapon).damage) * derive(player).damage;
+}
+
 /** Average damage of ONE strike of a damage effect, before hit, crits and resist (used by the bot). */
 export function averageEffectDamage(player: Player, effect: DamageEffect): number {
-  const dice = effect.useWeapon ? getWeapon(player.weapon).damage : effect.dice;
-  return ((dice[0] + dice[1]) / 2) * derive(player).damage * (effect.mult ?? 1);
+  return (effect.useWeapon ? averageWeaponDamage(player) : average(effect.dice) * derive(player).damage) * (effect.mult ?? 1);
 }
 
 // ─── Damage ────────────────────────────────────────────────────────────────

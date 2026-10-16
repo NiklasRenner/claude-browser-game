@@ -166,9 +166,4 @@ export class Effects {
       if (p.glow) { glow.fillStyle = c; glow.fillRect(x, y, 1, 1); }
     }
   }
-
-  clear() {
-    this.particles = [];
-    this.live.clear();
-  }
 }

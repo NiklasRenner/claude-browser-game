@@ -1,17 +1,10 @@
 import { getAbility, getArmor, getWeapon, abilitiesFor } from './data';
 import { ELEMENTS, STATS } from './types';
 import {
-  PLAYER_EVASION_CAP, baseStats, damageMultiplier, enduranceHp, maxEnergyFor, luckCrit, speedBonus,
+  BASE_CRIT, MAX_LEVEL, PLAYER_EVASION_CAP, STAT_POINTS_PER_LEVEL, baseStats, damageMultiplier, luckCrit, maxEnergyFor, maxHpFor,
+  speedBonus, xpToNext,
 } from './stats';
 import type { AbilityDef, ArmorDef, Element, GameEvent, Player, Stat, Stats } from './types';
-
-export const MAX_LEVEL = 30;
-export const STAT_POINTS_PER_LEVEL = 4;
-
-/** XP needed to go from `level` to `level + 1`. */
-export function xpToNext(level: number): number {
-  return Math.floor(30 * Math.pow(level, 1.45));
-}
 
 export interface DerivedStats {
   maxHp: number;
@@ -32,10 +25,10 @@ export function derive(player: Player): DerivedStats {
   const armor = getArmor(player.armor);
   const { pow, spd, int, end, luk } = player.stats;
   return {
-    maxHp: 40 + player.level * 12 + enduranceHp(end) + armor.hp,
+    maxHp: maxHpFor(player.level, end) + armor.hp,
     maxEnergy: maxEnergyFor(player.level, int) + armor.energy,
     evasion: Math.min(PLAYER_EVASION_CAP, armor.block),
-    critChance: 5 + luckCrit(luk) + weapon.crit,
+    critChance: BASE_CRIT + luckCrit(luk) + weapon.crit,
     damage: damageMultiplier(pow),
     speed: 100 + speedBonus(spd) + (armor.speed ?? 0),
     damageTaken: resistTable(armor),

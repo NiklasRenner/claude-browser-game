@@ -35,6 +35,12 @@ export function aliveIndices(battle: BattleState): number[] {
 
 export const allDown = (battle: BattleState) => !battle.hostiles.some(isAlive);
 
+/** A hostile at full health, as its definition has it (at `level` if given: bosses fight above theirs). */
+export function freshHostile(defId: string, level?: number): Hostile {
+  const { hp } = getHostile(defId);
+  return level === undefined ? { defId, hp, maxHp: hp, statuses: [] } : { defId, hp, maxHp: hp, statuses: [], level };
+}
+
 /** Effective level of a hostile (patrols scale it; otherwise the definition's level). */
 export function hostileLevel(inst: Hostile): number {
   return inst.level ?? getHostile(inst.defId).level;

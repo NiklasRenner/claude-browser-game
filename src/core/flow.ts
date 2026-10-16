@@ -3,17 +3,24 @@
  * patrols, drills), resolving a battle round, and what winning or losing does
  * (rewards, mission completion, defeat penalty).
  */
-import { beginBattle, runRound } from './combat';
+import { beginBattle, freshHostile, runRound } from './combat';
 import type { PlayerAct } from './combat';
 import { bossLevel, FINAL_MISSION, getHostile, getMission } from './data';
 import { drillHostile } from './drill';
 import { addItem, derive, fullRestore, grantXp } from './player';
 import { PATROL_CONTACTS, patrolBoss, patrolContact, patrolReward } from './patrol';
 import type { Rng } from './rng';
-import { ENERGY_RECOVERY } from './stats';
-import type { GameEvent, GameState, MissionRun } from './types';
+import { DEFEAT_CREDITS_PENALTY, ENERGY_RECOVERY } from './stats';
+import type { GameEvent, GameState, Hostile, MissionDef, MissionRun } from './types';
 
-const DEFEAT_CREDITS_PENALTY = 0.1;
+/**
+ * A run starting on a world: a story mission, or with `patrol` / `drill` set, one of those.
+ * Where the three differ: lineupFor (who you fight), missionEncounters (how many fights),
+ * onVictory / onDefeat (what winning and losing do).
+ */
+export function newRun(missionId: string, kind: Pick<MissionRun, 'patrol' | 'drill'> = {}): MissionRun {
+  return { missionId, ...kind, cleared: 0, earnedXp: 0, earnedCredits: 0 };
+}
 
 /** Regular encounters before the boss on this run. */
 export function missionEncounters(run: MissionRun): number {
@@ -38,47 +45,30 @@ function bossInMiddle<T extends { defId: string }>(lineup: T[]): T[] {
   return [rest[0]!, lineup[i]!, rest[1]!];
 }
 
+/** Starts the run's next fight: its regular encounters, then (once they're cleared) the boss fight. */
 export function startNextBattle(state: GameState, rng: Rng, events: GameEvent[]) {
   const run = state.mission!;
-  const mission = getMission(run.missionId);
-  const isBoss = run.cleared >= missionEncounters(run);
-  if (run.drill) {
-    state.battle = { hostiles: bossInMiddle(run.drill.hostileIds.map(drillHostile)), target: 0, playerStatuses: [], round: 1 };
-    state.mode = 'battle';
-    events.push({ type: 'battleStart', hostileIds: state.battle.hostiles.map((h) => h.defId), boss: state.battle.hostiles.some((h) => getHostile(h.defId).boss) });
-    openBattle(state, rng, events);
-    return;
-  }
-  if (run.patrol) {
-    const hostiles = bossInMiddle(isBoss ? patrolBoss(mission.id, run.patrol.level, rng) : patrolContact(mission.id, run.patrol.level, rng));
-    state.battle = { hostiles: hostiles, target: 0, playerStatuses: [], round: 1 };
-    state.mode = 'battle';
-    events.push({ type: 'battleStart', hostileIds: hostiles.map((m) => m.defId), boss: isBoss });
-    openBattle(state, rng, events);
-    return;
-  }
-  let lineup: string[];
-  if (isBoss) {
-    // Escorts flank the boss: [add, boss, add].
-    const adds = mission.bossAdds ?? [];
-    lineup = adds.length ? [adds[0]!, mission.boss, ...adds.slice(1)] : [mission.boss];
-  } else {
-    lineup = mission.groups ? [...rng.pick(mission.groups)] : [rng.pick(mission.hostiles)];
-  }
-  lineup = bossInMiddle(lineup.map((defId) => ({ defId }))).map((h) => h.defId);
-  state.battle = {
-    hostiles: lineup.map((defId) => {
-      const def = getHostile(defId);
-      // Story bosses fight at the mission's boss level (recommended level + 1 by default).
-      return def.boss ? { defId, hp: def.hp, maxHp: def.hp, statuses: [], level: bossLevel(mission) } : { defId, hp: def.hp, maxHp: def.hp, statuses: [] };
-    }),
-    target: 0,
-    playerStatuses: [],
-    round: 1,
-  };
+  const hostiles = bossInMiddle(lineupFor(run, run.cleared >= missionEncounters(run), rng));
+  state.battle = { hostiles, target: 0, playerStatuses: [], round: 1 };
   state.mode = 'battle';
-  events.push({ type: 'battleStart', hostileIds: lineup, boss: isBoss });
+  events.push({ type: 'battleStart', hostileIds: hostiles.map((h) => h.defId), boss: hostiles.some((h) => getHostile(h.defId).boss) });
   openBattle(state, rng, events);
+}
+
+/** Who the run's next fight is against: drills fight the picked lineup, patrols scaled hostiles, missions their own. */
+function lineupFor(run: MissionRun, isBoss: boolean, rng: Rng): Hostile[] {
+  if (run.drill) return run.drill.hostileIds.map(drillHostile);
+  if (run.patrol) return (isBoss ? patrolBoss : patrolContact)(run.missionId, run.patrol.level, rng);
+  return storyLineup(getMission(run.missionId), isBoss, rng);
+}
+
+/** A story mission's fight: a random group (or single hostile) from its pool, or the boss between its escorts. */
+function storyLineup(mission: MissionDef, isBoss: boolean, rng: Rng): Hostile[] {
+  const adds = mission.bossAdds ?? [];
+  const ids = !isBoss ? (mission.groups ? rng.pick(mission.groups) : [rng.pick(mission.hostiles)])
+    : adds.length ? [adds[0]!, mission.boss, ...adds.slice(1)] : [mission.boss];
+  // Story bosses fight at the mission's boss level (recommended level + 1 by default).
+  return ids.map((defId) => freshHostile(defId, getHostile(defId).boss ? bossLevel(mission) : undefined));
 }
 
 /** Lets faster hostiles take their opening turns before the player's first one. */
