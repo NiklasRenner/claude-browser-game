@@ -3,7 +3,7 @@ import { ELEMENTS, STATS } from './types';
 import {
   PLAYER_EVASION_CAP, baseStats, damageMultiplier, enduranceHp, maxEnergyFor, luckCrit, speedBonus,
 } from './stats';
-import type { Element, GameEvent, Player, Resistances, AbilityDef, Stat, Stats } from './types';
+import type { AbilityDef, ArmorDef, Element, GameEvent, Player, Stat, Stats } from './types';
 
 export const MAX_LEVEL = 30;
 export const STAT_POINTS_PER_LEVEL = 4;
@@ -23,8 +23,8 @@ export interface DerivedStats {
   speed: number;
   /** Multiplier on all outgoing damage (from Power). */
   damage: number;
-  /** Damage taken per element in percent (100 = normal). */
-  damageTaken: Record<Element, number>;
+  /** Damage taken per element in percent (100 = normal). Shared per armor: don't mutate. */
+  damageTaken: Readonly<Record<Element, number>>;
 }
 
 export function derive(player: Player): DerivedStats {
@@ -38,13 +38,19 @@ export function derive(player: Player): DerivedStats {
     critChance: 5 + luckCrit(luk) + weapon.crit,
     damage: damageMultiplier(pow),
     speed: 100 + speedBonus(spd) + (armor.speed ?? 0),
-    damageTaken: resistTable(armor.resist),
+    damageTaken: resistTable(armor),
   };
 }
 
-function resistTable(resist: Resistances): Record<Element, number> {
-  const table = Object.fromEntries(ELEMENTS.map((el) => [el, 100])) as Record<Element, number>;
-  for (const [el, pct] of Object.entries(resist) as [Element, number][]) table[el] = 100 - pct;
+const resistTables = new Map<ArmorDef, Readonly<Record<Element, number>>>();
+/** Damage taken per element through this armor (content is fixed, so it is worked out once per armor). */
+function resistTable(armor: ArmorDef): Readonly<Record<Element, number>> {
+  let table = resistTables.get(armor);
+  if (!table) {
+    const t = Object.fromEntries(ELEMENTS.map((el) => [el, 100])) as Record<Element, number>;
+    for (const [el, pct] of Object.entries(armor.resist) as [Element, number][]) t[el] = 100 - pct;
+    resistTables.set(armor, table = t);
+  }
   return table;
 }
 

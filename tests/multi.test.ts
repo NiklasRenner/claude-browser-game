@@ -5,7 +5,7 @@ import {
   SAVE_VERSION, Rng, deserialize, describeStep, getMission, getHostile, hostileLabels, runRound, step,
 } from '../src/core';
 import type { GameEvent, GameState } from '../src/core';
-import { act, newGame, sureHit, withAbilities } from './helpers';
+import { act, newGame, sureHit, teach } from './helpers';
 
 /** A battle against an explicit lineup inside the Xenith mission. */
 function lineup(ids: string[], seed = 3): GameState {
@@ -97,8 +97,8 @@ describe('turn order', () => {
 });
 
 describe('mission attacks', () => {
-  it('an AoE ability strikes every living hostile; a normal one only the target', () => withAbilities(['ion_storm', 'plasma_burst'], () => {
-    const aoe = sturdy(lineup(['hive_drone', 'hive_drone', 'hive_drone']));
+  it('an AoE ability strikes every living hostile; a normal one only the target', () => {
+    const aoe = teach(sturdy(lineup(['hive_drone', 'hive_drone', 'hive_drone'])), ['ion_storm']);
     aoe.player!.level = 16;
     aoe.player!.energy = 999;
     aoe.battle!.hostiles[1]!.hp = 0;
@@ -106,12 +106,12 @@ describe('mission attacks', () => {
     const hits1 = r1.events.filter((e) => e.type === 'attack' && e.actor === 'player').map((e) => (e as { foe: number }).foe);
     assert.deepEqual(hits1, [0, 2]);
 
-    const single = sturdy(lineup(['hive_drone', 'hive_drone', 'hive_drone']));
+    const single = teach(sturdy(lineup(['hive_drone', 'hive_drone', 'hive_drone'])), ['plasma_burst']);
     single.player!.energy = 999;
     const r2 = act(single, { type: 'useAbility', abilityId: 'plasma_burst' });
     const hits2 = r2.events.filter((e) => e.type === 'attack' && e.actor === 'player').map((e) => (e as { foe: number }).foe);
     assert.deepEqual(hits2, [0]);
-  }));
+  });
 });
 
 describe('encounters and log text', () => {

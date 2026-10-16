@@ -7,19 +7,26 @@ import { MISSION_ORDER, bossLevel, getHostile, getMission } from './data';
 import { MAX_HOSTILES } from './types';
 import type { Hostile } from './types';
 
-/** Every hostile, grouped by the world it lives on (story order; each hostile listed once). */
-export function drillRoster(): { missionId: string; hostileIds: string[] }[] {
+export interface DrillWorld { readonly missionId: string; readonly hostileIds: readonly string[] }
+
+const ROSTER: readonly DrillWorld[] = (() => {
   const seen = new Set<string>();
   return MISSION_ORDER.map((missionId) => {
     const m = getMission(missionId);
     const ids = [...m.hostiles, ...(m.groups ?? []).flat(), ...(m.bossAdds ?? []), m.boss].filter((id) => !seen.has(id) && seen.add(id));
     return { missionId, hostileIds: ids };
   });
+})();
+const WORLD_OF = new Map(ROSTER.flatMap((w) => w.hostileIds.map((id) => [id, w.missionId] as const)));
+
+/** Every hostile, grouped by the world it lives on (story order; each hostile listed once). */
+export function drillRoster(): readonly DrillWorld[] {
+  return ROSTER;
 }
 
 /** The world a hostile lives on (its backdrop in a drill), or undefined for an unknown id. */
 export function drillWorld(defId: string): string | undefined {
-  return drillRoster().find((w) => w.hostileIds.includes(defId))?.missionId;
+  return WORLD_OF.get(defId);
 }
 
 /** Why this lineup can't be drilled, or null if it can. */

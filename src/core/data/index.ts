@@ -44,9 +44,12 @@ export const bossLevel = (mission: MissionDef): number => mission.bossLevel ?? m
 export const SCRIPTORIUM: AbilityDef[] = Object.values(ABILITIES).filter((a) => a.shop)
   .sort((a, b) => a.shop!.level - b.shop!.level || a.shop!.price - b.shop!.price);
 
+/** Abilities every officer learns by level, in learning order. */
+const LEVEL_ABILITIES: readonly AbilityDef[] = Object.values(ABILITIES).filter((s) => s.level !== undefined).sort((a, b) => a.level! - b.level!);
+
 /** Abilities an officer knows at a given level, in learning order. */
 export function abilitiesFor(level: number): AbilityDef[] {
-  return Object.values(ABILITIES).filter((s) => s.level !== undefined && s.level <= level).sort((a, b) => a.level! - b.level!);
+  return LEVEL_ABILITIES.filter((s) => s.level! <= level);
 }
 
 /** Statuses that belong to a damage type (the rest — shield, evasive, marked — come from abilities). */

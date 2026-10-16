@@ -36,7 +36,8 @@ export function step(prev: GameState, action: Action): StepResult {
   const reason = checkAction(prev, action);
   if (reason) return { state: prev, events: [{ type: 'error', reason }] };
 
-  const state = structuredClone(prev);
+  // State is plain JSON (see types.ts), and a JSON copy is about twice as fast as structuredClone.
+  const state = JSON.parse(JSON.stringify(prev)) as GameState;
   const rng = new Rng(state.rng);
   const events: GameEvent[] = [];
   apply(state, action, rng, events);

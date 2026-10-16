@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ABILITIES, MAX_LOADOUT, getHostile, initialState, knownAbilities, step } from '../src/core';
+import { MAX_LOADOUT, getHostile, initialState, knownAbilities, step } from '../src/core';
 import type { Action, GameState, StepResult } from '../src/core';
 
 /** Starts a new game in ship. */
@@ -10,14 +10,15 @@ export function newGame(seed = 1): GameState {
   return act(initialState(seed), { type: 'newGame', name: 'Tester', seed }).state;
 }
 
-/**
- * Runs `fn` with abilities nobody learns yet (kept for the ability shop) learnable from level 1,
- * to test their effects.
- */
-export function withAbilities<T>(ids: string[], fn: () => T): T {
-  const before = ids.map((id) => ABILITIES[id]!.level);
-  ids.forEach((id) => { ABILITIES[id]!.level = 1; });
-  try { return fn(); } finally { ids.forEach((id, i) => { ABILITIES[id]!.level = before[i]; }); }
+/** Gives the officer Scriptorium abilities (learned and in the loadout), to test their effects. Mutates `state`. */
+export function teach(state: GameState, ids: string[]): GameState {
+  const p = state.player!;
+  for (const id of ids) {
+    p.learned.push(id);
+    p.loadout.push(id);
+  }
+  assert.ok(p.loadout.length <= MAX_LOADOUT);
+  return state;
 }
 
 /** Applies an action and fails the test if it was rejected. */

@@ -4,7 +4,7 @@ import {
   MAX_HIT, MIN_HIT, Rng, applyStatus, beginBattle, fleeChance, getHostile, hitChance, mitigate, runRound, step,
 } from '../src/core';
 import type { GameEvent } from '../src/core';
-import { act, inBattle, newGame, sureHit, endlessFight, withAbilities } from './helpers';
+import { act, inBattle, newGame, sureHit, endlessFight, teach } from './helpers';
 
 const sturdyBattle = (hostileId = 'fen_leech') => endlessFight(hostileId);
 
@@ -155,16 +155,14 @@ describe('battle outcomes', () => {
     const total = (hostileId: string) => {
       let sum = 0;
       for (let seed = 1; seed <= 30; seed++) {
-        const s = inBattle(newGame(seed), hostileId);
+        const s = inBattle(teach(newGame(seed), ['plasma_burst']), hostileId);
         s.battle!.hostiles[0]!.hp = s.battle!.hostiles[0]!.maxHp = 10_000;
         const ev = act(s, { type: 'useAbility', abilityId: 'plasma_burst' }).events;
         for (const e of ev) if (e.type === 'attack' && e.actor === 'player') sum += e.damage;
       }
       return sum;
     };
-    withAbilities(['plasma_burst'], () => {
-      assert.ok(total('fen_leech') > 300);
-      assert.equal(total('magma_colossus'), 0);
-    });
+    assert.ok(total('fen_leech') > 300);
+    assert.equal(total('magma_colossus'), 0);
   });
 });
