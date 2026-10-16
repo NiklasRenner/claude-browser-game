@@ -271,6 +271,26 @@ try {
   });
   check(finished.mode === 'ship' && finished.mission === null, 'patrol runs its course and returns to the ship');
 
+  // Combat drill: pick a lineup on the Mission Board, fight it, beam out.
+  await page.click('[data-ui="tab:missions"]');
+  await page.selectOption('select[data-drill="0"]', 'hive_drone');
+  await page.selectOption('select[data-drill="1"]', 'brood_matriarch');
+  await page.locator('.drill-row').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${OUT}/13-drill-picker.png` });
+  await page.click('[data-action*="startDrill"]');
+  await waitIdle(page);
+  const drilled = await page.evaluate(() => window.__qf.state.battle?.hostiles.map((h) => h.defId) ?? null);
+  check(JSON.stringify(drilled) === '["hive_drone","brood_matriarch"]', `drill starts a fight against the picked lineup (${JSON.stringify(drilled)})`);
+  await page.evaluate(() => window.__qf.speed(1));
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: `${OUT}/14-drill-battle.png` });
+  await page.evaluate(() => window.__qf.speed(0));
+  const credits = await page.evaluate(() => window.__qf.state.player.credits);
+  await page.keyboard.press('f');
+  await waitIdle(page);
+  const back = await page.evaluate(() => ({ mode: window.__qf.state.mode, credits: window.__qf.state.player.credits }));
+  check(back.mode === 'ship' && back.credits === credits, 'beaming out of a drill returns to the ship at no cost');
+
   // One screenshot per mission backdrop (state is injected via the debug hook; purely visual).
   for (const missionId of ['veridia', 'kethra', 'glacies', 'void_rift', 'xenith']) {
     await page.evaluate(async (missionId) => {

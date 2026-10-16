@@ -277,6 +277,8 @@ export interface MissionRun {
   missionId: string;
   /** Set for a random patrol: every hostile is scaled to this level. */
   patrol?: { level: number };
+  /** Set for a combat drill: the lineup of its single fight. */
+  drill?: { hostileIds: string[] };
   /** Number of encounters won so far in this run (boss is the last one). */
   cleared: number;
   earnedXp: number;
@@ -309,6 +311,8 @@ export type Action =
   | { type: 'startMission'; missionId: string }
   /** Random run: unlocked world, random lineups scaled to the player's level, then a boss. */
   | { type: 'startPatrol' }
+  /** Combat drill: one fight against the hostiles picked (1–3); no rewards or losses (see drill.ts). */
+  | { type: 'startDrill'; hostileIds: string[] }
   | { type: 'continue' }
   | { type: 'retreat' }
   /** `target` (optional) retargets first; otherwise the current target is used. */
@@ -347,6 +351,8 @@ export type GameEvent =
   | { type: 'levelUp'; level: number }
   | { type: 'missionComplete'; missionId: string; xp: number; credits: number; firstClear: boolean }
   | { type: 'patrolComplete'; missionId: string; level: number; xp: number; credits: number }
+  /** A combat drill ended: won, lost, or broken off (beamed out). HP and energy are restored. */
+  | { type: 'drillEnded'; outcome: 'won' | 'lost' | 'ended' }
   | { type: 'gameComplete' }
   | { type: 'bought'; itemId: string; price: number }
   | { type: 'sold'; itemId: string; credits: number }

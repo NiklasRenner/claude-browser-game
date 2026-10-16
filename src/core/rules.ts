@@ -5,6 +5,7 @@
  * and the fuzz tests.
  */
 import { aliveIndices, isAlive } from './combat';
+import { checkDrill, drillRoster } from './drill';
 import { MISSION_ORDER, DIVISIONS, QUARTERMASTER_STOCK, getMission, getItem, getHostile, getAbility } from './data';
 import { countItem, derive, knownAbilities } from './player';
 import { STATS } from './types';
@@ -85,6 +86,8 @@ export function checkAction(state: GameState, action: Action): string | null {
       return isMissionUnlocked(state, action.missionId) ? null : 'Mission is locked';
     case 'startPatrol':
       return mode === 'ship' ? null : 'Patrols launch from the ship';
+    case 'startDrill':
+      return mode === 'ship' ? checkDrill(action.hostileIds) : 'Drills run from the ship';
     case 'continue':
     case 'retreat':
       return mode === 'mission' ? null : 'Not on a mission';
@@ -107,6 +110,7 @@ export function checkAction(state: GameState, action: Action): string | null {
     }
     case 'flee':
       if (!inBattle) return 'Not in battle';
+      if (state.mission?.drill) return null; // ending a drill always works
       return aliveIndices(state.battle!).some((i) => getHostile(state.battle!.hostiles[i]!.defId).boss)
         ? 'Too much interference to beam out!' : null;
     case 'returnToShip':
@@ -137,6 +141,8 @@ export function legalActions(state: GameState): Action[] {
     }
     for (const stat of STATS) candidates.push({ type: 'allocateStat', stat });
     for (const missionId of MISSION_ORDER) candidates.push({ type: 'startMission', missionId: missionId });
+    // Drills take any lineup; list one per world (its boss) rather than every combination.
+    for (const world of drillRoster()) candidates.push({ type: 'startDrill', hostileIds: [world.hostileIds.at(-1)!] });
     for (const ability of knownAbilities(p)) candidates.push({ type: 'useAbility', abilityId: ability.id });
     if (state.battle) state.battle.hostiles.forEach((_, index) => candidates.push({ type: 'target', index }));
   }

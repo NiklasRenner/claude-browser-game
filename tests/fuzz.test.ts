@@ -6,7 +6,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-  MISSION_ORDER, ITEMS, Rng, STATS, deserialize, derive, initialState, legalActions, serialize, abilitiesFor, step,
+  HOSTILES, MISSION_ORDER, ITEMS, Rng, STATS, deserialize, derive, initialState, legalActions, serialize, abilitiesFor, step,
 } from '../src/core';
 import type { Action, GameState } from '../src/core';
 
@@ -15,6 +15,7 @@ function checkInvariants(s: GameState, ctx: string): void {
   if (legalActions(s).length === 0) fail('softlock: no legal actions');
   if ((s.mode === 'battle') !== (s.battle !== null)) fail('battle/mode mismatch');
   if ((s.mode === 'mission' || s.mode === 'battle') !== (s.mission !== null)) fail('mission/mode mismatch');
+  if (s.mission?.drill && s.mode !== 'battle') fail('drill outlived its single fight');
   if (s.mode === 'title') return;
   const p = s.player;
   if (!p) return fail('missing player');
@@ -48,6 +49,7 @@ function randomAction(s: GameState, rng: Rng): Action {
       { type: 'useItem', itemId: rng.pick(Object.keys(ITEMS)) },
       { type: 'useAbility', abilityId: rng.pick(abilitiesFor('science', 30).map((x) => x.id)) },
       { type: 'startMission', missionId: rng.pick([...MISSION_ORDER, 'void']) },
+      { type: 'startDrill', hostileIds: Array.from({ length: rng.int(0, 4) }, () => rng.pick([...Object.keys(HOSTILES), 'nope'])) },
       { type: 'allocateStat', stat: rng.pick(STATS) },
       { type: 'target', index: rng.int(-1, 4) },
       { type: 'attack', target: rng.int(-1, 4) },

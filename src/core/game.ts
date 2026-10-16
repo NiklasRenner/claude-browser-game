@@ -8,7 +8,8 @@
 import { fleeChance, playerAttack, playerUseAbility, toughestAliveLevel, useConsumable } from './combat';
 import { DIVISIONS, getMission, getItem } from './data';
 import { addItem, allocateStat, clampVitals, createPlayer, fullRestore, removeItem } from './player';
-import { leaveMission, resolveBattleRound, startNextBattle } from './flow';
+import { drillWorld } from './drill';
+import { endDrill, leaveMission, resolveBattleRound, startNextBattle } from './flow';
 import { patrolWorlds } from './patrol';
 import { Rng } from './rng';
 import { checkAction, treatmentCost, sellPrice } from './rules';
@@ -110,6 +111,12 @@ function apply(state: GameState, action: Action, rng: Rng, events: GameEvent[]):
       startNextBattle(state, rng, events);
       return;
     }
+    case 'startDrill': {
+      state.mission = { missionId: drillWorld(action.hostileIds[0]!)!, drill: { hostileIds: [...action.hostileIds] }, cleared: 0, earnedXp: 0, earnedCredits: 0 };
+      events.push({ type: 'message', text: 'Combat drill: a simulated engagement. Nothing gained, nothing lost.' });
+      startNextBattle(state, rng, events);
+      return;
+    }
     case 'continue':
       startNextBattle(state, rng, events);
       return;
@@ -130,6 +137,7 @@ function apply(state: GameState, action: Action, rng: Rng, events: GameEvent[]):
       resolveBattleRound(state, rng, events, (ctx) => playerUseAbility(ctx, action.abilityId));
       return;
     case 'flee': {
+      if (state.mission!.drill) { endDrill(state, events, 'ended'); return; }
       if (rng.chance(fleeChance(player, toughestAliveLevel(state.battle!)))) {
         events.push({ type: 'fled', success: true });
         leaveMission(state);

@@ -1,21 +1,23 @@
 /** The ship: Mission Board, Quartermaster, Locker, Personnel File and Sickbay tabs. */
 import {
-  MISSION_ORDER, ELEMENTS, PATROL_CONTACTS, PLAYER_EVASION_CAP, QUARTERMASTER_STOCK, STATS, STAT_INFO, countItem, derive, getMission,
-  getItem, isMissionUnlocked, isEquipped, knownAbilities, patrolReward, patrolWorlds, treatmentCost, sellPrice,
+  MAX_HOSTILES, MISSION_ORDER, ELEMENTS, PATROL_CONTACTS, PLAYER_EVASION_CAP, QUARTERMASTER_STOCK, STATS, STAT_INFO, countItem, derive, getMission,
+  drillHostile, drillRoster, getHostile, getItem, hostileLevel, isMissionUnlocked, isEquipped, knownAbilities, patrolReward, patrolWorlds, treatmentCost, sellPrice,
 } from '../../core';
 import type { GameState, ItemDef, Player } from '../../core';
 import { ELEMENT_ICONS } from '../../game/elements';
+import { esc } from '../html';
 import type { BtnFn } from '../html';
 import { abilityTags, itemStats, speedText, statEffect, weaponHitText } from '../widgets';
 
 export type ShipTab = 'missions' | 'quartermaster' | 'locker' | 'personnel' | 'sickbay';
 
-export function shipView(s: GameState, btn: BtnFn, tab: ShipTab) {
+/** `drill`: the hostiles picked for a combat drill, one id per slot ('' = empty slot). */
+export function shipView(s: GameState, btn: BtnFn, tab: ShipTab, drill: string[]) {
   const tabs: [ShipTab, string][] = [['missions', 'Mission Board'], ['quartermaster', 'Quartermaster'], ['locker', 'Locker'], ['personnel', 'Personnel File'], ['sickbay', 'Sickbay']];
   const p = s.player!;
   let body = '';
   switch (tab) {
-    case 'missions': body = missionBoard(s, btn); break;
+    case 'missions': body = missionBoard(s, btn) + drillPanel(btn, drill); break;
     case 'quartermaster': body = quartermaster(p, btn); break;
     case 'locker': body = locker(p, btn); break;
     case 'personnel': body = personnel(p, btn); break;
@@ -49,6 +51,22 @@ function missionBoard(s: GameState, btn: BtnFn) {
       ${btn({ type: 'startMission', missionId: id }, unlocked ? 'Beam down' : '🔒')}
     </div>`;
   }).join('')}</div>`;
+}
+
+function drillPanel(btn: BtnFn, drill: string[]) {
+  const options = (picked: string, slot: number) => (slot > 0 ? `<option value="">—</option>` : '') + drillRoster().map((w) =>
+    `<optgroup label="${esc(getMission(w.missionId).name)}">${w.hostileIds.map((id) => {
+      const def = getHostile(id);
+      return `<option value="${id}" ${id === picked ? 'selected' : ''}>${esc(def.name)}${def.boss ? ' ★' : ''} · Lv ${hostileLevel(drillHostile(id))}</option>`;
+    }).join('')}</optgroup>`).join('');
+  const slots = Array.from({ length: MAX_HOSTILES }, (_, i) => `<select class="drill-pick" data-drill="${i}" aria-label="Hostile ${i + 1}">${options(drill[i] ?? '', i)}</select>`).join('');
+  return `<h3>Combat drill</h3><div class="list"><div class="row drill-row">
+      <div class="row-main"><strong>⚔ Simulated engagement</strong> <span class="badge">Practice</span>
+        <div class="muted small">One fight against any hostiles you pick, at their own level, on their home world.
+          No rewards and no losses: you are fully restored afterwards, and you can always beam out.</div>
+        <div class="drill-picks">${slots}</div></div>
+      ${btn({ type: 'startDrill', hostileIds: drill.filter(Boolean) }, 'Begin drill', 'primary')}
+    </div></div>`;
 }
 
 function quartermaster(p: Player, btn: BtnFn) {

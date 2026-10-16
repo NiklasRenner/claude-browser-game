@@ -115,7 +115,7 @@ export function battlePanel(s: GameState, btn: BtnFn, menu: BattleMenu, busy: bo
         <button class="btn big" data-ui="menu:abilities" ${busy ? 'disabled' : ''}>Abilities ▸</button>
         <button class="btn" data-ui="menu:items" ${busy ? 'disabled' : ''}>Items ▸</button>
         <button class="btn" data-ui="menu:gear" ${busy ? 'disabled' : ''}>Swap weapon ▸</button>
-        ${btn({ type: 'flee' }, `<span class="key">F</span>Beam out${b && checkAction(s, { type: 'flee' }) === null ? ` <span class="muted">${fleeChance(p, toughestAliveLevel(b))}%</span>` : ''}`, 'ghost', 'Chance to escape: easier from lower-level hostiles, harder from higher-level ones')}
+        ${btn({ type: 'flee' }, `<span class="key">F</span>Beam out${b && !s.mission?.drill && checkAction(s, { type: 'flee' }) === null ? ` <span class="muted">${fleeChance(p, toughestAliveLevel(b))}%</span>` : ''}`, 'ghost', 'Chance to escape: easier from lower-level hostiles, harder from higher-level ones')}
       </div>`;
   }
 }

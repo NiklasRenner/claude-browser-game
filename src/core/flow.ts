@@ -1,12 +1,13 @@
 /**
  * Mission flow inside the reducer: starting fights (story missions and
- * patrols), resolving a battle round, and what winning or losing does
+ * patrols, drills), resolving a battle round, and what winning or losing does
  * (rewards, mission completion, defeat penalty).
  */
 import { beginBattle, runRound } from './combat';
 import type { PlayerAct } from './combat';
 import { bossLevel, FINAL_MISSION, getHostile, getMission } from './data';
-import { addItem, derive, grantXp } from './player';
+import { drillHostile } from './drill';
+import { addItem, derive, fullRestore, grantXp } from './player';
 import { PATROL_CONTACTS, patrolBoss, patrolContact, patrolReward } from './patrol';
 import type { Rng } from './rng';
 import { ENERGY_RECOVERY } from './stats';
@@ -29,6 +30,13 @@ export function startNextBattle(state: GameState, rng: Rng, events: GameEvent[])
   const run = state.mission!;
   const mission = getMission(run.missionId);
   const isBoss = run.cleared >= missionEncounters(run);
+  if (run.drill) {
+    state.battle = { hostiles: run.drill.hostileIds.map(drillHostile), target: 0, playerStatuses: [], round: 1 };
+    state.mode = 'battle';
+    events.push({ type: 'battleStart', hostileIds: run.drill.hostileIds, boss: state.battle.hostiles.some((h) => getHostile(h.defId).boss) });
+    openBattle(state, rng, events);
+    return;
+  }
   if (run.patrol) {
     const hostiles = isBoss ? patrolBoss(mission.id, run.patrol.level, rng) : patrolContact(mission.id, run.patrol.level, rng);
     state.battle = { hostiles: hostiles, target: 0, playerStatuses: [], round: 1 };
@@ -75,9 +83,17 @@ export function resolveBattleRound(
   else if (outcome === 'playerDied') onDefeat(state, events);
 }
 
+/** Ends a combat drill: back aboard, fully restored, nothing gained or lost. */
+export function endDrill(state: GameState, events: GameEvent[], outcome: 'won' | 'lost' | 'ended') {
+  fullRestore(state.player!);
+  leaveMission(state);
+  events.push({ type: 'drillEnded', outcome });
+}
+
 function onVictory(state: GameState, rng: Rng, events: GameEvent[]) {
   const player = state.player!;
   const run = state.mission!;
+  if (run.drill) { endDrill(state, events, 'won'); return; }
   // Rewards from every hostile in the fight (rolled in lineup order).
   const lineup = state.battle!.hostiles;
   const defs = lineup.map((m) => getHostile(m.defId));
@@ -136,6 +152,7 @@ function onVictory(state: GameState, rng: Rng, events: GameEvent[]) {
 }
 
 function onDefeat(state: GameState, events: GameEvent[]) {
+  if (state.mission?.drill) { endDrill(state, events, 'lost'); return; }
   const player = state.player!;
   const creditsLost = Math.floor(player.credits * DEFEAT_CREDITS_PENALTY);
   player.credits -= creditsLost;

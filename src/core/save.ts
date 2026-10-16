@@ -5,6 +5,7 @@
  */
 import { MISSIONS, DIVISIONS, ITEMS, HOSTILES } from './data';
 import { SAVE_VERSION } from './game';
+import { checkDrill } from './drill';
 import { clampVitals } from './player';
 import { MAX_HOSTILES, STATS } from './types';
 import type { GameState } from './types';
@@ -65,6 +66,7 @@ function validateState(s: any): string | null {
   }
   if ((s.mode === 'mission' || s.mode === 'battle') && !(s.mission?.missionId in MISSIONS)) return 'bad mission';
   if (s.mission?.patrol !== undefined && !isInt(s.mission.patrol?.level, 1)) return 'bad patrol';
+  if (s.mission?.drill !== undefined && checkDrill(s.mission.drill?.hostileIds)) return 'bad drill';
   if (s.mode === 'battle') {
     const b = s.battle;
     if (!Array.isArray(b?.hostiles) || b.hostiles.length < 1 || b.hostiles.length > MAX_HOSTILES) return 'bad battle';

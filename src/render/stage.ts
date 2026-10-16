@@ -497,6 +497,15 @@ export class Stage {
         await this.tweens.run(0.7, (t) => { h.fall = -t * Math.PI / 2; });
         return;
       }
+      case 'drillEnded': {
+        // Win: let the last hostile fade; loss: the officer drops; broken off: beamed out.
+        const h = this.hero;
+        if (!h) return;
+        if (e.outcome === 'lost') await this.tweens.run(0.7, (t) => { h.fall = -t * Math.PI / 2; });
+        else if (e.outcome === 'ended') await this.tweens.run(0.5, (t) => { h.ox = -t * this.W * 0.45; });
+        else await this.tweens.wait(0.5);
+        return;
+      }
       case 'levelUp': {
         if (!this.hero) return;
         this.fx.popText(...this.head(this.hero, 16), `LEVEL ${e.level}!`, 'pop-level');

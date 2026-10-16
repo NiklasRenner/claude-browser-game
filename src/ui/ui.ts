@@ -1,13 +1,13 @@
 /**
  * DOM user interface. Re-renders from game state on every change; buttons
  * carry their game action as JSON in `data-action`, and are enabled only when
- * `legalActions` contains that exact action.
+ * `checkAction` allows that exact action.
  *
  * This class owns input handling and UI-only state (open tab, menu, key
  * queue). The markup lives in views/ (pure functions of state → HTML), shared
  * chips in widgets.ts, string helpers in html.ts, key bindings in keys.ts.
  */
-import { checkAction } from '../core';
+import { checkAction, drillRoster } from '../core';
 import type { Action, DivisionId } from '../core';
 import type { GameController } from '../game/controller';
 import { actionAttr, esc } from './html';
@@ -23,6 +23,8 @@ const SCROLLERS = '.tab-body, .main-panel.mode-title';
 
 export class UI {
   private tab: ShipTab = 'missions';
+  /** Combat drill lineup picked on the Mission Board (one hostile id per slot, '' = empty). */
+  private drill: string[] = [drillRoster()[0]!.hostileIds[0]!, '', ''];
   private battleMenu: BattleMenu = 'main';
   private titleName = '';
   private titleDivision: DivisionId = 'security';
@@ -46,6 +48,12 @@ export class UI {
     root.addEventListener('input', (e) => {
       const t = e.target as HTMLInputElement;
       if (t.id === 'hero-name') this.titleName = t.value;
+    });
+    root.addEventListener('change', (e) => {
+      const t = e.target as HTMLSelectElement;
+      if (t.dataset.drill === undefined) return;
+      this.drill[Number(t.dataset.drill)] = t.value;
+      this.render();
     });
     window.addEventListener('keydown', (e) => this.onKey(e));
     this.render();
@@ -128,17 +136,17 @@ export class UI {
 
   render() {
     const s = this.game.state;
-    const legal = new Set(this.game.legal().map((a) => JSON.stringify(a)));
     const btn = (action: Action, label: string, cls = '', hint = '') => {
-      const ok = legal.has(JSON.stringify(action)) && !this.game.busy;
-      const reason = ok ? hint : checkAction(s, action) ?? (this.game.busy ? '' : hint);
+      const why = checkAction(s, action);
+      const ok = why === null && !this.game.busy;
+      const reason = ok ? hint : why ?? (this.game.busy ? '' : hint);
       return `<button class="btn ${cls}" ${actionAttr(action)} ${ok ? '' : 'disabled'} title="${esc(reason)}">${label}</button>`;
     };
 
     let main = '';
     switch (s.mode) {
       case 'title': main = titleScreen(this.titleDivision, this.game.hasSave()); break;
-      case 'ship': main = shipView(s, btn, this.tab); break;
+      case 'ship': main = shipView(s, btn, this.tab, this.drill); break;
       case 'mission': main = missionPanel(s, btn); break;
       case 'battle': main = battlePanel(s, btn, this.battleMenu, this.game.busy); break;
       case 'defeated': main = defeatedPanel(btn); break;

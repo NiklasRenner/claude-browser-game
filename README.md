@@ -42,6 +42,7 @@ The e2e test needs a Playwright Chromium (`npx playwright install chromium` once
 - **Loop:** Ship → Mission Board → beam down → hostile contacts + a priority target → beam back up. HP carries over between fights, so medkits, returning to the ship and sickbay matter.
 - **Missions:** Veridia Prime (jungle colony) → Kethra Mining Moon (volcanic) → Glacies IV (ice world) → The Void Rift (derelict fleet) → Xenith Hive World (5 contacts fought in packs, and the Brood Matriarch with two escorts; the finale).
 - **Patrols (random runs):** launch from the top of the Mission Board, any time. A patrol picks a random unlocked world and runs 4 random contacts (solo hostiles or packs of 2–3), then that world's priority target, sometimes with escorts. Every hostile is scaled to your level when the patrol starts (HP, damage, accuracy and rewards follow the story's own level curve; pack members are individually weaker). Patrols are repeatable, don't count as clearing missions, and stay a fair fight after the finale up to the level cap.
+- **Combat drills (practice / testing):** at the bottom of the Mission Board, pick 1–3 of any hostiles in the game (bosses included, nothing needs to be unlocked) for a single fight on their home world. Hostiles fight at their own level, bosses at their story level. No XP, credits or drops; losing costs nothing, beaming out always works, and you're fully restored afterwards.
 - **Multiple hostiles:** fights can have up to 3 hostiles. You attack your current target (shown on the status card, a ring and an arrow in the scene). Switch with `Tab` / `Shift+Tab`, by clicking a name in the target list, or by clicking the hostile itself; switching is free. When your target goes down, targeting moves to the next living hostile. Area abilities (marked ⇶ all: Suppressive Fire, Ion Storm, Cryo Grenade) hit every hostile. You can't beam out while a priority target is standing.
 - **Selling:** everything sells for half its price, minimum 1 credit (so starter kit can be cleared out); equipped gear can't be sold.
 - **Damage types:** kinetic, plasma, cryo, ion, photon, void, corrosive. Hostiles show what they're vulnerable to and what they resist; buy weapons to exploit that, or swap weapons mid-fight (costs your turn).
@@ -80,6 +81,7 @@ src/
                    round.ts (sequencing a round)
     player.ts      Derived stats, XP curve, level-ups, inventory
     patrol.ts      Random level-scaled runs: lineups, scaling, rewards
+    drill.ts       Combat drills: one practice fight against any picked lineup
     save.ts        Versioned save format with validation and migrations
     describe.ts    Events → log lines with a tone (UI log and golden transcripts)
     bot.ts         Autoplayer used by tests, the balance sim and __qf.botStep()

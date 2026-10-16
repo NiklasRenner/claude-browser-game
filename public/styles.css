@@ -301,3 +301,9 @@ h3 { font-size: 10px; line-height: 1; margin-top: 12px; text-transform: uppercas
 .tab-body > h3:first-child { margin-top: 0; }
 
 .stat-effect { font-size: 11px; color: var(--muted); margin-left: 8px; }
+
+/* Combat drill: hostile pickers on the Mission Board. */
+.drill-row { border-left-color: #6b5a8a; }
+.drill-picks { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.drill-pick { background: #0b0910; color: var(--text); border: 2px solid #050407; box-shadow: 0 0 0 2px #3a3342; border-radius: 0; padding: 4px 6px; font: inherit; font-size: 13px; max-width: 100%; }
+.drill-pick:focus { outline: none; box-shadow: 0 0 0 2px var(--accent); }

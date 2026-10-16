@@ -65,6 +65,7 @@ function toneOf(e: GameEvent): Tone {
     case 'error': case 'defeat': return 'bad';
     case 'fled': return e.success ? 'info' : 'bad';
     case 'victory': case 'levelUp': case 'learned': case 'missionComplete': case 'patrolComplete': case 'gameComplete': return 'good';
+    case 'drillEnded': return e.outcome === 'won' ? 'good' : 'info';
     case 'bought': case 'sold': case 'equip': return 'loot';
     default: return 'info';
   }
@@ -118,6 +119,8 @@ function describeEvent(event: GameEvent, { you, foes }: DescribeContext): string
       return `Mission complete: ${getMission(event.missionId).name}! +${event.xp} XP, +${event.credits} credits${event.firstClear ? ' (first clear!)' : ''}.`;
     case 'patrolComplete':
       return `Patrol complete: ${getMission(event.missionId).name} sector (level ${event.level})! +${event.xp} XP, +${event.credits} credits.`;
+    case 'drillEnded':
+      return `${{ won: 'Drill complete: all hostiles neutralised.', lost: 'Drill failed: you went down.', ended: 'Drill ended.' }[event.outcome]} Simulation off, fully restored.`;
     case 'gameComplete': return getMission(FINAL_MISSION).finale?.text ?? 'The tour is complete!';
     case 'bought': return `Bought ${getItem(event.itemId).name}.`;
     case 'sold': return `Sold ${getItem(event.itemId).name}.`;
