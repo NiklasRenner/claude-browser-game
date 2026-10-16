@@ -38,6 +38,13 @@ function energy(weaponId: string): RGB {
   return el === 'kinetic' ? [214, 140, 60] : glowOf(ELEMENT_COLORS[el]);
 }
 
+/** The muzzle of a weapon held at (hx, hy), aimed at `angle`: where its shots leave. */
+export function muzzleOf(weaponId: string, hx: number, hy: number, angle: number, size = 1): [number, number] {
+  const sprite = WEAPONS[weaponId];
+  if (sprite && framesOf('weapons')) return along(hx, hy, angle)(sprite.muzzle[0] - sprite.grip[0] + 1, sprite.muzzle[1] - sprite.grip[1]);
+  return along(hx, hy, angle)(9 * size, -1 * size);
+}
+
 /**
  * Draws the weapon with its grip at (hx, hy), aimed at `angle`. `t` drives
  * shimmer and spin; `charge` (0..1) brightens it while attacking. `size` stretches
@@ -50,7 +57,7 @@ export function drawWeapon(p: Painter, weaponId: string, hx: number, hy: number,
     const f = frames[sprite.frame]!;
     const [gx, gy] = sprite.grip;
     p.rotated(f, [0, 0, f.w, f.h], gx, gy, hx, hy, angle);
-    if (charge > 0.2 && charge < 0.7) p.glow(...along(hx, hy, angle)(sprite.muzzle[0] - gx + 1, sprite.muzzle[1] - gy), glowOf(ELEMENT_COLORS[getWeapon(weaponId).element]));
+    if (charge > 0.2 && charge < 0.7) p.glow(...muzzleOf(weaponId, hx, hy, angle), glowOf(ELEMENT_COLORS[getWeapon(weaponId).element]));
     return;
   }
   const shape = weaponShape(weaponId);

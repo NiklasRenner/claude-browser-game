@@ -17,7 +17,7 @@ import type { Figure, Pose } from './figure';
 import { RIGS, SHEETS } from './sheet-data';
 import { framesOf, tinted } from './sheets';
 import type { Frame } from './sheets';
-import { drawWeapon, isMelee, restAngle, weaponShape } from './weapons';
+import { drawWeapon, isMelee, muzzleOf, restAngle, weaponShape } from './weapons';
 
 /** 0 duty coat · 1 field jacket · 2 armored vest · 3 envirosuit · 4 arctic hardsuit · 5 power armor. */
 const TIERS: Record<string, number> = {
@@ -164,6 +164,11 @@ export function heroFigure(divisionId: DivisionId, weaponId: string, armorId: st
       if (frames) drawSprite(p, frames, pose, weaponId);
       else draw(p, pose);
     },
+    muzzle: (pose) => {
+      if (melee || !framesOf('officer')) return null;
+      const { hx, hy, angle } = held(pose, weaponId);
+      return muzzleOf(weaponId, hx, hy, angle, 1.4);
+    },
   };
 }
 
@@ -176,21 +181,27 @@ export function heroFigure(divisionId: DivisionId, weaponId: string, armorId: st
 /** One-handed guns: held in the front hand. */
 const SIDEARMS = new Set(['pistol', 'needler', 'flechette', 'emitter']);
 
-function drawSprite(p: Painter, frames: Frame[], { t, attack: a }: Pose, weaponId: string) {
-  const { ax, h } = SHEETS.officer;
+/** The sheet frame for a pose, and where the weapon is held in it (feet-relative) and at what angle. */
+function held({ t, attack: a }: Pose, weaponId: string) {
   const rig = RIGS.officer;
   const melee = isMelee(weaponShape(weaponId));
   const [start, loop, count] = melee ? rig.anims.swing : rig.anims.aim;
   const strike = count - loop;
   const i = start + (a > 0 ? loop + Math.min(strike - 1, Math.floor(a * strike)) : Math.floor(t * 2.5) % loop);
-  const frame = frames[i]!;
   // Each animation has its weapon hand (`hands`); a sidearm is held in the front hand instead,
   // aimed along the weapon arm.
   const sidearm = !melee && SIDEARMS.has(weaponShape(weaponId));
   const [hx, hy] = (sidearm ? rig.front : rig.hands)[i]!;
-  const angle = rig.hands[i]![2];
+  return { i, hx, hy, angle: rig.hands[i]![2], sidearm, melee };
+}
+
+function drawSprite(p: Painter, frames: Frame[], pose: Pose, weaponId: string) {
+  const { ax, h } = SHEETS.officer;
+  const { i, hx, hy, angle, sidearm, melee } = held(pose, weaponId);
+  const a = pose.attack;
+  const frame = frames[i]!;
   p.image(frame, -ax, -h);
-  drawWeapon(p, weaponId, hx, hy, angle, t, melee ? (a > 0.3 && a < 0.8 ? 1 : 0) : a, 1.4);
+  drawWeapon(p, weaponId, hx, hy, angle, pose.t, melee ? (a > 0.3 && a < 0.8 ? 1 : 0) : a, 1.4);
   // The holding forearm and fist again, over the weapon (masks: weapon hand, then front hand).
   const mask = framesOf('officer_grip')?.[(sidearm ? SHEETS.officer.frames : 0) + i];
   if (mask) p.image(frame, -ax, -h, mask);

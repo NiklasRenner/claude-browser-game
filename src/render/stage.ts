@@ -335,6 +335,14 @@ export class Stage {
     return [a.x + a.ox + (a.figure.right - a.figure.left) * s * 0.15, a.y - (a.figure.height * 0.5 + a.figure.hover) * s];
   }
 
+  /** The figure's muzzle on screen, at the first frame of an attack (null: it has none). */
+  private muzzle(a: Actor): [number, number] | null {
+    const m = a.figure.muzzle?.({ t: this.time, attack: 0.01 });
+    if (!m) return null;
+    const s = a.figure.scale * this.zoom;
+    return [a.x + a.ox + m[0] * s, a.y + a.oy + (m[1] - a.figure.hover) * s];
+  }
+
   private head(a: Actor | null, extra = 4): [number, number] {
     if (!a) return [0, 0];
     const s = a.figure.scale * this.zoom;
@@ -409,7 +417,8 @@ export class Stage {
         const col = elementColor(e.element);
         const style = this.attackStyle(e.actor, e.element, pendingAbility, after);
         const [cx, cy] = this.center(attacker);
-        const from: [number, number] = [cx + 12 * dir, cy - 4];
+        // Shots leave the gun's muzzle as it is when the attack starts; otherwise the front of the body.
+        const from: [number, number] = this.muzzle(attacker) ?? [cx + 12 * dir, cy - 4];
         if (followUp) {
           if (style !== 'melee') await this.fx.bolt(from, this.center(target), col, 0.07);
         } else if (style === 'orb') {
