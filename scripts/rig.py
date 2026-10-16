@@ -40,7 +40,9 @@ def P(body=(0, 0), near=None, far=None, weapon=None, absolute=False):
     return {'body': body, 'near': near, 'far': far, 'weapon': weapon, 'absolute': absolute}
 
 
-BREATHE = [(0, 0), (0, 1), (0, 1), (0, 0)]  # a loop: the last frame leads back into the first
+# Idle loop: chest and head sink and rise (about 2 px on an 80 px figure) with a slight lean, the arms
+# carried along. Big enough to read at game size; the last frame leads back into the first.
+BREATHE = [(0, 0), (0, 2), (1, 4), (0, 2)]
 
 # Templates. Each starts from a pose base (a sprite of the character already in that stance,
 # see rig.json "bases"), so its idle loop only nudges the base and stays clean; the attack frames move
