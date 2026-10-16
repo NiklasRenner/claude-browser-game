@@ -1,9 +1,9 @@
 /** The ship: Mission Board, Quartermaster, Scriptorium, Locker, Personnel File and Sickbay tabs. */
 import {
   MAX_HOSTILES, MISSION_ORDER, ELEMENTS, PATROL_CONTACTS, PLAYER_EVASION_CAP, QUARTERMASTER_STOCK, STATS, STAT_INFO, countItem, derive, getMission,
-  drillHostile, drillRoster, drillWorld, getHostile, getItem, hostileLevel, isMissionUnlocked, isEquipped, knownAbilities, patrolReward, SCRIPTORIUM, patrolWorlds, treatmentCost, sellPrice,
+  drillHostile, drillRoster, drillWorld, getHostile, getItem, hostileLevel, isMissionUnlocked, isEquipped, knownAbilities, loadoutAbilities, MAX_LOADOUT, patrolReward, SCRIPTORIUM, patrolWorlds, treatmentCost, sellPrice,
 } from '../../core';
-import type { GameState, ItemDef, Player } from '../../core';
+import type { AbilityDef, GameState, ItemDef, Player } from '../../core';
 import { ELEMENT_ICONS } from '../../game/elements';
 import { esc } from '../html';
 import type { BtnFn } from '../html';
@@ -109,17 +109,32 @@ function scriptorium(p: Player, btn: BtnFn) {
     Learned ones join your abilities for good.</p><div class="list">${rows}</div>`;
 }
 
+/** Abilities (the loadout taken into battle, and the rest), then owned gear by kind, cheapest first. */
 function locker(p: Player, btn: BtnFn) {
-  const rows = Object.entries(p.inventory).map(([id, n]) => {
-    const item = getItem(id);
-    const actions: string[] = [];
-    if (item.kind === 'consumable') actions.push(btn({ type: 'useItem', itemId: id }, 'Use'));
-    else actions.push(isEquipped(p, id) ? '<span class="badge good">Equipped</span>' : btn({ type: 'equip', itemId: id }, 'Equip'));
-    actions.push(btn({ type: 'sell', itemId: id }, `Sell ◈${sellPrice(id)}`, 'ghost'));
-    return `<div class="row"><div class="row-main"><strong>${item.name}</strong>${n > 1 ? ` ×${n}` : ''} ${itemStats(item)}
-      <div class="muted small">${item.description}</div></div><div class="row-actions">${actions.join('')}</div></div>`;
-  }).join('');
-  return `<div class="list">${rows}</div>`;
+  const abilityRow = (a: AbilityDef, slot: number | null) => `<div class="row">
+    <div class="row-main">${slot !== null ? `<span class="badge">${slot + 1}</span> ` : ''}<strong>${a.name}</strong> <span class="energy-cost">${a.energy} EN</span>${abilityTags(p, a, null)}
+      <div class="muted small">${a.description}</div></div>
+    ${slot !== null ? btn({ type: 'unslotAbility', abilityId: a.id }, 'Leave out', 'ghost') : btn({ type: 'slotAbility', abilityId: a.id }, 'Take into battle')}</div>`;
+  const loadout = loadoutAbilities(p);
+  const spare = knownAbilities(p).filter((a) => !p.loadout.includes(a.id));
+  const abilities = `<h3>Loadout <span class="badge">${loadout.length} / ${MAX_LOADOUT}</span> <span class="muted small">taken into battle, on keys 1–${MAX_LOADOUT}</span></h3>
+    <div class="list">${loadout.map((a, i) => abilityRow(a, i)).join('') || '<p class="muted small">No abilities taken into battle.</p>'}</div>
+    ${spare.length ? `<h3>Other abilities</h3><div class="list">${spare.map((a) => abilityRow(a, null)).join('')}</div>` : ''}`;
+  const section = (kind: ItemDef['kind'], title: string) => {
+    const items = Object.entries(p.inventory).map(([id, n]) => [getItem(id), n] as const)
+      .filter(([item]) => item.kind === kind).sort(([a], [b]) => a.price - b.price || a.name.localeCompare(b.name));
+    if (!items.length) return '';
+    const rows = items.map(([item, n]) => {
+      const actions: string[] = [];
+      if (item.kind === 'consumable') actions.push(btn({ type: 'useItem', itemId: item.id }, 'Use'));
+      else actions.push(isEquipped(p, item.id) ? '<span class="badge good">Equipped</span>' : btn({ type: 'equip', itemId: item.id }, 'Equip'));
+      actions.push(btn({ type: 'sell', itemId: item.id }, `Sell ◈${sellPrice(item.id)}`, 'ghost'));
+      return `<div class="row"><div class="row-main"><strong>${item.name}</strong>${n > 1 ? ` ×${n}` : ''} ${itemStats(item)}
+        <div class="muted small">${item.description}</div></div><div class="row-actions">${actions.join('')}</div></div>`;
+    }).join('');
+    return `<h3>${title}</h3><div class="list">${rows}</div>`;
+  };
+  return abilities + section('weapon', 'Weapons') + section('armor', 'Armor & suits') + section('consumable', 'Medical & supplies');
 }
 
 function personnel(p: Player, btn: BtnFn) {

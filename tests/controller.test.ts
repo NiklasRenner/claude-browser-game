@@ -35,4 +35,25 @@ describe('GameController', () => {
     assert.equal(b.continueGame(), null);
     assert.deepEqual(b.state, a.state);
   });
+
+  it('while events animate, the shown state and the log catch up one event at a time', async () => {
+    const game = new GameController(memoryStorage(), 3);
+    await game.dispatch({ type: 'newGame', name: 'Shown' });
+    await game.dispatch({ type: 'startMission', missionId: 'veridia' });
+    const foeBefore = game.state.battle!.hostiles[0]!.hp, logBefore = game.log.length;
+    const seen: { foe: number; log: number }[] = [];
+    game.setAnimator(async (events, _before, _after, played) => {
+      seen.push({ foe: game.shown.battle!.hostiles[0]!.hp, log: game.log.length });
+      for (let i = 0; i < events.length; i++) {
+        played(i);
+        seen.push({ foe: game.shown.battle?.hostiles[0]?.hp ?? -1, log: game.log.length });
+      }
+    });
+    const events = await game.dispatch({ type: 'attack' });
+    assert.equal(seen[0]!.foe, foeBefore, 'nothing is shown before it plays');
+    assert.equal(seen[0]!.log, logBefore, 'no log lines before they play');
+    const hit = events.findIndex((e) => e.type === 'attack' && e.actor === 'player' && e.hit);
+    if (hit >= 0) assert.ok(seen[hit + 1]!.foe < foeBefore, 'the bar drops once the hit has played');
+    assert.deepEqual(game.shown, game.state, 'and ends on the real state');
+  });
 });

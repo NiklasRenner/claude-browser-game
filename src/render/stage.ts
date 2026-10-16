@@ -463,16 +463,18 @@ export class Stage {
     return state.player && getWeapon(state.player.weapon).style === 'ranged' ? 'bolt' : 'melee';
   }
 
-  async animate(events: GameEvent[], before: GameState, after: GameState): Promise<void> {
+  /** Plays a step's events in order; `played(i)` is called as each one finishes (the UI's bars follow it). */
+  async animate(events: GameEvent[], before: GameState, after: GameState, played: (i: number) => void = () => {}): Promise<void> {
     if (before.mode !== 'title') this.sync({ ...before });
     // The player's ability being played: its strikes are the attack events that carry its name.
     let cast: { id: string; name: string; strikes: number } | null = null;
     let prev: GameEvent | null = null;
-    for (const e of events) {
+    for (const [i, e] of events.entries()) {
       const followUp = e.type === 'attack' && prev?.type === 'attack' && prev.actor === e.actor && prev.foe === e.foe && prev.name === e.name;
       if (e.type === 'abilityUsed') cast = e.actor === 'player' ? { id: e.abilityId, name: e.name, strikes: 0 } : null;
       else if (e.type === 'attack' && (e.actor !== 'player' || e.name !== cast?.name)) cast = null;
       await this.play(e, before, after, cast, followUp);
+      played(i);
       if (e.type === 'attack' && cast) cast.strikes++;
       prev = e;
     }

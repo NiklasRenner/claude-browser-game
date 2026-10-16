@@ -7,7 +7,7 @@
  */
 import { fleeChance, playerAttack, playerUseAbility, toughestAliveLevel, useConsumable } from './combat';
 import { getAbility, getMission, getItem } from './data';
-import { addItem, allocateStat, clampVitals, createPlayer, fullRestore, removeItem } from './player';
+import { addItem, allocateStat, clampVitals, createPlayer, fullRestore, learn, removeItem } from './player';
 import { drillWorld } from './drill';
 import { endDrill, leaveMission, resolveBattleRound, startNextBattle } from './flow';
 import { patrolWorlds } from './patrol';
@@ -15,7 +15,7 @@ import { Rng } from './rng';
 import { checkAction, treatmentCost, sellPrice } from './rules';
 import type { Action, GameEvent, GameState, StepResult } from './types';
 
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 export function initialState(seed = 1): GameState {
   return {
@@ -95,9 +95,15 @@ function apply(state: GameState, action: Action, rng: Rng, events: GameEvent[]):
       const ability = getAbility(action.abilityId);
       player.credits -= ability.shop!.price;
       player.learned.push(ability.id);
-      events.push({ type: 'learned', abilityId: ability.id });
+      learn(player, ability.id, events);
       return;
     }
+    case 'slotAbility':
+      player.loadout.push(action.abilityId);
+      return;
+    case 'unslotAbility':
+      player.loadout = player.loadout.filter((id) => id !== action.abilityId);
+      return;
     case 'useItem': {
       if (state.mode === 'battle') {
         resolveBattleRound(state, rng, events, () => useConsumable(player, action.itemId, state.battle!.playerStatuses, events));

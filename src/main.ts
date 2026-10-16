@@ -17,7 +17,7 @@ let stage: Stage | null = null;
 try {
   stage = new Stage(canvas, overlay);
   const s = stage;
-  game.setAnimator((events, before, after) => s.animate(events, before, after));
+  game.setAnimator((events, before, after, played) => s.animate(events, before, after, played));
   game.subscribe(() => { if (!game.busy) s.sync(game.state); });
   // Click a hostile in the scene to target it.
   canvas.addEventListener('click', (e) => {

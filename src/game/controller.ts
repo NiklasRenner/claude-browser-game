@@ -1,9 +1,11 @@
 /**
  * Owns the live game state and is the only place the UI talks to.
- * Dispatching runs the pure reducer, records the log, autosaves, and hands
- * the events to whoever animates them (the 3D renderer).
+ * Dispatching runs the pure reducer, autosaves, and hands the events to
+ * whoever animates them (the stage). While they play, `shown` (what the UI
+ * draws) and the log catch up one event at a time, so a bar drops when the
+ * hit lands, not when the button is pressed.
  */
-import { deserialize, describeLog, initialState, legalActions, serialize, step } from '../core';
+import { describeLog, deserialize, getAbility, initialState, legalActions, serialize, step } from '../core';
 import type { Action, GameEvent, GameState, Tone } from '../core';
 
 export interface Storage {
@@ -23,8 +25,11 @@ export const memoryStorage = (): Storage => {
   return { load: () => data, save: (d) => { data = d; }, clear: () => { data = null; } };
 };
 
-/** Something that can animate a batch of events. Resolves when it's done. */
-export type Animator = (events: GameEvent[], before: GameState, after: GameState) => Promise<void>;
+/**
+ * Something that can animate a batch of events. Calls `played(i)` once event i has played (a hit has
+ * landed, a heal has shown...). Resolves when it's done.
+ */
+export type Animator = (events: GameEvent[], before: GameState, after: GameState, played: (i: number) => void) => Promise<void>;
 
 export interface LogLine {
   id: number;
@@ -36,6 +41,8 @@ const MAX_LOG = 60;
 
 export class GameController {
   state: GameState;
+  /** What the UI shows: `state`, except while events animate, when it trails behind them. */
+  shown: GameState;
   log: LogLine[] = [];
   busy = false;
   private nextLogId = 1;
@@ -44,6 +51,7 @@ export class GameController {
 
   constructor(private storage: Storage, seed = randomSeed()) {
     this.state = initialState(seed);
+    this.shown = this.state;
   }
 
   subscribe(fn: () => void): () => void {
@@ -66,7 +74,7 @@ export class GameController {
     if (!data) return 'No saved game';
     const result = deserialize(data);
     if (!result.ok) return result.error;
-    this.state = result.state;
+    this.state = this.shown = result.state;
     this.log = [];
     this.addLog('Welcome back.', 'system');
     this.emit();
@@ -77,14 +85,14 @@ export class GameController {
   loadState(state: GameState): string | null {
     const result = deserialize(serialize(state));
     if (!result.ok) return result.error;
-    this.state = result.state;
+    this.state = this.shown = result.state;
     this.emit();
     return null;
   }
 
   /** Returns to the title screen (the save is kept). */
   toTitle() {
-    this.state = initialState(randomSeed());
+    this.state = this.shown = initialState(randomSeed());
     this.log = [];
     this.emit();
   }
@@ -104,16 +112,33 @@ export class GameController {
     }
     this.state = result.state;
     if (this.state.mode !== 'title') this.storage.save(serialize(this.state));
-    for (const line of describeLog(before, result)) this.addLog(line.text, line.tone);
-    this.busy = this.animator !== null;
+    // Each event's log lines, posted as it plays.
+    const lines = result.events.map((e) => describeLog(before, { state: result.state, events: [e] }));
+    const post = (i: number) => { for (const line of lines[i] ?? []) this.addLog(line.text, line.tone); };
+    if (!this.animator) {
+      lines.forEach((_, i) => post(i));
+      this.shown = this.state;
+      this.emit();
+      return result.events;
+    }
+    this.busy = true;
+    this.shown = structuredClone(before);
     this.emit();
-    if (this.animator) {
-      try {
-        await this.animator(result.events, before, result.state);
-      } finally {
-        this.busy = false;
-        this.emit();
+    let done = 0;
+    const played = (i: number) => {
+      for (; done <= i && done < result.events.length; done++) {
+        post(done);
+        applyShown(this.shown, result.events[done]!);
       }
+      this.emit();
+    };
+    try {
+      await this.animator(result.events, before, result.state, played);
+    } finally {
+      played(result.events.length - 1);
+      this.busy = false;
+      this.shown = this.state;
+      this.emit();
     }
     return result.events;
   }
@@ -125,6 +150,33 @@ export class GameController {
 
   private emit() {
     for (const fn of this.listeners) fn();
+  }
+}
+
+/** What an event visibly changes (HP, energy, target), applied to the shown state as it plays. */
+function applyShown(s: GameState, e: GameEvent) {
+  const p = s.player, b = s.battle;
+  if (!p) return;
+  const hostile = (foe: number | undefined) => b?.hostiles[foe ?? 0];
+  switch (e.type) {
+    case 'attack':
+      if (!e.hit) return;
+      if (e.actor === 'player') { const h = hostile(e.foe); if (h) h.hp = Math.max(0, h.hp - e.damage); }
+      else p.hp = Math.max(0, p.hp - e.damage);
+      return;
+    case 'statusTick':
+      if (e.target === 'player') p.hp = Math.max(0, p.hp - e.damage);
+      else { const h = hostile(e.foe); if (h) h.hp = Math.max(0, h.hp - e.damage); }
+      return;
+    case 'abilityUsed':
+      if (e.actor === 'player') p.energy = Math.max(0, p.energy - getAbility(e.abilityId).energy);
+      return;
+    case 'heal':
+      if (e.actor === 'player') { p.hp += e.amount; p.energy += e.energy; }
+      return;
+    case 'hostileDown': { const h = hostile(e.foe); if (h) h.hp = 0; return; }
+    case 'targeted': if (b) b.target = e.foe; return;
+    default:
   }
 }
 

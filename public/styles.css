@@ -79,7 +79,12 @@ body.no-scene #scene { background: radial-gradient(circle at 50% 30%, #3a2f52, v
   grid-area: 1 / 1 / 4 / 4; align-self: center; width: min(820px, 100%);
   max-height: calc(100vh - 32px); overflow-y: auto;
 }
-.main-panel.mode-ship { max-height: 62vh; display: flex; flex-direction: column; }
+/* Aboard the ship the panel is a full-height column on the right, leaving the officer and the window in view. */
+#ui[data-mode="ship"] {
+  grid-template-columns: minmax(240px, 300px) 1fr minmax(420px, 46%);
+  grid-template-areas: "hud . main" ". . main" "log . main";
+}
+.main-panel.mode-ship { display: flex; flex-direction: column; align-self: stretch; justify-self: stretch; width: auto; min-height: 0; }
 /* Header and tabs keep their size; only the tab body shrinks and scrolls.
    (min-height: 0 is required for a flex child to shrink below its content.) */
 .main-panel.mode-ship .ship-header,
@@ -95,7 +100,8 @@ body.no-scene #scene { background: radial-gradient(circle at 50% 30%, #3a2f52, v
   }
   .hud, .hostile-card { font-size: 12px; padding: 8px; }
   .log { max-height: 76px; overflow: hidden; font-size: 12px; }
-  .main-panel.mode-ship { max-height: 58vh; }
+  #ui[data-mode="ship"] { grid-template-columns: 1fr 1fr; grid-template-areas: "hud hostile" "turns turns" "log log" "main main"; }
+  .main-panel.mode-ship { max-height: 58vh; align-self: end; }
   .main-panel.mode-title { grid-area: 1 / 1 / 5 / 3; }
   .two-col { grid-template-columns: 1fr !important; }
 }
@@ -191,7 +197,7 @@ h3 { font-size: 10px; line-height: 1; margin-top: 12px; text-transform: uppercas
 
 /* ─── Ship / lists ───────────────────────────────────────────────────────── */
 .ship-header { display: flex; justify-content: space-between; align-items: center; }
-.tabs { display: flex; gap: 2px; border-bottom: 2px solid #4a3214; box-shadow: 0 2px 0 #050407; margin-bottom: 10px; overflow-x: auto; }
+.tabs { display: flex; flex-wrap: wrap; gap: 2px; border-bottom: 2px solid #4a3214; box-shadow: 0 2px 0 #050407; margin-bottom: 10px; }
 .tab { background: none; border: none; padding: 8px 10px 6px; cursor: pointer; color: var(--muted); white-space: nowrap; font: 20px/1 var(--pixel); text-shadow: 0 2px 0 #050407; }
 .tab:hover { color: var(--text); }
 .tab.active { color: #1a1006; text-shadow: none; background: linear-gradient(#e2b25e 0 50%, #c8913c 50%); box-shadow: inset 0 2px 0 #f2d589; }

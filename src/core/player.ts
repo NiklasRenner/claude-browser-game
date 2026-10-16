@@ -83,6 +83,7 @@ export function createPlayer(name: string, start: Partial<Stats> = defaultStart(
     stats,
     statPoints: 0,
     learned: [],
+    loadout: abilitiesFor(1).map((a) => a.id),
     weapon: START_WEAPON,
     armor: START_ARMOR,
     inventory: { [START_WEAPON]: 1, [START_ARMOR]: 1, medkit: 2 },
@@ -114,7 +115,7 @@ export function grantXp(player: Player, amount: number, events: GameEvent[]): vo
     fullRestore(player);
     events.push({ type: 'levelUp', level: player.level });
     for (const ability of abilitiesFor(player.level)) {
-      if (ability.level === player.level) events.push({ type: 'learned', abilityId: ability.id });
+      if (ability.level === player.level) learn(player, ability.id, events);
     }
   }
   if (player.level >= MAX_LEVEL) player.xp = 0;
@@ -129,6 +130,20 @@ export function allocateStat(player: Player, stat: Stat): void {
   // Raising END/INT also raises current HP/MP by the same amount, like a level-up would.
   player.hp += after.maxHp - before.maxHp;
   player.energy += after.maxEnergy - before.maxEnergy;
+}
+
+/** How many abilities can be taken into battle (one per hotkey). */
+export const MAX_LOADOUT = 8;
+
+/** The abilities taken into battle, in hotkey order. */
+export function loadoutAbilities(player: Player): AbilityDef[] {
+  return player.loadout.map(getAbility);
+}
+
+/** A newly learned ability goes into the loadout if there's room. */
+export function learn(player: Player, abilityId: string, events: GameEvent[]) {
+  events.push({ type: 'learned', abilityId });
+  if (player.loadout.length < MAX_LOADOUT && !player.loadout.includes(abilityId)) player.loadout.push(abilityId);
 }
 
 /** Abilities learned by level, then the ones bought in the Scriptorium (in the order bought). */

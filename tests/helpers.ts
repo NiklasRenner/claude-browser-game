@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ABILITIES, getHostile, initialState, step } from '../src/core';
+import { ABILITIES, MAX_LOADOUT, getHostile, initialState, knownAbilities, step } from '../src/core';
 import type { Action, GameState, StepResult } from '../src/core';
 
 /** Starts a new game in ship. */
@@ -57,7 +57,10 @@ export function endlessFight(
     p.inventory[opts.weapon] = 1;
     p.weapon = opts.weapon;
   }
-  if (opts.level) p.level = opts.level;
+  if (opts.level) {
+    p.level = opts.level;
+    p.loadout = knownAbilities(p).slice(0, MAX_LOADOUT).map((a) => a.id);
+  }
   if (opts.spd) p.stats.spd = opts.spd;
   p.hp = 1_000_000;
   s.battle!.hostiles[0]!.hp = s.battle!.hostiles[0]!.maxHp = 1_000_000;

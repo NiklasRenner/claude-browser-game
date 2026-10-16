@@ -233,6 +233,8 @@ export interface Player {
   statPoints: number;
   /** Abilities bought in the Scriptorium (in the order learned). */
   learned: string[];
+  /** The abilities taken into battle (up to MAX_LOADOUT, in hotkey order 1, 2, …). */
+  loadout: string[];
   weapon: string;
   armor: string;
   /** Item id → count. Equipped items are also listed here (count ≥ 1). */
@@ -304,6 +306,9 @@ export type Action =
   | { type: 'allocateStat'; stat: Stat }
   /** Buy an ability in the Scriptorium (on the ship). */
   | { type: 'learnAbility'; abilityId: string }
+  /** Take a known ability into battle (at the end of the loadout), or leave it out. Outside battle. */
+  | { type: 'slotAbility'; abilityId: string }
+  | { type: 'unslotAbility'; abilityId: string }
   | { type: 'startMission'; missionId: string }
   /** Random run: unlocked world, random lineups scaled to the player's level, then a boss. */
   | { type: 'startPatrol' }

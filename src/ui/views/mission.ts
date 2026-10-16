@@ -1,7 +1,7 @@
 /** In-mission views: the HUD, the target card, the turn-order strip, and the mission / battle / defeat panels. */
 import {
   ELEMENTS, checkAction, countItem, derive, fleeChance, getMission, getItem, getHostile, getWeapon, hostileEvasion,
-  hostileHitChance, hostileLabels, hostileLevel, hostileSpeed, knownAbilities, levelPenalty, missionEncounters,
+  hostileHitChance, hostileLabels, hostileLevel, hostileSpeed, loadoutAbilities, levelPenalty, missionEncounters,
   toughestAliveLevel, upcomingTurns, xpToNext,
 } from '../../core';
 import type { GameState, Player, StatusEffect } from '../../core';
@@ -97,7 +97,7 @@ export function battlePanel(s: GameState, btn: BtnFn, menu: BattleMenu, busy: bo
   const back = '<button class="btn ghost" data-ui="menu:main">◂ Back</button>';
   switch (menu) {
     case 'abilities':
-      return `<div class="actions grid">${knownAbilities(p).map((sp, i) => btn({ type: 'useAbility', abilityId: sp.id },
+      return `<div class="actions grid">${loadoutAbilities(p).map((sp, i) => btn({ type: 'useAbility', abilityId: sp.id },
         `<span class="key">${i + 1}</span><span class="skill-name">${sp.name}</span> <span class="energy-cost">${sp.energy} EN</span>${abilityTags(p, sp, b)}`,
         'skill', sp.description)).join('')}${back}</div>`;
     case 'items': {

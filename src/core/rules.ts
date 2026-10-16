@@ -7,7 +7,7 @@
 import { aliveIndices, isAlive } from './combat';
 import { checkDrill, drillRoster } from './drill';
 import { ABILITIES, MISSION_ORDER, QUARTERMASTER_STOCK, SCRIPTORIUM, getMission, getItem, getHostile, getAbility } from './data';
-import { checkStart, countItem, derive, knownAbilities } from './player';
+import { MAX_LOADOUT, checkStart, countItem, derive, knownAbilities } from './player';
 import { STATS } from './types';
 import type { Action, GameState, Player } from './types';
 
@@ -80,6 +80,14 @@ export function checkAction(state: GameState, action: Action): string | null {
       if (!outOfBattle) return 'Train aboard the ship or between fights';
       if (!STATS.includes(action.stat)) return 'Unknown stat';
       return player.statPoints > 0 ? null : 'No stat points';
+    case 'slotAbility':
+    case 'unslotAbility': {
+      if (inBattle) return 'Change your loadout outside battle';
+      const slotting = action.type === 'slotAbility';
+      if (!knownAbilities(player).some((a) => a.id === action.abilityId)) return 'Unknown ability';
+      if (player.loadout.includes(action.abilityId) === slotting) return slotting ? 'Already in your loadout' : 'Not in your loadout';
+      return slotting && player.loadout.length >= MAX_LOADOUT ? `The loadout holds ${MAX_LOADOUT} abilities` : null;
+    }
     case 'learnAbility': {
       if (mode !== 'ship') return 'The Scriptorium is aboard the ship';
       const ability = ABILITIES[action.abilityId];
@@ -104,7 +112,7 @@ export function checkAction(state: GameState, action: Action): string | null {
       return action.target === undefined ? null : checkTarget(state, action.target, true);
     case 'useAbility': {
       if (!inBattle) return 'Not in battle';
-      if (!knownAbilities(player).some((s) => s.id === action.abilityId)) return 'Unknown ability';
+      if (!player.loadout.includes(action.abilityId)) return knownAbilities(player).some((s) => s.id === action.abilityId) ? 'Not in your loadout' : 'Unknown ability';
       if (player.energy < getAbility(action.abilityId).energy) return 'Not enough energy';
       return action.target === undefined ? null : checkTarget(state, action.target, true);
     }
@@ -152,7 +160,9 @@ export function legalActions(state: GameState): Action[] {
     for (const missionId of MISSION_ORDER) candidates.push({ type: 'startMission', missionId: missionId });
     // Drills take any lineup; list one per world (its boss) rather than every combination.
     for (const world of drillRoster()) candidates.push({ type: 'startDrill', hostileIds: [world.hostileIds.at(-1)!] });
-    for (const ability of knownAbilities(p)) candidates.push({ type: 'useAbility', abilityId: ability.id });
+    for (const ability of knownAbilities(p)) {
+      candidates.push({ type: 'useAbility', abilityId: ability.id }, { type: 'slotAbility', abilityId: ability.id }, { type: 'unslotAbility', abilityId: ability.id });
+    }
     if (state.battle) state.battle.hostiles.forEach((_, index) => candidates.push({ type: 'target', index }));
   }
   return candidates.filter((a) => checkAction(state, a) === null);

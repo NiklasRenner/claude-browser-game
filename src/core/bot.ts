@@ -8,7 +8,7 @@ import { MISSION_ORDER, ITEMS, getAbility, getMission, getHostile } from './data
 import { initialState, step } from './game';
 import { missionEncounters } from './flow';
 import { checkAction, legalActions } from './rules';
-import { countItem, derive, knownAbilities } from './player';
+import { countItem, derive, loadoutAbilities } from './player';
 import { BASE_STAT } from './stats';
 import type { Action, ArmorDef, GameState, HostileDef, Player, StatusEffect, WeaponDef } from './types';
 
@@ -148,7 +148,7 @@ function battleAction(state: GameState, p: Player): Action {
   const d = derive(p);
   const battle = state.battle!;
   const alive = aliveIndices(battle);
-  const abilities = knownAbilities(p);
+  const abilities = loadoutAbilities(p);
 
   // Focus fire: target the hostile closest to going down (fewer attackers sooner).
   if (alive.length > 1) {

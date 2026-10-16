@@ -6,7 +6,7 @@
 import { ABILITIES, MISSIONS, ITEMS, HOSTILES } from './data';
 import { SAVE_VERSION } from './game';
 import { checkDrill } from './drill';
-import { clampVitals } from './player';
+import { MAX_LOADOUT, clampVitals, knownAbilities } from './player';
 import { MAX_HOSTILES, STATS } from './types';
 import type { GameState } from './types';
 
@@ -28,6 +28,8 @@ const MIGRATIONS: Record<number, (state: any) => void> = {
   1: (state) => { if (state.player) delete state.player.divisionId; },
   // 2 → 3: abilities can be bought in the Scriptorium.
   2: (state) => { if (state.player) state.player.learned = []; },
+  // 3 → 4: a loadout of up to 8 abilities goes into battle: the first 8 known.
+  3: (state) => { if (state.player) state.player.loadout = knownAbilities(state.player).slice(0, MAX_LOADOUT).map((a) => a.id); },
 };
 
 export function deserialize(text: string): LoadResult {
@@ -64,6 +66,9 @@ function validateState(s: any): string | null {
     if (!isInt(p.hp) || !isInt(p.energy)) return 'bad vitals';
     if (!STATS.every((k) => isInt(p.stats?.[k]))) return 'bad stats';
     if (!Array.isArray(p.learned) || !p.learned.every((id: string) => ABILITIES[id]?.shop) || new Set(p.learned).size !== p.learned.length) return 'bad learned abilities';
+    if (!Array.isArray(p.loadout) || p.loadout.length > MAX_LOADOUT || new Set(p.loadout).size !== p.loadout.length) return 'bad loadout';
+    const known = new Set(knownAbilities(p).map((a) => a.id));
+    if (!p.loadout.every((id: string) => known.has(id))) return 'bad loadout';
     if (typeof p.inventory !== 'object' || p.inventory === null) return 'bad inventory';
     for (const [id, n] of Object.entries(p.inventory)) if (!(id in ITEMS) || !isInt(n, 1)) return `bad item ${id}`;
     if (ITEMS[p.weapon]?.kind !== 'weapon' || !p.inventory[p.weapon]) return 'bad weapon';

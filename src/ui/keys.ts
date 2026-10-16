@@ -1,4 +1,4 @@
-import { knownAbilities } from '../core';
+import { loadoutAbilities } from '../core';
 import type { Action, GameState } from '../core';
 
 /**
@@ -23,7 +23,7 @@ export function keyAction(s: GameState, key: string, shift = false): Action | nu
       if (k === 'a') return { type: 'attack' };
       if (k === 'f') return { type: 'flee' };
       if (/^[1-9]$/.test(k)) {
-        const ability = knownAbilities(s.player!)[Number(k) - 1];
+        const ability = loadoutAbilities(s.player!)[Number(k) - 1];
         return ability ? { type: 'useAbility', abilityId: ability.id } : null;
       }
       return null;

@@ -148,7 +148,8 @@ export class UI {
   }
 
   render() {
-    const s = this.game.state;
+    // What's on screen trails the true state while events animate (see GameController.shown).
+    const s = this.game.shown;
     const btn = (action: Action, label: string, cls = '', hint = '') => {
       const why = checkAction(s, action);
       const ok = why === null && !this.game.busy;
@@ -170,6 +171,7 @@ export class UI {
     const scroll = view === this.lastView
       ? [...this.root.querySelectorAll<HTMLElement>(SCROLLERS)].map((el) => el.scrollTop) : [];
     this.lastView = view;
+    this.root.dataset.mode = s.mode;
     this.root.innerHTML = `
       ${s.player ? hud(s.player, s.battle?.playerStatuses ?? []) : ''}
       ${s.battle ? hostileCard(s, this.game.busy) : ''}
