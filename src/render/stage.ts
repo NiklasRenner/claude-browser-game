@@ -33,7 +33,8 @@ import { Tweens, easeOutCubic } from './tween';
 
 /**
  * Where hostiles stand, by lineup size: [x, y] as fractions of the narrowest
- * scene (MIN_W × SCENE_H), measured from its left edge; centred on wider ones. Back rows are higher.
+ * scene (MIN_W × SCENE_H), measured from its left edge; centred on wider ones. Back rows are higher; who
+ * stands in which row goes by size (see layout).
  */
 const SLOTS: Record<number, [number, number][]> = {
   1: [[0.68, 0.72]],
@@ -204,11 +205,16 @@ export class Stage {
     // Fixed spots around the centre (see SLOTS).
     const at = (fx: number) => sceneX(this.W, fx);
     if (this.hero) { this.hero.x = at(HERO_X[this.view]); this.hero.y = FEET; }
+    // Left to right in lineup order (as in the target list), but the rows go by size: the biggest figure
+    // stands farthest back and the smallest nearest, so a boss never covers its escorts.
     const slots = SLOTS[this.hostiles.length] ?? [];
-    this.hostiles.forEach((a, i) => {
-      const [x, y] = slots[i] ?? [0.7, 0.72];
-      a.x = at(x);
-      a.y = Math.round(this.H * y);
+    const rows = slots.map(([, y]) => y).sort((p, q) => p - q);
+    const size = (a: Actor) => a.figure.height * a.figure.scale;
+    const bySize = this.hostiles.map((_, i) => i).sort((p, q) => size(this.hostiles[q]!) - size(this.hostiles[p]!) || p - q);
+    bySize.forEach((i, rank) => {
+      const a = this.hostiles[i]!;
+      a.x = at(slots[i]?.[0] ?? 0.7);
+      a.y = Math.round(this.H * (rows[rank] ?? 0.72));
     });
   }
 
