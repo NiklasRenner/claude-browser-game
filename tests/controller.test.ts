@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { chooseAction } from '../src/core';
+import type { GameState } from '../src/core';
 import { GameController, memoryStorage } from '../src/game/controller';
 
 describe('GameController', () => {
@@ -55,5 +56,16 @@ describe('GameController', () => {
     const hit = events.findIndex((e) => e.type === 'attack' && e.actor === 'player' && e.hit);
     if (hit >= 0) assert.ok(seen[hit + 1]!.foe < foeBefore, 'the bar drops once the hit has played');
     assert.deepEqual(game.shown, game.state, 'and ends on the real state');
+  });
+
+  it('launching a mission shows the fight at once, before anyone acts', async () => {
+    const game = new GameController(memoryStorage(), 5);
+    await game.dispatch({ type: 'newGame', name: 'Quick' });
+    let atStart: GameState | null = null;
+    game.setAnimator(async () => { atStart = structuredClone(game.shown); });
+    await game.dispatch({ type: 'startMission', missionId: 'veridia' });
+    const shown = atStart as GameState | null;
+    assert.equal(shown?.mode, 'battle');
+    assert.ok(shown!.battle!.hostiles.every((h) => h.hp === h.maxHp));
   });
 });

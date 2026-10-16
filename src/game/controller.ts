@@ -123,15 +123,16 @@ export class GameController {
     }
     this.busy = true;
     this.shown = structuredClone(before);
-    this.emit();
     let done = 0;
     const played = (i: number) => {
       for (; done <= i && done < result.events.length; done++) {
         post(done);
-        applyShown(this.shown, result.events[done]!);
+        applyShown(this.shown, result.events[done]!, result.state);
       }
       this.emit();
     };
+    // A fight starting switches the screen to the battle at once (the hostiles appearing is part of it).
+    played(result.events.findIndex((e) => e.type === 'battleStart'));
     try {
       await this.animator(result.events, before, result.state, played);
     } finally {
@@ -153,8 +154,16 @@ export class GameController {
   }
 }
 
-/** What an event visibly changes (HP, energy, target), applied to the shown state as it plays. */
-function applyShown(s: GameState, e: GameEvent) {
+/** What an event visibly changes (HP, energy, target, a fight starting), applied to the shown state as it plays. */
+function applyShown(s: GameState, e: GameEvent, after: GameState) {
+  if (e.type === 'battleStart' && after.battle) {
+    // The new fight as it stands before anyone acts: the lineup at full health, no statuses yet.
+    s.mode = 'battle';
+    s.mission = structuredClone(after.mission);
+    s.battle = { ...structuredClone(after.battle), target: 0, playerStatuses: [] };
+    for (const h of s.battle.hostiles) { h.hp = h.maxHp; h.statuses = []; }
+    return;
+  }
   const p = s.player, b = s.battle;
   if (!p) return;
   const hostile = (foe: number | undefined) => b?.hostiles[foe ?? 0];

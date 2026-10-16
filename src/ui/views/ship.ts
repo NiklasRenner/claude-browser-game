@@ -143,7 +143,6 @@ function personnel(p: Player, btn: BtnFn) {
     <span class="stat-effect">${statEffect(k, p.stats[k])}</span>
     <div class="muted small">${STAT_INFO[k].help}</div></div>${p.statPoints ? btn({ type: 'allocateStat', stat: k }, '+1') : ''}</div>`).join('');
   const resist = ELEMENTS.filter((el) => d.damageTaken[el] !== 100).map((el) => `${ELEMENT_ICONS[el]} ${100 - d.damageTaken[el]}%`).join(', ');
-  const abilities = knownAbilities(p).map((sp) => `<div class="row"><div class="row-main"><strong>${sp.name}</strong> <span class="energy-cost">${sp.energy} EN</span>${abilityTags(p, sp, null)}<div class="muted small">${sp.description}</div></div></div>`).join('');
   return `
     <div class="two-col">
       <div><h3>Attributes ${p.statPoints ? `<span class="badge">${p.statPoints} to spend</span>` : ''}</h3><div class="list">${stats}</div></div>
@@ -151,7 +150,6 @@ function personnel(p: Player, btn: BtnFn) {
         <div class="kv"><span>Weapon hit chance</span><b>${weaponHitText(p)}</b><span>Speed</span><b>${speedText(d.speed)}</b>
         <span>Evasion (armor)</span><b title="Armor and abilities; never above ${PLAYER_EVASION_CAP}">${d.evasion.toFixed(0)}</b>
         <span>Critical chance</span><b>${d.critChance.toFixed(0)}%</b><span>Resistances</span><b>${resist || '—'}</b></div>
-        <h3>Abilities</h3><div class="list">${abilities}</div>
       </div>
     </div>`;
 }
