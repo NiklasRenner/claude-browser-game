@@ -13,7 +13,8 @@ import { Layer } from './layer';
 import { locationOf } from './locations';
 import type { Layout } from './locations';
 import { FEET } from './depth';
-import { Pieces, drawEdge, paintFar } from './pieces';
+import { Pieces, paintFar } from './pieces';
+import { framesOf } from '../sprites/sheets';
 import { paintEclipse, paintMoon, paintSky } from './sky';
 import { paintHaze, paintRank } from './skyline';
 import { FRAME_WIDTH, paintFrame, paintProp } from './structures';
@@ -94,7 +95,7 @@ export function buildBackdrop(key: string, W: number, H: number, opts: BackdropO
   for (const side of show('edges') ? [1, -1] as const : []) {
     // A generated structure for this edge, if the location has one (and its sheet is in).
     const edge = loc.pieces.find((p) => p.at === (side === 1 ? 'left' : 'right'));
-    if (edge && drawEdge(scene.ctx, scene.gctx, edge, W, H, loc.haze)) continue;
+    if (edge && framesOf(edge.sheet)) continue;
     fp.begin(0, 0, s);
     paintFrame(fp, loc.frames[side === 1 ? 0 : 1], side, loc.accent);
     fp.finish({ inner: 0.5, rimDir: [side, 0], rimCol: loc.rim, rimAmt: 0.18 });
@@ -115,7 +116,10 @@ export function buildBackdrop(key: string, W: number, H: number, opts: BackdropO
     if (flame) flames.push([x + 20 + flame[0], y + 46 + flame[1]]);
   }
 
-  const pieces = new Pieces(show('pieces') ? loc.pieces : [], W, H, horizon, feet, loc.haze);
+  // Edge pieces count as edges, the rest as pieces; hidden ones still keep their place in the order.
+  const drawn = loc.pieces.filter((p) => show(p.at === 'left' || p.at === 'right' ? 'edges' : 'pieces'));
+  const behind = drawn.filter((p) => loc.pieces.indexOf(p) < (loc.behind ?? loc.pieces.length)).length;
+  const pieces = new Pieces(drawn, behind, W, H, horizon, feet, loc.haze);
   const ambient = new Ambient(loc.ambient, W, H, horizon, flames);
   const vignette = show('vignette') ? buildVignette(W, H) : null;
   const front = show('front'), skyFx = show('sky-fx');

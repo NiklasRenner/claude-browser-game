@@ -47,6 +47,7 @@ describe('sprite sheets', () => {
     assert.deepEqual(Object.keys(LAYOUT_DATA).sort(), [...LOCATION_IDS].sort());
     for (const [id, l] of Object.entries(LAYOUT_DATA)) {
       assert.ok(Array.isArray(l.props) && Array.isArray(l.pieces), `${id}: props and pieces`);
+      if (l.behind !== undefined) assert.ok(Number.isInteger(l.behind) && l.behind >= 0 && l.behind <= l.pieces.length, `${id}: behind ${l.behind}`);
       for (const p of l.pieces) {
         assert.ok(p.sheet in SHEETS, `${id}: unknown sheet ${p.sheet}`);
         assert.ok(['ground', 'far', 'hang', 'left', 'right'].includes(p.at), `${id} ${p.sheet}: at ${p.at}`);

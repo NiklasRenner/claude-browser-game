@@ -17,8 +17,9 @@ import { loadSheets } from '../render/sprites/sheets';
 import { SHEETS } from '../render/sprites/sheet-data';
 import type { SheetId } from '../render/sprites/sheet-data';
 import { HOSTILES } from '../core';
-import { History, boxOf, clone, moveTo, newPiece, pick, stretch } from './model';
-import type { Sel } from './model';
+import { History, behindOf, boxOf, clone, insertPiece, moveTo, newPiece, pick, removePiece, restack, stretch } from './model';
+import type { Entry, Sel } from './model';
+import type { Piece } from '../render/scenes/pieces';
 import { renderPanel } from './panel';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#scene')!;
@@ -48,7 +49,9 @@ let sel: Sel | null = null;
 let status = '';
 let width = store.get('width', MIN_W);
 const hide = new Set<string>(store.get<string[]>('hide', []));
-const hiddenPieces = new Set<number>();
+/** Pieces switched off in the editor (by object, so they stay off when the order changes). */
+const hiddenPieces = new Set<object>();
+const hiddenIdx = () => new Set(layout.pieces.flatMap((p, i) => (hiddenPieces.has(p) ? [i] : [])));
 let history = new History();
 let lineup: string[] = [];
 let sheet: SheetId = PIECE_SHEETS[0]!;
@@ -84,7 +87,13 @@ function showFighters() {
 
 /** Push the layout to the stage and redraw the panel. */
 function refresh(panelToo = true) {
-  const shown: Layout = { ...layout, pieces: layout.pieces.filter((_, i) => !hiddenPieces.has(i)) };
+  // Hidden pieces left out; the fighters keep their place in the order.
+  const behind = behindOf(layout);
+  const shown: Layout = {
+    ...layout,
+    pieces: layout.pieces.filter((p) => !hiddenPieces.has(p)),
+    behind: layout.pieces.slice(0, behind).filter((p) => !hiddenPieces.has(p)).length,
+  };
   stage.edit(shown, hide, drawGuides, width);
   store.set(`draft:${loc}`, dirty() ? layout : null);
   if (panelToo) renderNow();
@@ -95,7 +104,7 @@ function renderNow() {
   const scroll = panel.scrollTop;
   panel.innerHTML = renderPanel({
     loc, locations: LOCATION_IDS, layout, sel, dirty: dirty(), status,
-    parts: backdropParts(loc), hide, hiddenPieces,
+    parts: backdropParts(loc), hide, hiddenPieces: hiddenIdx(),
     roster: rosterOf(loc).map((id) => ({ id, name: getHostile(id).name })), lineup,
     width, widths: WIDTHS, sheets: PIECE_SHEETS,
   });
@@ -137,7 +146,7 @@ function drawGuides(ctx: CanvasRenderingContext2D) {
 let drag: { dx: number; dy: number; moved: boolean } | null = null;
 canvas.addEventListener('pointerdown', (e) => {
   const [x, y] = stage.toScene(e.clientX, e.clientY);
-  sel = pick(layout, stage.geometry, x, y, hiddenPieces);
+  sel = pick(layout, stage.geometry, x, y, hiddenIdx());
   const b = sel && boxOf(layout, sel, stage.geometry);
   drag = b ? { dx: x - b.x, dy: y - b.y, moved: false } : null;
   if (drag) canvas.setPointerCapture(e.pointerId);
@@ -146,7 +155,7 @@ canvas.addEventListener('pointerdown', (e) => {
 canvas.addEventListener('pointermove', (e) => {
   const [x, y] = stage.toScene(e.clientX, e.clientY);
   if (!drag || !sel) {
-    hover = pick(layout, stage.geometry, x, y, hiddenPieces);
+    hover = pick(layout, stage.geometry, x, y, hiddenIdx());
     canvas.style.cursor = hover ? 'grab' : '';
     return;
   }
@@ -167,8 +176,8 @@ panel.addEventListener('click', (e) => {
   switch (act) {
     case 'select': sel = JSON.parse(el.dataset.sel!) as Sel; break;
     case 'eye': {
-      const n = Number(el.dataset.i);
-      if (!hiddenPieces.delete(n)) hiddenPieces.add(n);
+      const p = layout.pieces[Number(el.dataset.i)];
+      if (p && !hiddenPieces.delete(p)) hiddenPieces.add(p);
       e.stopPropagation();
       break;
     }
@@ -186,17 +195,20 @@ panel.addEventListener('click', (e) => {
       break;
     }
     case 'width': width = Number(el.dataset.w); store.set('width', width); break;
-    case 'add': change(); layout.pieces.push(newPiece(sheet)); sel = { kind: 'piece', i: layout.pieces.length - 1 }; break;
-    case 'dup': if (i >= 0) { change(); layout.pieces.splice(i + 1, 0, clone({ ...layout, pieces: [layout.pieces[i]!] }).pieces[0]!); sel = { kind: 'piece', i: i + 1 }; } break;
-    case 'del': if (i >= 0) { change(); layout.pieces.splice(i, 1); sel = null; hiddenPieces.clear(); } break;
+    case 'add': change(); sel = { kind: 'piece', i: insertPiece(layout, newPiece(sheet)) }; break;
+    case 'dup': if (i >= 0) { change(); sel = { kind: 'piece', i: insertPiece(layout, JSON.parse(JSON.stringify(layout.pieces[i])) as Piece, i) }; } break;
+    case 'del': if (i >= 0) { change(); removePiece(layout, i); sel = null; } break;
     case 'up': case 'down': {
-      const j = act === 'up' ? i + 1 : i - 1;
-      if (i < 0 || j < 0 || j >= layout.pieces.length) break;
+      // A row in the draw order: the fighters' (data-row="fighters"), a piece's (data-i), or the selected piece.
+      const row: Entry | null = el.dataset.row === 'fighters' ? { kind: 'fighters' } : el.dataset.i ? { kind: 'piece', i: Number(el.dataset.i) } : i >= 0 ? { kind: 'piece', i } : null;
+      if (!row) break;
       change();
-      [layout.pieces[i], layout.pieces[j]] = [layout.pieces[j]!, layout.pieces[i]!];
-      sel = { kind: 'piece', i: j };
+      const moved = restack(layout, row, act === 'up' ? 1 : -1);
+      if (moved !== null) sel = { kind: 'piece', i: moved };
+      e.stopPropagation();
       break;
     }
+    case 'fighters': if (!hide.delete('fighters')) hide.add('fighters'); store.set('hide', [...hide]); e.stopPropagation(); break;
     case 'save': void save(); return;
     case 'revert': change(); layout = clone(saved); sel = null; status = 'Reverted to the saved layout.'; break;
     default: return;
@@ -257,8 +269,9 @@ window.addEventListener('keydown', (e) => {
   } else if (e.key === 'Escape') sel = null;
   else if (piece && (e.key === 'f' || e.key === 'F')) { change(); if (piece.flip) delete piece.flip; else piece.flip = true; }
   else if (piece?.at === 'far' && (e.key === '[' || e.key === ']')) { change(); piece.rank = Math.max(0, (piece.rank ?? 0) + (e.key === ']' ? 1 : -1)); }
-  else if (piece && (e.key === 'h' || e.key === 'H')) { const i = (sel as { i: number }).i; if (!hiddenPieces.delete(i)) hiddenPieces.add(i); }
-  else if (piece && (e.key === 'Delete' || e.key === 'Backspace')) { change(); layout.pieces.splice((sel as { i: number }).i, 1); sel = null; hiddenPieces.clear(); }
+  else if (piece && (e.key === 'h' || e.key === 'H')) { if (!hiddenPieces.delete(piece)) hiddenPieces.add(piece); }
+  else if (piece && piece.at !== 'far' && (e.key === 'PageUp' || e.key === 'PageDown')) { change(); sel = { kind: 'piece', i: restack(layout, sel as Entry, e.key === 'PageUp' ? 1 : -1)! }; }
+  else if (piece && (e.key === 'Delete' || e.key === 'Backspace')) { change(); removePiece(layout, (sel as { i: number }).i); sel = null; }
   else return;
   refresh();
 });

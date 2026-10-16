@@ -20,8 +20,10 @@ export interface Layout {
   body?: { kind: 'moon' | 'eclipse' | 'planet'; x: number; y: number; r: number; col: string };
   /** Painted props on the ground (x as a fraction of the width). */
   props: { style: PropStyle; x: number }[];
-  /** PixelLab set pieces (sprite sheets), drawn over the painted scene. */
+  /** PixelLab set pieces (sprite sheets), drawn over the painted scene in this order (back to front; far ones are in the skyline). */
   pieces: Piece[];
+  /** How many of `pieces` (from the start) are drawn behind the fighters; the rest are in front. Default: all. */
+  behind?: number;
 }
 
 interface Look {

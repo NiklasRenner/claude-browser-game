@@ -3,9 +3,10 @@
  * barrels, a lantern on a chain, a distant ruin, the structures framing the
  * screen edges. They keep their native pixel size; where a piece on the ground
  * stands follows from its size and its real height (see depth.ts), so its
- * scale always matches the fighters'. Nearer than the fighters' line, a piece
- * is drawn in front of them; farther, behind them and hazed. Far ones are
- * painted into the skyline when the backdrop is built. Sheets load in the
+ * scale always matches the fighters', and it's hazed the farther it is. Far
+ * ones are painted into the skyline when the backdrop is built; the rest are
+ * drawn in list order, some behind the fighters and the rest in front (the
+ * layout's `behind`). Sheets load in the
  * background; until one has, its piece is skipped (the stage rebuilds the
  * backdrop once they're in).
  */
@@ -117,37 +118,26 @@ function bake(p: Piece, frames: Frame[], haze: string): Baked {
   return { img, glow, w: frames[0]!.w, h: frames[0]!.h, depth };
 }
 
-/** An edge piece drawn onto the scene canvases (once, when the backdrop is built). False if its sheet isn't in. */
-export function drawEdge(ctx: CanvasRenderingContext2D, gctx: CanvasRenderingContext2D, p: Piece, W: number, H: number, haze: string): boolean {
-  const frames = framesOf(p.sheet);
-  if (!frames) return false;
-  const b = bake(p, frames.slice(0, 1), haze);
-  const { x, y } = placePiece(p, b, W, H, 0, 0);
-  // Contact shadow where it meets the floor, then the piece.
-  ctx.fillStyle = 'rgba(4,8,6,0.45)';
-  ctx.fillRect(x + 2, y + b.h - 2, b.w - 4, 2);
-  ctx.drawImage(b.img[0]!, x, y);
-  gctx.drawImage(b.glow[0]!, x, y);
-  return true;
-}
-
+/**
+ * The pieces that aren't painted into the skyline, drawn every frame in list order (back to front):
+ * the first `behind` of the location's pieces go behind the fighters, the rest in front of them.
+ */
 export class Pieces {
   private baked = new Map<Piece, Baked>();
 
-  constructor(private list: Piece[], private W: number, private H: number, private horizon: number, private feet: number, private haze: string) {}
+  constructor(private list: Piece[], private behind: number, private W: number, private H: number, private horizon: number, private feet: number, private haze: string) {}
 
-  /** The pieces behind the fighters (`near` false) or in front of them (`near` true). */
-  draw(ctx: CanvasRenderingContext2D, glow: CanvasRenderingContext2D, t: number, near: boolean) {
-    for (const p of this.list) {
-      if (p.at !== 'ground' && p.at !== 'hang') continue;
+  /** The pieces behind the fighters (`front` false) or in front of them (`front` true). */
+  draw(ctx: CanvasRenderingContext2D, glow: CanvasRenderingContext2D, t: number, front: boolean) {
+    this.list.forEach((p, i) => {
+      if (p.at === 'far' || (i >= this.behind) !== front) return;
       let b = this.baked.get(p);
       if (!b) {
         const frames = framesOf(p.sheet);
-        if (!frames) continue;
-        b = bake(p, frames, this.haze);
+        if (!frames) return;
+        b = bake(p, p.at === 'left' || p.at === 'right' ? frames.slice(0, 1) : frames, this.haze);
         this.baked.set(p, b);
       }
-      if ((p.at === 'ground' && b.depth > 1) !== near) continue;
       const k = Math.floor(t * (p.fps ?? 6)) % b.img.length;
       let { x, y } = placePiece(p, b, this.W, this.H, this.horizon, this.feet);
       if (p.at === 'hang') {
@@ -157,7 +147,7 @@ export class Pieces {
         x += sway;
         ctx.fillStyle = '#1a1612';
         for (let yy = ay; yy < y; yy += 2) ctx.fillRect(ax + Math.round((sway * (yy - ay)) / Math.max(1, y - ay)), yy, 1, 1);
-      } else {
+      } else if (p.at === 'ground') {
         // A soft contact shadow, so it stands in the mire instead of floating on it.
         ctx.fillStyle = 'rgba(4,8,6,0.5)';
         const cx = x + Math.floor(b.w / 2);
@@ -166,9 +156,13 @@ export class Pieces {
           const w = Math.round(rx * (dy === 0 ? 1 : 0.75));
           ctx.fillRect(cx - w, base + dy, w * 2, 1);
         }
+      } else {
+        // An edge structure: a contact shadow where it meets the floor.
+        ctx.fillStyle = 'rgba(4,8,6,0.45)';
+        ctx.fillRect(x + 2, y + b.h - 2, b.w - 4, 2);
       }
       ctx.drawImage(b.img[k]!, x, y);
       glow.drawImage(b.glow[k]!, x, y);
-    }
+    });
   }
 }

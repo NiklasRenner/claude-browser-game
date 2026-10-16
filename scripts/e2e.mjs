@@ -350,7 +350,14 @@ try {
   check(Number(x1) > Number(x0) && !(await ed.locator('[data-act=save]').isDisabled()), `arrow key moves the selected piece (x ${x0} → ${x1}) and enables Save`);
   await ed.keyboard.press('Control+z');
   check(await ed.locator('[data-field=x]').inputValue() === x0 && await ed.locator('[data-act=save]').isDisabled(), 'undo restores it');
-  await ed.click('[data-act=layer][data-id=fighters]');
+  const order = () => ed.locator('.list').first().locator('li').allInnerTexts().then((t) => t.map((x) => x.split(' ·')[0].replace(/[▲▼\n]/g, '').trim()));
+  const order0 = await order();
+  await ed.click('li.fighters [data-act=down]');
+  const order1 = await order();
+  const fi = (o) => o.findIndex((x) => x.includes('Fighters'));
+  check(fi(order1) === fi(order0) + 1, `the fighters move back in the draw order (${order1.join(' > ')})`);
+  await ed.keyboard.press('Control+z');
+  await ed.click('li.fighters [data-act=fighters]');
   await ed.waitForTimeout(300);
   await ed.screenshot({ path: `${OUT}/15-scene-editor.png` });
   await ed.close();

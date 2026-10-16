@@ -53,27 +53,76 @@ function opaqueAt(p: Piece, b: Box, x: number, y: number) {
 }
 
 /**
- * What's under a scene point, topmost first: near pieces, ground and hanging pieces, props, edges, far
- * pieces, the body in the sky. Pieces count only where their sprite is opaque. Hidden pieces are skipped.
+ * What's under a scene point, topmost first: the pieces drawn every frame (front to back, in list order),
+ * props, far pieces, the body in the sky. Pieces count only where their sprite is opaque. Hidden pieces
+ * are skipped. (Fighters aren't picked: they're one row in the stack, see `stack`.)
  */
 export function pick(l: Layout, g: Geometry, x: number, y: number, hidden: ReadonlySet<number>): Sel | null {
   const inside = (b: Box | null) => !!b && x >= b.x && y >= b.y && x < b.x + b.w && y < b.y + b.h;
-  const order: Piece['at'][][] = [['ground', 'hang'], ['left', 'right'], ['far']];
-  const hits = (ats: Piece['at'][]) => {
+  const hits = (far: boolean) => {
     for (let i = l.pieces.length - 1; i >= 0; i--) {
       const p = l.pieces[i]!;
-      if (hidden.has(i) || !ats.includes(p.at)) continue;
+      if (hidden.has(i) || (p.at === 'far') !== far) continue;
       const b = pieceBox(p, g);
       if (b && opaqueAt(p, b, x, y)) return { kind: 'piece', i } as const;
     }
     return null;
   };
-  const first = hits(order[0]!);
+  const first = hits(false);
   if (first) return first;
   for (let i = l.props.length - 1; i >= 0; i--) if (inside(boxOf(l, { kind: 'prop', i }, g))) return { kind: 'prop', i };
-  const rest = hits(order[1]!) ?? hits(order[2]!);
-  if (rest) return rest;
-  return inside(boxOf(l, { kind: 'body' }, g)) ? { kind: 'body' } : null;
+  return hits(true) ?? (inside(boxOf(l, { kind: 'body' }, g)) ? { kind: 'body' } : null);
+}
+
+/** A row in the draw order: a piece, or the fighters. */
+export type Entry = { kind: 'piece'; i: number } | { kind: 'fighters' };
+
+/** How many pieces (from the start of the list) are drawn behind the fighters. */
+export const behindOf = (l: Layout) => Math.min(l.behind ?? l.pieces.length, l.pieces.length);
+
+/** The draw order, back to front: the pieces drawn every frame (not the far ones, which are in the skyline) and the fighters. */
+export function stack(l: Layout): Entry[] {
+  const out: Entry[] = [];
+  const behind = behindOf(l);
+  l.pieces.forEach((p, i) => {
+    if (i === behind) out.push({ kind: 'fighters' });
+    if (p.at !== 'far') out.push({ kind: 'piece', i });
+  });
+  if (behind >= l.pieces.length) out.push({ kind: 'fighters' });
+  return out;
+}
+
+/**
+ * Moves a row one step toward the front (`dir` 1) or the back (-1), swapping it with its neighbour.
+ * Returns the piece's new index (pieces are renumbered), or null for the fighters' row.
+ */
+export function restack(l: Layout, e: Entry, dir: 1 | -1): number | null {
+  const rows: (Piece | 'fighters')[] = stack(l).map((r) => (r.kind === 'fighters' ? 'fighters' : l.pieces[r.i]!));
+  const from = rows.indexOf(e.kind === 'fighters' ? 'fighters' : l.pieces[e.i]!), to = from + dir;
+  const moved = rows[from];
+  if (from >= 0 && to >= 0 && to < rows.length) [rows[from], rows[to]] = [rows[to]!, rows[from]!];
+  const pieces = l.pieces.filter((p) => p.at === 'far');
+  for (const r of rows) {
+    if (r === 'fighters') l.behind = pieces.length;
+    else pieces.push(r);
+  }
+  l.pieces = pieces;
+  return moved && moved !== 'fighters' ? pieces.indexOf(moved) : null;
+}
+
+/** Adds a piece just behind the fighters, or (`after`) right after another one, in its group; returns its index. */
+export function insertPiece(l: Layout, p: Piece, after?: number): number {
+  const behind = behindOf(l);
+  const at = after === undefined ? behind : after + 1;
+  l.pieces.splice(at, 0, p);
+  l.behind = at <= behind ? behind + 1 : behind;
+  return at;
+}
+
+export function removePiece(l: Layout, i: number) {
+  const behind = behindOf(l);
+  l.pieces.splice(i, 1);
+  l.behind = i < behind ? behind - 1 : behind;
 }
 
 /**

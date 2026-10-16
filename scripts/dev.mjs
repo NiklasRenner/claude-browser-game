@@ -34,6 +34,7 @@ export function formatLayouts(all) {
     lines.push(`    "props": ${one(l.props ?? [])}`);
     const pieces = (l.pieces ?? []).map((p) => `      ${one(p)}`);
     lines.push(pieces.length ? `    "pieces": [\n${pieces.join(',\n')}\n    ]` : '    "pieces": []');
+    if (l.behind !== undefined) lines.push(`    "behind": ${l.behind}`);
     return `  ${JSON.stringify(id)}: {\n${lines.join(',\n')}\n  }`;
   });
   return `{\n${blocks.join(',\n')}\n}\n`;
