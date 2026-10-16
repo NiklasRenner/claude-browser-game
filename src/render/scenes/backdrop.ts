@@ -6,13 +6,14 @@
  */
 import { Painter } from '../pixel/painter';
 import { makeCanvas } from '../pixel/painter';
-import { bayer, fbm, hash } from '../pixel/noise';
-import { R, hex, mix } from '../pixel/palette';
+import { bayer, fbm } from '../pixel/noise';
+import { hex, mix } from '../pixel/palette';
 import type { RGB } from '../pixel/palette';
 import { framesOf } from '../sprites/sheets';
 import { SHEETS } from '../sprites/sheet-data';
 import { Ambient } from './ambient';
 import { paintGround } from './ground';
+import { paintNave } from './nave';
 import { Layer } from './layer';
 import { locationOf } from './locations';
 import type { Layout, Location, SceneLayer } from './locations';
@@ -109,6 +110,7 @@ export function buildBackdrop(key: string, W: number, H: number, opts: BackdropO
         const c = paint(l);
         if (!c) continue;
         ctx.drawImage(c.img, 0, 0);
+        occlude(glow, c.img);
         glow.drawImage(c.glow, 0, 0);
       }
       glow.globalAlpha = 1;
@@ -165,6 +167,16 @@ function paintPart(loc: Location, l: SceneLayer, W: number, H: number) {
   return { img: L.img, glow: L.glow, flame };
 }
 
+/** What a layer covers stops glowing from behind it (a wall in front of a lit planet hides its glow too). */
+function occlude(glow: CanvasRenderingContext2D, img: HTMLCanvasElement, x = 0, y = 0) {
+  const prev = glow.globalCompositeOperation, alpha = glow.globalAlpha;
+  glow.globalCompositeOperation = 'destination-out';
+  glow.globalAlpha = 1;
+  glow.drawImage(img, x, y);
+  glow.globalCompositeOperation = prev;
+  glow.globalAlpha = alpha;
+}
+
 // Sprite frames as canvases: mirrored and fogged as asked. Cached per sheet and look.
 const baked = new Map<string, { img: HTMLCanvasElement[]; glow: HTMLCanvasElement[] }>();
 
@@ -199,6 +211,7 @@ function drawSprite(ctx: CanvasRenderingContext2D, glow: CanvasRenderingContext2
   const k = Math.floor(t * (l.fps ?? 6)) % b.img.length;
   const x = l.x + shiftX(l.x, frames[0]!.w, l.pinned, W);
   ctx.drawImage(b.img[k]!, x, l.y);
+  occlude(glow, b.img[k]!, x, l.y);
   glow.drawImage(b.glow[k]!, x, l.y);
 }
 
@@ -230,50 +243,6 @@ function paintPlanet(L: Layer, cx: number, cy: number, r: number, base: RGB) {
       const band = fbm(x / (r * 0.6) + 3, (y / r) * 6, 3);
       const q = Math.round((lit * 0.9 + (band - 0.5) * 0.5) * 5 + bayer(x, y)) / 5;
       L.put(cx + x, cy + y, mix([6, 6, 12], mix(base, [230, 210, 180], band * 0.4), Math.max(0.05, Math.min(1, q))));
-    }
-  }
-}
-
-/** The ship's nave: ashlar wall, pilasters, and a great lancet window onto space. */
-function paintNave(L: Layer, horizon: number) {
-  const W = L.W, S = R.stone;
-  const ww = Math.round(Math.min(W * 0.46, horizon * 1.3)), x0 = Math.round(W / 2 - ww / 2 + W * 0.06), x1 = x0 + ww;
-  const top = Math.round(horizon * 0.1), sill = horizon - 20;
-  const mid = (x0 + x1) / 2, hw = ww / 2, shoulder = top + hw * 1.1;
-  const inWindow = (x: number, y: number, grow = 0) => {
-    if (y > sill + grow || x < x0 - grow || x > x1 + grow) return false;
-    if (y >= shoulder) return true;
-    // Pointed arch: two circular arcs meeting at the apex.
-    const R2 = ww * 0.9 + grow;
-    return Math.hypot(x - (x0 + ww * 0.9), y - shoulder) <= R2 && Math.hypot(x - (x1 - ww * 0.9), y - shoulder) <= R2 && y >= top - grow;
-  };
-  for (let y = 0; y < horizon; y++) {
-    for (let x = 0; x < W; x++) {
-      if (inWindow(x, y)) {
-        // Tracery: three lancets, two transoms, a rose at the top.
-        const lancet = Math.abs(((x - x0) / ww) * 3 - Math.round(((x - x0) / ww) * 3)) * (ww / 3) < 1 && y > shoulder - hw * 0.2;
-        const transom = (y === Math.round(shoulder + (sill - shoulder) * 0.45) || y === Math.round(shoulder + (sill - shoulder) * 0.8));
-        const rose = Math.abs(Math.hypot(x - mid, y - (shoulder - hw * 0.35)) - hw * 0.3) < 0.8;
-        if (lancet || transom || rose) L.put(x, y, R.iron[1]!);
-        continue;
-      }
-      let col: RGB;
-      if (inWindow(x, y, 3)) col = inWindow(x, y, 1) ? S[4]! : S[3]!;
-      else {
-        // Ashlar blocks with mortar, darker toward the vault.
-        const row = Math.floor(y / 6), bx = Math.floor((x + (row & 1) * 5) / 10);
-        const mortar = y % 6 === 0 || (x + (row & 1) * 5) % 10 === 0;
-        const shadeY = y / horizon;
-        let i = 1 + Math.round(hash(bx, row) * 1.6 + shadeY * 1.2 + bayer(x, y) * 0.6) - (fbm(x / 20, y / 20) > 0.6 ? 1 : 0);
-        if (mortar) i = 0;
-        col = S[Math.max(0, Math.min(4, i))]!;
-      }
-      // Pilasters at regular intervals.
-      const pw = Math.max(8, Math.round(W * 0.03));
-      for (const px of [W * 0.2, W * 0.8]) {
-        if (Math.abs(x - px) < pw / 2 && !inWindow(x, y, 4)) col = x < px - pw / 4 ? S[4]! : x < px + pw / 4 ? S[3]! : S[1]!;
-      }
-      L.put(x, y, col);
     }
   }
 }

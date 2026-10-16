@@ -63,7 +63,7 @@ const LOOKS: Record<string, Look> = {
     body: { kind: 'planet', r: 51, col: '#4a6a7a' },
     skyline: [],
     haze: '#14121c',
-    ground: { style: 'flagstone', shades: ['#0d0c11', '#17161d', '#211f28', '#2d2b35', '#3d3a46', '#4f4b58'], haze: '#1a1822', pools: { col: '#120f18', glint: '#3a2a4a', amount: 0.25 } },
+    ground: { style: 'deck', shades: ['#08090d', '#11131a', '#1a1d27', '#252935', '#333846', '#464c5e'], haze: '#161822', pools: { col: '#0e1018', glint: '#2a3a5a', amount: 0.15 } },
     frames: ['column', 'column'],
     accent: 0x8f2a32,
     ambient: { weather: 'dust', tint: '#8a8070', fog: '#2a2433' },

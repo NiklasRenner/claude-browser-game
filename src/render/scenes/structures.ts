@@ -141,9 +141,10 @@ function pillar(p: Painter, X: (x: number) => number, acc: Ramp) {
 }
 
 function column(p: Painter, X: (x: number) => number, acc: Ramp) {
-  p.poly([[X(0), 0], [X(28), 0], [X(28), 180], [X(0), 180]], R.stone, { bias: -0.1, grime: 0.1, normal: (x) => [Math.sin(x * 0.7) * 0.6, 0, 1] });
-  p.rect(X(side(X) === 1 ? 0 : 32), 0, 32, 10, R.stone, { bevel: 2 });
-  for (const y of [40, 150]) p.poly([[X(0), y], [X(34), y], [X(34), y + 6], [X(0), y + 6]], R.stone, { ny: -0.3 });
+  // A steel pillar of the ship's hull: fluted, with banded collars.
+  p.poly([[X(0), 0], [X(28), 0], [X(28), 180], [X(0), 180]], R.iron, { bias: -0.1, grime: 0.06, normal: (x) => [Math.sin(x * 0.7) * 0.6, 0, 1] });
+  p.rect(X(side(X) === 1 ? 0 : 32), 0, 32, 10, R.iron, { bevel: 2 });
+  for (const y of [40, 150]) p.poly([[X(0), y], [X(34), y], [X(34), y + 6], [X(0), y + 6]], R.gold, { ny: -0.3 });
   banner(p, X, 32, 18, 22, 56, acc);
   // Candelabrum.
   p.cap(X(44), 120, X(44), 160, 1, 1, R.gold);

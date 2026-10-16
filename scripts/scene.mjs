@@ -12,7 +12,7 @@ import { chromium } from 'playwright';
 import { serve } from './serve.mjs';
 
 // A hostile from each world: a drill against it shows that world's backdrop.
-const WORLDS = { veridia: 'fen_leech', kethra: 'cave_glider', glacies: 'frost_serpent', void_rift: 'void_shade', xenith: 'hive_drone' };
+const WORLDS = { ship: null, veridia: 'fen_leech', kethra: 'cave_glider', glacies: 'frost_serpent', void_rift: 'void_shade', xenith: 'hive_drone' };
 const only = process.argv[2];
 const [width, height] = (process.argv[3] ?? '1280x720').split('x').map(Number);
 const suffix = process.argv[3] ? `-${process.argv[3]}` : '';
@@ -31,7 +31,8 @@ for (const [mission, hostile] of Object.entries(WORLDS)) {
   await page.waitForSelector('#start-game');
   await page.click('#start-game');
   await page.waitForFunction(() => window.__qf.state.mode === 'ship');
-  await page.evaluate((id) => window.__qf.dispatch({ type: 'startDrill', hostileIds: [id] }), hostile);
+  // The ship (and title screen) is where a new game starts; worlds through a drill.
+  if (hostile) await page.evaluate((id) => window.__qf.dispatch({ type: 'startDrill', hostileIds: [id] }), hostile);
   await page.waitForFunction(() => !window.__qf.busy, null, { timeout: 30000 });
   await page.evaluate(() => window.__qf.scenery(true));
   await page.addStyleTag({ content: 'body *:not(canvas) { visibility: hidden !important } canvas { visibility: visible !important }' });
