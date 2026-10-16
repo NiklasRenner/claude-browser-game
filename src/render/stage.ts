@@ -87,7 +87,8 @@ export class Stage {
     this.ctx = canvas.getContext('2d')!;
     this.glow = this.glowCan.getContext('2d')!;
     this.fx = new Effects(overlay, this.tweens, () => this.scale);
-    void loadSheets();
+    // Rebuild the backdrop once the sprite sheets are in: its distant set pieces are painted into it.
+    void loadSheets().then(() => { this.backdropKey = ''; });
     this.resize();
     window.addEventListener('resize', () => this.resize());
     // Schedule first, so one bad frame can't stop the animation (and with it, every pending tween).

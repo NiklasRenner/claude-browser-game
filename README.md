@@ -135,7 +135,7 @@ Sheets made with [PixelLab](https://pixellab.ai) live in `art/pixellab/<name>/` 
 
 The Veridia Fen hostiles (`fen_leech`, `rotwired_penitent`, `choir_cantor`, `archcantor`) were made the same way: *create image (pro)* with the officer as the style image (side view, flipped to face left where needed) → `base.png`, then two *animate image* runs on it (`idle-*` with the last frame pinned to the first so it loops, and `attack-*`). `sprites.py` matches every frame's colours to `base.png` (brightness, then its palette), so a frame the model lit up doesn't flash.
 
-**Set pieces** (`pieces` in `locations.ts`, drawn by `src/render/scenes/pieces.ts`): PixelLab sprites placed over the painted scene at their native pixel size, looping their sheet: on the ground near the edges, on the far shore (faded into the haze) or hanging on a chain. The painted sky, skyline, ground, fog and weather stay as they are. Veridia has the Choir's chapel-forge, a reliquary, leaking barrels and a cage lantern.
+**Set pieces** (`pieces` in `locations.ts`, drawn by `src/render/scenes/pieces.ts`): PixelLab sprites placed over the painted scene at their native pixel size, looping their sheet: on the ground (with a contact shadow), hanging on a chain, or far away: those are painted into the skyline between two tree lines when the backdrop is built, toned into the haze and dissolving into the mist at their foot (the backdrop is rebuilt once the sheets have loaded). The painted sky, skyline, ground, fog and weather stay as they are. Veridia has the Choir's chapel-forge, a reliquary, leaking barrels and a cage lantern.
 
 **Rigged characters** (the officer): PixelLab draws the body, code draws the weapon. Workflow for a new character:
 

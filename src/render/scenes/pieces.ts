@@ -1,12 +1,15 @@
 /**
- * Set pieces drawn from PixelLab sprite sheets (scripts/sprites.py), on top of
- * the painted scene: shrines, barrels, a distant ruin, a lantern on a chain.
- * They keep their native pixel size (like the figures) and animate from their
- * sheet. Sheets load in the background; until one has, its piece is skipped.
+ * Set pieces drawn from PixelLab sprite sheets (scripts/sprites.py): shrines,
+ * barrels, a lantern on a chain, a distant ruin. Near ones are drawn over the
+ * painted scene each frame, at their native pixel size (like the figures), and
+ * animate from their sheet. Distant ones are painted into the skyline when the
+ * backdrop is built, toned into the haze. Sheets load in the background; until
+ * one has, its piece is skipped (the stage rebuilds the backdrop once they're in).
  */
 import { makeCanvas } from '../pixel/painter';
 import { hex, mix } from '../pixel/palette';
 import { framesOf } from '../sprites/sheets';
+import type { Layer } from './layer';
 import type { Frame } from '../sprites/sheets';
 import type { SheetId } from '../sprites/sheet-data';
 
@@ -15,15 +18,44 @@ export interface Piece {
   /** Horizontal position, as a fraction of the screen width (the piece's centre). */
   x: number;
   /**
-   * Where it stands: 'ground' on the prop line (in front, near the edges), 'horizon' on the far shore
-   * (faded into the haze by `haze`), 'hang' from a chain whose top is at `y` (fraction of the height).
+   * Where it stands: 'ground' with its base at `y` (fraction of the height; default the prop line),
+   * 'hang' from a chain whose top is at `y`, or 'horizon': part of the skyline, painted after skyline
+   * rank `rank`, its bottom `sink` pixels under the waterline and faded into the mist above it.
    */
   at: 'ground' | 'horizon' | 'hang';
   y?: number;
+  rank?: number;
+  sink?: number;
   /** Frames per second of its loop (default 6). */
   fps?: number;
-  /** How much of the location's haze colour it takes on (0..1), for distant pieces. */
+  /** How much of the location's haze colour it takes on (0..1): a little for the middle distance, more far away. */
   haze?: number;
+}
+
+/** A distant piece, painted into the scene layer (first frame): hazed, and dissolving into the mist at its foot. */
+export function paintDistant(L: Layer, p: Piece, horizon: number, haze: string): boolean {
+  const f = framesOf(p.sheet)?.[0];
+  if (!f) return false;
+  const tint = hex(haze), sink = p.sink ?? 0, base = p.haze ?? 0.5;
+  const x0 = Math.round(L.W * p.x - f.w / 2), y0 = horizon + sink - f.h;
+  const tall = f.h - sink;
+  for (let j = 0; j < f.h; j++) {
+    const y = y0 + j;
+    if (y >= horizon) break;
+    // Fog thickens toward the water: the lower third fades out completely.
+    const t = Math.min(1, Math.max(0, (j / tall - 0.62) / 0.38));
+    const fade = base + (1 - base) * t * t;
+    for (let i = 0; i < f.w; i++) {
+      const k = j * f.w + i;
+      if (f.rgba[k * 4 + 3]! < 128) continue;
+      const lit = f.glow[k] === 1;
+      const col = mix([f.rgba[k * 4]!, f.rgba[k * 4 + 1]!, f.rgba[k * 4 + 2]!], tint, lit ? fade * 0.5 : fade);
+      if (fade > 0.97) continue;
+      if (fade > 0.75) L.blend(x0 + i, y, col, (1 - fade) * 4);
+      else L.put(x0 + i, y, col, lit);
+    }
+  }
+  return true;
 }
 
 interface Baked { img: HTMLCanvasElement[]; glow: HTMLCanvasElement[]; w: number; h: number }
@@ -52,10 +84,11 @@ function bake(frames: Frame[], haze: string, amount: number): Baked {
 export class Pieces {
   private baked = new Map<Piece, Baked>();
 
-  constructor(private list: Piece[], private W: number, private H: number, private horizon: number, private propY: number, private haze: string) {}
+  constructor(private list: Piece[], private W: number, private H: number, private propY: number, private haze: string) {}
 
   draw(ctx: CanvasRenderingContext2D, glow: CanvasRenderingContext2D, t: number) {
     for (const p of this.list) {
+      if (p.at === 'horizon') continue;
       let b = this.baked.get(p);
       if (!b) {
         const frames = framesOf(p.sheet);
@@ -75,7 +108,16 @@ export class Pieces {
         for (let yy = 0; yy < top; yy += 2) ctx.fillRect(cx + Math.round((sway * yy) / Math.max(1, top)), yy, 1, 1);
         y = top;
       } else {
-        y = (p.at === 'horizon' ? this.horizon + 4 : this.propY) - b.h;
+        y = (p.y !== undefined ? Math.round(this.H * p.y) : this.propY) - b.h;
+      }
+      if (p.at === 'ground') {
+        // A soft contact shadow, so it stands in the mire instead of floating on it.
+        ctx.fillStyle = 'rgba(4,8,6,0.5)';
+        const rx = Math.round(b.w * 0.45), base = y + b.h - 1;
+        for (let dy = -1; dy <= 1; dy++) {
+          const w = Math.round(rx * (dy === 0 ? 1 : 0.75));
+          ctx.fillRect(cx - w, base + dy, w * 2, 1);
+        }
       }
       ctx.drawImage(b.img[k]!, x, y);
       glow.drawImage(b.glow[k]!, x, y);

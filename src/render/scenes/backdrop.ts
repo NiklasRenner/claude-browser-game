@@ -11,7 +11,7 @@ import { Ambient } from './ambient';
 import { paintGround } from './ground';
 import { Layer } from './layer';
 import { locationOf } from './locations';
-import { Pieces } from './pieces';
+import { Pieces, paintDistant } from './pieces';
 import { paintEclipse, paintMoon, paintSky } from './sky';
 import { paintHaze, paintRank } from './skyline';
 import { FRAME_WIDTH, paintFrame, paintProp } from './structures';
@@ -42,7 +42,11 @@ export function buildBackdrop(key: string, W: number, H: number, lift = 0): Back
   sky.commit();
 
   const scene = new Layer(W, H);
-  for (const rank of loc.skyline) paintRank(scene, rank, horizon);
+  const distant = (loc.pieces ?? []).filter((p) => p.at === 'horizon');
+  loc.skyline.forEach((rank, i) => {
+    paintRank(scene, rank, horizon);
+    for (const p of distant) if ((p.rank ?? loc.skyline.length - 1) === i) paintDistant(scene, p, horizon, loc.haze);
+  });
   if (loc.skyline.length) paintHaze(scene, horizon, loc.haze, Math.round(horizon * 0.25));
   if (loc.interior) paintNave(scene, horizon);
   paintGround(scene, loc.ground, horizon);
@@ -73,7 +77,7 @@ export function buildBackdrop(key: string, W: number, H: number, lift = 0): Back
     if (flame) flames.push([px + flame[0], propY + flame[1]]);
   }
 
-  const pieces = new Pieces(loc.pieces ?? [], W, H, horizon, propY, loc.haze);
+  const pieces = new Pieces(loc.pieces ?? [], W, H, propY, loc.haze);
   const ambient = new Ambient(loc.ambient, W, H, horizon, flames);
   const vignette = buildVignette(W, H);
   return {

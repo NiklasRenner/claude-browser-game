@@ -55,12 +55,12 @@ const LOCATIONS: Record<string, Location> = {
     ground: { style: 'moss', shades: ['#0c0e0c', '#151a16', '#1f261f', '#2a332a', '#384336', '#4a5646'], haze: '#22302a', pools: { col: '#0c1a18', glint: '#2a5a4a', amount: 0.3 } },
     frames: ['trunk', 'wall'],
     props: [],
-    // The Choir's chapel-forge across the water, a reliquary and leaking barrels on the bank, a lantern
-    // hung from the tree.
+    // The Choir's chapel-forge across the water (behind the near tree line), a reliquary under the tree,
+    // leaking barrels at the foot of the colony building, a lantern hung from the branch.
     pieces: [
-      { sheet: 'fen_chapel', x: 0.36, at: 'horizon', haze: 0.45, fps: 3 },
+      { sheet: 'fen_chapel', x: 0.43, at: 'horizon', rank: 1, sink: 12, haze: 0.4 },
       { sheet: 'fen_shrine', x: 0.14, at: 'ground', fps: 7 },
-      { sheet: 'fen_barrels', x: 0.86, at: 'ground', fps: 6 },
+      { sheet: 'fen_barrels', x: 0.7, at: 'ground', y: 0.93, haze: 0.1, fps: 6 },
       { sheet: 'fen_lantern', x: 0.1, at: 'hang', y: 0.24, fps: 6 },
     ],
     accent: 0x3a6a3a,
