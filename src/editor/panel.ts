@@ -1,108 +1,85 @@
 /**
- * The scene editor's side panel, as HTML: location, layers, the list of
- * things in the scene and an inspector for the selected one. Inputs carry
- * `data-act` (buttons, checkboxes) or `data-field` (inspector values); the
- * editor (main.ts) handles them.
+ * The scene editor's side panel, as HTML: the location's layers (front at the
+ * top) and an inspector for the selected one. Inputs carry `data-act` (buttons,
+ * checkboxes) or `data-field` (inspector values); main.ts handles them.
  */
-import type { Layout } from '../render/scenes/locations';
-import type { Piece } from '../render/scenes/pieces';
-import { depthOfPiece, stack } from './model';
-import type { Sel } from './model';
+import { layerName } from '../render/scenes/backdrop';
+import type { Location, SceneLayer } from '../render/scenes/locations';
+import { isPlaced, sizeCheck } from './model';
 
 export interface PanelState {
   loc: string;
   locations: string[];
-  layout: Layout;
-  sel: Sel | null;
+  location: Location;
+  sel: number | null;
   dirty: boolean;
   status: string;
-  parts: { id: string; label: string }[];
-  hide: ReadonlySet<string>;
-  hiddenPieces: ReadonlySet<number>;
+  hidden: ReadonlySet<SceneLayer>;
+  bloom: boolean;
+  guides: boolean;
   roster: { id: string; name: string }[];
   lineup: readonly string[];
   width: number;
   widths: number[];
   sheets: string[];
+  sheet: string;
 }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
-const same = (a: Sel | null, b: Sel) => !!a && a.kind === b.kind && (a.kind === 'body' || (b.kind !== 'body' && a.i === b.i));
-
-const PLACES: Record<Piece['at'], string> = { ground: 'on the ground', far: 'skyline', hang: 'hanging', left: 'left edge', right: 'right edge' };
+const check = (act: string, on: boolean, label: string, extra = '') =>
+  `<label class="check"><input type="checkbox" data-act="${act}" ${extra}${on ? ' checked' : ''}> ${label}</label>`;
 
 function inspector(s: PanelState): string {
-  const sel = s.sel;
-  if (!sel) return '<p class="hint">Click something in the scene, or in the list above.</p>';
-  const num = (field: string, label: string, v: number | undefined, step: number, note = '') =>
-    `<label>${label}<input type="number" step="${step}" data-field="${field}" value="${v ?? ''}">${note ? `<small>${note}</small>` : ''}</label>`;
-  if (sel.kind === 'body') {
-    const b = s.layout.body!;
-    return `<h3>${b.kind}</h3>${num('x', 'x (of width)', b.x, 0.01)}${num('y', 'y (of horizon)', b.y, 0.01)}${num('r', b.kind === 'planet' ? 'radius (of width)' : 'radius (px)', b.r, b.kind === 'planet' ? 0.01 : 1)}`;
+  const l = s.sel === null ? undefined : s.location.layers[s.sel];
+  if (!l) return '<p class="hint">Click something in the scene, or a layer above.</p>';
+  const name = `<h3>${esc(layerName(s.location, l))}</h3>`;
+  if (!isPlaced(l)) return `${name}<p class="hint">Painted from the location's look; only its place in the order changes here.</p>`;
+  const num = (field: string, label: string, v: number | undefined, step: number) =>
+    `<label>${label}<input type="number" step="${step}" data-field="${field}" value="${v ?? ''}"></label>`;
+  const flag = (field: string, on: boolean | undefined, label: string) =>
+    `<label class="check"><input type="checkbox" data-field="${field}"${on ? ' checked' : ''}> ${label}</label>`;
+  const rows = [`<div class="pair">${num('x', 'x', l.x, 1)}${num('y', 'y', l.y, 1)}</div>`,
+    flag('pinned', l.pinned, 'pinned to its edge <small>(else stays with the centre on wider screens)</small>')];
+  if (l.part === 'sprite') {
+    rows.push(flag('flip', l.flip, 'mirrored'));
+    rows.push(`<div class="pair">${num('fps', 'frames / s', l.fps ?? 6, 1)}${num('fog', 'fog (0–1)', l.fog ?? 0, 0.05)}</div>`);
+    const c = sizeCheck(l.sheet);
+    rows.push(c
+      ? `<p class="size ${c.ok ? 'ok' : 'bad'}">Made for <b>${c.plane}</b> (×${c.scale}): ${c.metres} m → ${c.expected} px expected, sprite is ${c.px} px ${c.ok ? '✓' : '✗'}<br><small>The ${c.plane} line is shown in the scene.</small></p>`
+      : '<p class="size">No size label (src/render/sprites/sizes.ts).</p>');
   }
-  if (sel.kind === 'prop') {
-    const p = s.layout.props[sel.i]!;
-    return `<h3>Prop: ${p.style}</h3>${num('x', 'x (of width)', p.x, 0.01)}`;
-  }
-  const p = s.layout.pieces[sel.i]!;
-  const d = depthOfPiece(p);
-  const depthNote = d === null ? '' : `depth ${d.toFixed(2)}${d > 1 ? ' · in front of the fighters' : d < 0.25 ? ' · far' : ''}`;
-  const at = Object.entries(PLACES).map(([k, v]) => `<option value="${k}"${k === p.at ? ' selected' : ''}>${v}</option>`).join('');
-  const rows = [`<label>Placed<select data-field="at">${at}</select></label>`];
-  if (p.at === 'ground' || p.at === 'far') {
-    rows.push(num('x', 'x (of 320 px)', p.x, 0.005));
-    rows.push(num('height', 'real height (m)', p.height, p.at === 'far' ? 1 : 0.05, depthNote));
-  }
-  if (p.at === 'far') rows.push(num('rank', 'after skyline', p.rank, 1));
-  if (p.at === 'hang') {
-    rows.push(num('fromX', 'anchor x (px)', p.from?.[0], 1));
-    rows.push(num('fromY', 'anchor y (px)', p.from?.[1], 1));
-    rows.push(num('chain', 'chain (px)', p.chain ?? 8, 1));
-  }
-  rows.push(num('fps', 'frames per second', p.fps ?? 6, 1));
-  rows.push(`<label class="check"><input type="checkbox" data-field="flip"${p.flip ? ' checked' : ''}> mirrored</label>`);
-  return `<h3>${esc(p.sheet)}</h3>${rows.join('')}
-    <div class="row"><button data-act="dup">Duplicate</button>${p.at === 'far' ? '' : '<button data-act="up">Bring forward</button><button data-act="down">Send back</button>'}<button data-act="del" class="danger">Delete</button></div>`;
+  const buttons = l.part === 'body' ? '' : '<div class="row"><button data-act="dup">Duplicate</button><button data-act="del" class="danger">Delete</button></div>';
+  return name + rows.join('') + buttons;
 }
 
 export function renderPanel(s: PanelState): string {
   const locs = s.locations.map((l) => `<option${l === s.loc ? ' selected' : ''}>${l}</option>`).join('');
-  const layers = [...s.parts, { id: 'bloom', label: 'Glow (bloom)' }, { id: 'guides', label: 'Guides (lines, outlines)' }]
-    .map((p) => `<label class="check"><input type="checkbox" data-act="layer" data-id="${p.id}"${s.hide.has(p.id) ? '' : ' checked'}> ${esc(p.label)}</label>`).join('');
-  const item = (sel: Sel, label: string, extra = '') =>
-    `<li class="${same(s.sel, sel) ? 'on' : ''}" data-act="select" data-sel='${JSON.stringify(sel)}'>${extra}${esc(label)}</li>`;
-  const eye = (i: number) => `<input type="checkbox" title="Show" data-act="eye" data-i="${i}"${s.hiddenPieces.has(i) ? '' : ' checked'}> `;
-  const arrows = (attr: string) => `<span class="move"><button data-act="up" ${attr} title="Bring forward">▲</button><button data-act="down" ${attr} title="Send back">▼</button></span>`;
-  // The draw order, front first (like a layer list): pieces and the fighters.
-  const order = stack(s.layout).reverse().map((r) => r.kind === 'fighters'
-    ? `<li class="fighters"><input type="checkbox" title="Show" data-act="fighters"${s.hide.has('fighters') ? '' : ' checked'}> ⚔ Fighters${arrows('data-row="fighters"')}</li>`
-    : item({ kind: 'piece', i: r.i }, `${s.layout.pieces[r.i]!.sheet} · ${PLACES[s.layout.pieces[r.i]!.at]}`, eye(r.i)).replace('</li>', `${arrows(`data-i="${r.i}"`)}</li>`)).join('');
-  const pieces = s.layout.pieces.flatMap((p, i) => (p.at === 'far' ? [item({ kind: 'piece', i }, `${p.sheet} · after skyline ${(p.rank ?? 0) + 1}`, eye(i))] : [])).join('');
-  const props = s.layout.props.map((p, i) => item({ kind: 'prop', i }, `prop: ${p.style}`)).join('');
-  const body = s.layout.body ? item({ kind: 'body' }, `sky: ${s.layout.body.kind}`) : '';
-  const roster = s.roster.map((h) => `<label class="check"><input type="checkbox" data-act="lineup" data-id="${h.id}"${s.lineup.includes(h.id) ? ' checked' : ''}> ${esc(h.name)}</label>`).join('');
+  const rows = s.location.layers.map((l, i) => {
+    const size = l.part === 'sprite' ? sizeCheck(l.sheet) : null;
+    return `<li data-act="select" data-i="${i}" class="${s.sel === i ? 'on' : ''}${l.part === 'fighters' ? ' fighters' : ''}">
+      <input type="checkbox" title="Show" data-act="eye" data-i="${i}"${s.hidden.has(l) ? '' : ' checked'}>
+      <span class="name">${l.part === 'fighters' ? '⚔ Fighters' : esc(layerName(s.location, l))}${size ? ` <small>${size.plane}</small>` : ''}${isPlaced(l) && l.pinned ? ' <small>📌</small>' : ''}</span>
+      <span class="move"><button data-act="up" data-i="${i}" title="Forward">▲</button><button data-act="down" data-i="${i}" title="Back">▼</button></span></li>`;
+  }).reverse().join('');
+  const roster = s.roster.map((h) => check('lineup', s.lineup.includes(h.id), esc(h.name), `data-id="${h.id}"`)).join('');
   const widths = s.widths.map((w) => `<button data-act="width" data-w="${w}" class="${w === s.width ? 'on' : ''}">${w}</button>`).join('');
-  const sheets = s.sheets.map((id) => `<option>${id}</option>`).join('');
+  const sheets = s.sheets.map((id) => `<option${id === s.sheet ? ' selected' : ''}>${id}</option>`).join('');
   return `
     <header>
-      <h2>Scene editor</h2>
+      <div class="row"><h2>Scene editor</h2><button data-act="collapse" class="collapse" title="Hide the panel">⟨</button></div>
       <div class="row"><select data-act="loc">${locs}</select>
         <button data-act="save" class="primary"${s.dirty ? '' : ' disabled'}>Save</button>
         <button data-act="revert"${s.dirty ? '' : ' disabled'}>Revert</button></div>
       <p class="status">${esc(s.status)}</p>
     </header>
-    <section><h3>Draw order <small>front ↑ · back ↓</small></h3><ul class="list">${order}</ul>
-      <div class="row"><select data-act="sheet">${sheets}</select><button data-act="add">Add piece</button></div>
-      <h3>Painted into the backdrop <small>always behind</small></h3><ul class="list">${pieces}${props}${body}</ul></section>
+    <section><h3>Layers <small>front ↑ · back ↓</small></h3><ul class="list">${rows}</ul>
+      <div class="row"><select data-act="sheet">${sheets}</select><button data-act="add">Add sprite</button></div></section>
     <section class="inspector">${inspector(s)}</section>
-    <details open><summary>Layers</summary>${layers}</details>
-    <details><summary>Lineup &amp; width</summary>${roster || '<p class="hint">No hostiles here.</p>'}
+    <details open><summary>View</summary>${check('bloom', s.bloom, 'Glow (bloom)')}${check('guides', s.guides, 'Guides: horizon, fighters’ line, 320 px frame, outlines')}
       <div class="row">Scene width: ${widths}</div></details>
+    <details><summary>Lineup</summary>${roster || '<p class="hint">No hostiles here.</p>'}</details>
     <details><summary>Keys</summary><p class="hint">
-      Drag to move; <b>Shift</b>+drag moves sideways only (keeps the depth).<br>
-      Moving a ground piece up or down changes its depth, so its real height changes (it keeps its pixels).<br>
-      The draw order decides what covers what: ▲ / ▼ (or <b>PgUp / PgDn</b>) move a piece, or the fighters, toward the front or the back.
-      Far pieces are painted between the skyline's tree lines (<b>[ ]</b> picks which).<br>
-      Arrows nudge 1 px · <b>Shift</b>+↑/↓ chain length (hanging) · <b>F</b> mirror ·
-      <b>H</b> hide · <b>Del</b> delete · <b>Ctrl+Z / Ctrl+Shift+Z</b> undo / redo · <b>Ctrl+S</b> save · <b>Esc</b> deselect.</p></details>`;
+      Drag to move · arrows nudge 1 px · <b>PgUp / PgDn</b> forward / back · <b>P</b> pin · <b>F</b> mirror · <b>H</b> hide ·
+      <b>Del</b> delete · <b>Ctrl+Z / Ctrl+Shift+Z</b> undo / redo · <b>Ctrl+S</b> save · <b>Esc</b> deselect.<br>
+      Positions are in the 320 × 180 scene every screen shows; wider screens add room at the sides.</p></details>`;
 }

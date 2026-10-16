@@ -357,7 +357,7 @@ try {
   const fi = (o) => o.findIndex((x) => x.includes('Fighters'));
   check(fi(order1) === fi(order0) + 1, `the fighters move back in the draw order (${order1.join(' > ')})`);
   await ed.keyboard.press('Control+z');
-  await ed.click('li.fighters [data-act=fighters]');
+  await ed.click('li.fighters [data-act=eye]');
   await ed.waitForTimeout(300);
   await ed.screenshot({ path: `${OUT}/15-scene-editor.png` });
   await ed.close();

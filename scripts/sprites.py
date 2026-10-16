@@ -61,7 +61,7 @@ PIXEL = [
     ('rotwired_penitent', [f'idle-{i}.png' for i in range(5)] + [f'attack-{i}.png' for i in range(1, 7)], GREEN),
     ('choir_cantor', [f'idle-{i}.png' for i in range(5)] + [f'attack-{i}.png' for i in range(1, 5)], GREEN),
     ('archcantor', [f'idle-{i}.png' for i in range(5)] + [f'attack-{i}.png' for i in range(1, 7)], GREEN + CANDLE),
-    # Veridia set pieces (src/render/scenes/pieces.ts): a looping animation each (loop-0 is the input).
+    # Veridia set pieces (sprite layers in src/render/scenes/layouts.json; sizes in src/render/sprites/sizes.ts): a looping animation each (loop-0 is the input).
     ('fen_chapel', ['base.png'], GREEN),
     ('fen_shrine', [f'loop-{i}.png' for i in range(6)], GREEN + CANDLE),
     ('fen_barrels', [f'loop-{i}.png' for i in range(6)], GREEN),

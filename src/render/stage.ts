@@ -16,7 +16,7 @@ import { bayer } from './pixel/noise';
 import { fromInt, glowOf } from './pixel/palette';
 import type { RGB } from './pixel/palette';
 import { buildBackdrop } from './scenes/backdrop';
-import { FEET, MAX_W, MIN_W, SCENE_H, sceneX } from './scenes/depth';
+import { FEET, MAX_W, MIN_W, SCENE_H, sceneX } from './scenes/scale';
 import type { Backdrop } from './scenes/backdrop';
 import type { Layout } from './scenes/locations';
 import { heroFigure, hostileFigure, loadSheets, paintFigure } from './sprites';
@@ -41,7 +41,6 @@ const SLOTS: Record<number, [number, number][]> = {
   3: [[0.6, 0.67], [0.73, 0.75], [0.86, 0.69]],
 };
 const HERO_X = { battle: 0.3, ship: 0.42, field: 0.44 };
-const HERO_Y = FEET;
 
 interface Actor {
   figure: Figure;
@@ -76,8 +75,8 @@ export class Stage {
   private top = 0;
   /** Draw only the location (no figures or markers): for judging backdrops (`npm run scene`). */
   sceneryOnly = false;
-  /** Scene editor (src/editor): an unsaved layout, parts to hide (see backdropParts, plus 'fighters' and 'bloom'), guides drawn on top. */
-  private editing: { layout: Layout; hide: ReadonlySet<string>; overlay: (ctx: CanvasRenderingContext2D) => void; width: number } | null = null;
+  /** Scene editor (src/editor): an unsaved layout (hidden layers left out), whether to glow, guides drawn on top, the width. */
+  private editing: { layout: Layout; bloom: boolean; overlay: (ctx: CanvasRenderingContext2D) => void; width: number } | null = null;
   private fx: Effects;
   private time = 0;
   private last = performance.now();
@@ -137,9 +136,9 @@ export class Stage {
   // ─── Scene editor ────────────────────────────────────────────────────────
 
   /** Show this layout with these parts hidden, `width` art pixels wide (rebuilds the backdrop on the next frame). */
-  edit(layout: Layout, hide: ReadonlySet<string>, overlay: (ctx: CanvasRenderingContext2D) => void, width: number) {
+  edit(layout: Layout, bloom: boolean, overlay: (ctx: CanvasRenderingContext2D) => void, width: number) {
     const resize = width !== this.editing?.width;
-    this.editing = { layout, hide, overlay, width };
+    this.editing = { layout, bloom, overlay, width };
     this.backdropKey = '';
     if (resize) this.resize();
   }
@@ -203,7 +202,7 @@ export class Stage {
   private layout() {
     // Fixed spots around the centre (see SLOTS).
     const at = (fx: number) => sceneX(this.W, fx);
-    if (this.hero) { this.hero.x = at(HERO_X[this.view]); this.hero.y = Math.round(this.H * HERO_Y); }
+    if (this.hero) { this.hero.x = at(HERO_X[this.view]); this.hero.y = FEET; }
     const slots = SLOTS[this.hostiles.length] ?? [];
     this.hostiles.forEach((a, i) => {
       const [x, y] = slots[i] ?? [0.7, 0.72];
@@ -235,21 +234,21 @@ export class Stage {
     ctx.setTransform(1, 0, 0, 1, sx, sy);
     glow.setTransform(1, 0, 0, 1, sx, sy);
 
-    bd.drawBack(ctx, glow, this.time, dt);
-    const hide = this.editing?.hide;
-    const actors = this.sceneryOnly || hide?.has('fighters') ? [] : [...(this.hero ? [this.hero] : []), ...this.hostiles].filter((a) => a.visible);
-    for (const a of actors) this.shadow(a);
-    if (!this.sceneryOnly) this.targetRing();
-    actors.sort((a, b) => a.y - b.y);
-    actors.forEach((a, i) => this.drawActor(a, a === this.hero, i));
-    if (!this.sceneryOnly) this.targetArrow();
-    bd.drawNear(ctx, glow, this.time);
-    this.fx.draw(ctx, glow, dt);
-    bd.drawFront(ctx, glow, this.time, dt);
+    // The location's layers, with the fighters (and their effects) where the fighters' layer is.
+    bd.draw(ctx, glow, this.time, dt, () => {
+      if (this.sceneryOnly) return;
+      const actors = [...(this.hero ? [this.hero] : []), ...this.hostiles].filter((a) => a.visible);
+      for (const a of actors) this.shadow(a);
+      this.targetRing();
+      actors.sort((a, b) => a.y - b.y);
+      actors.forEach((a, i) => this.drawActor(a, a === this.hero, i));
+      this.targetArrow();
+      this.fx.draw(ctx, glow, dt);
+    });
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     glow.setTransform(1, 0, 0, 1, 0, 0);
-    if (!hide?.has('bloom')) this.bloom();
+    if (this.editing?.bloom !== false) this.bloom();
     this.editing?.overlay(ctx);
   }
 

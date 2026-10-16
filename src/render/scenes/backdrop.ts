@@ -1,150 +1,205 @@
 /**
- * Assembles a location into a backdrop for a given screen size: a sky layer,
- * a scene layer (skyline, ground, framing structures, props) and the moving
- * parts in between and in front. Built once per location and size.
+ * Draws a location from its layers (see SceneLayer in locations.ts), back to
+ * front, at a given screen width. Painted parts are painted once into their
+ * own canvases (cached, so moving one thing in the editor only repaints that
+ * thing); sprites and moving effects are drawn every frame.
  */
 import { Painter } from '../pixel/painter';
+import { makeCanvas } from '../pixel/painter';
 import { bayer, fbm, hash } from '../pixel/noise';
 import { R, hex, mix } from '../pixel/palette';
 import type { RGB } from '../pixel/palette';
+import { framesOf } from '../sprites/sheets';
+import { SHEETS } from '../sprites/sheet-data';
 import { Ambient } from './ambient';
 import { paintGround } from './ground';
 import { Layer } from './layer';
 import { locationOf } from './locations';
-import type { Layout } from './locations';
-import { FEET } from './depth';
-import { Pieces, paintFar } from './pieces';
-import { framesOf } from '../sprites/sheets';
+import type { Layout, Location, SceneLayer } from './locations';
+import { FEET, HORIZON, SCENE_H, shiftX } from './scale';
 import { paintEclipse, paintMoon, paintSky } from './sky';
 import { paintHaze, paintRank } from './skyline';
 import { FRAME_WIDTH, paintFrame, paintProp } from './structures';
 
 export interface Backdrop {
   readonly horizon: number;
-  /** The fighters' line (y). */
   readonly feet: number;
   readonly rim: RGB;
-  /** Sky, sky effects, skyline, ground and set pieces. */
-  drawBack(ctx: CanvasRenderingContext2D, glow: CanvasRenderingContext2D, t: number, dt: number): void;
-  /** Set pieces nearer than the fighters' line, drawn over the figures. */
-  drawNear(ctx: CanvasRenderingContext2D, glow: CanvasRenderingContext2D, t: number): void;
-  /** Fire, fog and weather in front of the figures, then the vignette. */
-  drawFront(ctx: CanvasRenderingContext2D, glow: CanvasRenderingContext2D, t: number, dt: number): void;
+  /** Draws every layer, back to front; `fighters` draws the figures where their layer is. */
+  draw(ctx: CanvasRenderingContext2D, glow: CanvasRenderingContext2D, t: number, dt: number, fighters: () => void): void;
 }
 
-/** Where the horizon sits, as a fraction of the screen height. */
-const HORIZON = 0.56;
+export interface Box { x: number; y: number; w: number; h: number }
 
-/** Where a painted prop's canvas (40 × 50, feet at 20, 46) goes: its top-left corner. */
-export const propSpot = (x: number, W: number, H: number, horizon: number): [number, number] =>
-  [Math.round(W * x) - 20, Math.round(horizon + (H - horizon) * 0.42) - 46];
+/** A painted prop's canvas: 40 × 50, standing at (20, 46). */
+const PROP_W = 40, PROP_H = 50;
 
-/** For the scene editor: another layout (unsaved edits), and parts to leave out (ids from backdropParts). */
-export interface BackdropOptions {
-  layout?: Layout;
-  hide?: ReadonlySet<string>;
+/** The size of a placed layer (sprite, prop, body), or null for the others. */
+export function spotSize(loc: Location, l: SceneLayer): { w: number; h: number } | null {
+  if (l.part === 'sprite') return { w: SHEETS[l.sheet].w, h: SHEETS[l.sheet].h };
+  if (l.part === 'prop') return { w: PROP_W, h: PROP_H };
+  if (l.part === 'body' && loc.body) return { w: loc.body.r * 2, h: loc.body.r * 2 };
+  return null;
 }
 
-/** The parts of a location's backdrop, back to front, that the scene editor can hide. */
-export function backdropParts(key: string): { id: string; label: string }[] {
-  const loc = locationOf(key);
-  return [
-    { id: 'sky', label: 'Sky' },
-    { id: 'body', label: loc.body ? `Sky body (${loc.body.kind})` : 'Sky body' },
-    { id: 'sky-fx', label: 'Sky effects' },
-    ...loc.skyline.map((r, i) => ({ id: `rank${i}`, label: `Skyline ${i + 1}: ${r.style}` })),
-    { id: 'far', label: 'Far pieces' },
-    { id: 'haze', label: 'Horizon haze' },
-    { id: 'ground', label: 'Ground' },
-    { id: 'edges', label: 'Edges' },
-    { id: 'props', label: 'Painted props' },
-    { id: 'pieces', label: 'Ground & hanging pieces' },
-    { id: 'front', label: 'Weather & fog' },
-    { id: 'vignette', label: 'Vignette' },
-  ];
+/** Where a placed layer is on a screen W wide. */
+export function layerBox(loc: Location, l: SceneLayer, W: number): Box | null {
+  const size = spotSize(loc, l);
+  if (!size || !('x' in l)) return null;
+  return { x: l.x + shiftX(l.x, size.w, l.pinned, W), y: l.y, ...size };
 }
+
+/** A short name for a layer (editor lists). */
+export function layerName(loc: Location, l: SceneLayer): string {
+  switch (l.part) {
+    case 'sprite': return l.sheet;
+    case 'prop': return `prop: ${l.style}`;
+    case 'body': return loc.body?.kind ?? 'body';
+    case 'skyline': return `skyline ${l.rank + 1}: ${loc.skyline[l.rank]?.style ?? '?'}`;
+    case 'frame': return `frame ${l.side}: ${loc.frames[l.side === 'left' ? 0 : 1]}`;
+    case 'sky-fx': return 'sky effects';
+    case 'weather': return 'weather & fog';
+    default: return l.part;
+  }
+}
+
+/** For the scene editor: an unsaved layout. */
+export interface BackdropOptions { layout?: Layout }
+
+// Painted parts, by what they depend on; dropped when the location or width changes.
+const painted = new Map<string, { img: HTMLCanvasElement; glow: HTMLCanvasElement; flame?: [number, number] }>();
+let paintedFor = '';
 
 export function buildBackdrop(key: string, W: number, H: number, opts: BackdropOptions = {}): Backdrop {
   const loc = locationOf(key, opts.layout);
-  const show = (part: string) => !opts.hide?.has(part);
-  const horizon = Math.round(H * HORIZON);
-  const feet = Math.round(H * FEET);
+  const horizon = HORIZON, feet = FEET;
+  if (paintedFor !== `${key}@${W}x${H}`) { painted.clear(); paintedFor = `${key}@${W}x${H}`; }
 
-  const sky = new Layer(W, H);
-  if (show('sky')) paintSky(sky, loc.sky, horizon);
-  const b = show('body') ? loc.body : undefined;
-  if (b?.kind === 'moon') paintMoon(sky, Math.round(W * b.x), Math.round(horizon * b.y), b.r, b.col);
-  if (b?.kind === 'eclipse') paintEclipse(sky, Math.round(W * b.x), Math.round(horizon * b.y), b.r, b.col);
-  if (b?.kind === 'planet') paintPlanet(sky, Math.round(W * b.x), Math.round(horizon * b.y), Math.round(W * b.r), hex(b.col));
-  sky.commit();
-
-  const scene = new Layer(W, H);
-  const far = show('far') ? loc.pieces.filter((p) => p.at === 'far') : [];
-  loc.skyline.forEach((rank, i) => {
-    if (show(`rank${i}`)) paintRank(scene, rank, horizon);
-    for (const p of far) if ((p.rank ?? loc.skyline.length - 1) === i) paintFar(scene, p, horizon, feet, loc.haze);
-  });
-  if (loc.skyline.length && show('haze')) paintHaze(scene, horizon, loc.haze, Math.round(horizon * 0.25));
-  if (loc.interior && show('sky')) paintNave(scene, horizon);
-  if (show('ground')) paintGround(scene, loc.ground, horizon);
-  scene.commit();
-
-  // Framing structures, scaled to the screen height and pushed outward on narrow screens.
-  const s = H / 180, fw = Math.ceil(FRAME_WIDTH * s), inset = Math.max(0, fw - Math.round(W * 0.2));
-  const fp = new Painter(fw, H);
-  for (const side of show('edges') ? [1, -1] as const : []) {
-    // A generated structure for this edge, if the location has one (and its sheet is in).
-    const edge = loc.pieces.find((p) => p.at === (side === 1 ? 'left' : 'right'));
-    if (edge && framesOf(edge.sheet)) continue;
-    fp.begin(0, 0, s);
-    paintFrame(fp, loc.frames[side === 1 ? 0 : 1], side, loc.accent);
-    fp.finish({ inner: 0.5, rimDir: [side, 0], rimCol: loc.rim, rimAmt: 0.18 });
-    const x = side === 1 ? -inset : W - fw + inset;
-    scene.ctx.drawImage(fp.canvas, x, 0);
-    scene.gctx.drawImage(fp.glowCanvas, x, 0);
-  }
-  // Props on the ground near the edges; remember where fires burn.
+  const paint = (l: SceneLayer) => {
+    const id = JSON.stringify(l);
+    let c = painted.get(id);
+    if (!c) {
+      c = paintPart(loc, l, W, H) ?? undefined;
+      if (!c) return null;
+      painted.set(id, c);
+    }
+    return c;
+  };
+  const layers = loc.layers;
+  // Fires burn on the props that have them (drawn by the weather layer).
   const flames: [number, number][] = [];
-  const pp = new Painter(40, 50);
-  for (const prop of show('props') ? loc.props : []) {
-    pp.begin(20, 46, 1);
-    const flame = paintProp(pp, prop.style, loc.accent);
-    pp.finish({ inner: 0.5 });
-    const [x, y] = propSpot(prop.x, W, H, horizon);
-    scene.ctx.drawImage(pp.canvas, x, y);
-    scene.gctx.drawImage(pp.glowCanvas, x, y);
-    if (flame) flames.push([x + 20 + flame[0], y + 46 + flame[1]]);
+  for (const l of layers) {
+    const f = l.part === 'prop' ? paint(l)?.flame : undefined;
+    if (f) flames.push(f);
   }
-
-  // Edge pieces count as edges, the rest as pieces; hidden ones still keep their place in the order.
-  const drawn = loc.pieces.filter((p) => show(p.at === 'left' || p.at === 'right' ? 'edges' : 'pieces'));
-  const behind = drawn.filter((p) => loc.pieces.indexOf(p) < (loc.behind ?? loc.pieces.length)).length;
-  const pieces = new Pieces(drawn, behind, W, H, horizon, feet, loc.haze);
   const ambient = new Ambient(loc.ambient, W, H, horizon, flames);
-  const vignette = show('vignette') ? buildVignette(W, H) : null;
-  const front = show('front'), skyFx = show('sky-fx');
+  const haze = hex(loc.haze);
   return {
     horizon,
     feet,
     rim: loc.rim,
-    drawBack(ctx, glow, t, dt) {
-      ctx.drawImage(sky.img, 0, 0);
-      glow.drawImage(sky.glow, 0, 0);
-      if (skyFx) ambient.drawSky(ctx, glow, t, dt);
-      ctx.drawImage(scene.img, 0, 0);
-      glow.globalAlpha = 0.8 + Math.sin(t * 5.3) * 0.08 + Math.sin(t * 13) * 0.04;
-      glow.drawImage(scene.glow, 0, 0);
-      pieces.draw(ctx, glow, t, false);
+    draw(ctx, glow, t, dt, fighters) {
+      const flicker = 0.8 + Math.sin(t * 5.3) * 0.08 + Math.sin(t * 13) * 0.04;
+      for (const l of layers) {
+        glow.globalAlpha = l.part === 'sky' || l.part === 'body' ? 1 : flicker;
+        if (l.part === 'fighters') { glow.globalAlpha = 1; fighters(); continue; }
+        if (l.part === 'sky-fx') { glow.globalAlpha = 1; ambient.drawSky(ctx, glow, t, dt); continue; }
+        if (l.part === 'weather') { glow.globalAlpha = 1; ambient.drawFront(ctx, glow, t, dt); continue; }
+        if (l.part === 'sprite') { drawSprite(ctx, glow, l, W, t, haze); continue; }
+        const c = paint(l);
+        if (!c) continue;
+        ctx.drawImage(c.img, 0, 0);
+        glow.drawImage(c.glow, 0, 0);
+      }
       glow.globalAlpha = 1;
     },
-    drawNear(ctx, glow, t) {
-      pieces.draw(ctx, glow, t, true);
-    },
-    drawFront(ctx, glow, t, dt) {
-      if (front) ambient.drawFront(ctx, glow, t, dt);
-      if (vignette) ctx.drawImage(vignette, 0, 0);
-    },
   };
+}
+
+/** A painted part on a full-size canvas pair (null for parts drawn every frame, or a missing body). */
+function paintPart(loc: Location, l: SceneLayer, W: number, H: number) {
+  const L = new Layer(W, H);
+  let flame: [number, number] | undefined;
+  switch (l.part) {
+    case 'sky': paintSky(L, loc.sky, HORIZON); break;
+    case 'body': {
+      const b = loc.body, box = layerBox(loc, l, W);
+      if (!b || !box) return null;
+      const cx = box.x + b.r, cy = box.y + b.r;
+      if (b.kind === 'moon') paintMoon(L, cx, cy, b.r, b.col);
+      else if (b.kind === 'eclipse') paintEclipse(L, cx, cy, b.r, b.col);
+      else paintPlanet(L, cx, cy, b.r, hex(b.col));
+      break;
+    }
+    case 'skyline': { const r = loc.skyline[l.rank]; if (r) paintRank(L, r, HORIZON); break; }
+    case 'haze': paintHaze(L, HORIZON, loc.haze, Math.round(HORIZON * 0.25)); break;
+    case 'nave': paintNave(L, HORIZON); break;
+    case 'ground': paintGround(L, loc.ground, HORIZON); break;
+    case 'vignette': return { img: buildVignette(W, H), glow: makeCanvas(1, 1) };
+    case 'frame': case 'prop': break;
+    default: return null;
+  }
+  L.commit();
+  if (l.part === 'frame') {
+    // Scaled to the screen height, hugging its edge.
+    const s = H / SCENE_H, fw = Math.ceil(FRAME_WIDTH * s), side = l.side === 'left' ? 1 : -1;
+    const inset = Math.max(0, fw - Math.round(W * 0.2));
+    const fp = new Painter(fw, H);
+    fp.begin(0, 0, s);
+    paintFrame(fp, loc.frames[side === 1 ? 0 : 1], side, loc.accent);
+    fp.finish({ inner: 0.5, rimDir: [side, 0], rimCol: loc.rim, rimAmt: 0.18 });
+    const x = side === 1 ? -inset : W - fw + inset;
+    L.ctx.drawImage(fp.canvas, x, 0);
+    L.gctx.drawImage(fp.glowCanvas, x, 0);
+  }
+  if (l.part === 'prop') {
+    const box = layerBox(loc, l, W)!;
+    const pp = new Painter(PROP_W, PROP_H);
+    pp.begin(20, 46, 1);
+    const f = paintProp(pp, l.style, loc.accent);
+    pp.finish({ inner: 0.5 });
+    L.ctx.drawImage(pp.canvas, box.x, box.y);
+    L.gctx.drawImage(pp.glowCanvas, box.x, box.y);
+    if (f) flame = [box.x + 20 + f[0], box.y + 46 + f[1]];
+  }
+  return { img: L.img, glow: L.glow, flame };
+}
+
+// Sprite frames as canvases: mirrored and fogged as asked. Cached per sheet and look.
+const baked = new Map<string, { img: HTMLCanvasElement[]; glow: HTMLCanvasElement[] }>();
+
+function drawSprite(ctx: CanvasRenderingContext2D, glow: CanvasRenderingContext2D, l: Extract<SceneLayer, { part: 'sprite' }>, W: number, t: number, haze: RGB) {
+  const frames = framesOf(l.sheet);
+  if (!frames) return;
+  const fog = Math.max(0, Math.min(1, l.fog ?? 0));
+  const key = `${l.sheet}|${l.flip ? 1 : 0}|${fog}|${haze.join(',')}`;
+  let b = baked.get(key);
+  if (!b) {
+    b = { img: [], glow: [] };
+    for (const f of frames) {
+      const c = makeCanvas(f.w, f.h), g = makeCanvas(f.w, f.h);
+      const d = new ImageData(f.w, f.h), gd = new ImageData(f.w, f.h);
+      for (let y = 0; y < f.h; y++) {
+        for (let x = 0; x < f.w; x++) {
+          const i = y * f.w + (l.flip ? f.w - 1 - x : x), o = (y * f.w + x) * 4;
+          if (f.rgba[i * 4 + 3]! < 128) continue;
+          const lit = f.glow[i] === 1;
+          const col = mix([f.rgba[i * 4]!, f.rgba[i * 4 + 1]!, f.rgba[i * 4 + 2]!], haze, lit ? fog * 0.4 : fog);
+          d.data.set([col[0], col[1], col[2], 255], o);
+          if (lit) gd.data.set([col[0], col[1], col[2], 255], o);
+        }
+      }
+      c.getContext('2d')!.putImageData(d, 0, 0);
+      g.getContext('2d')!.putImageData(gd, 0, 0);
+      b.img.push(c);
+      b.glow.push(g);
+    }
+    baked.set(key, b);
+  }
+  const k = Math.floor(t * (l.fps ?? 6)) % b.img.length;
+  const x = l.x + shiftX(l.x, frames[0]!.w, l.pinned, W);
+  ctx.drawImage(b.img[k]!, x, l.y);
+  glow.drawImage(b.glow[k]!, x, l.y);
 }
 
 function buildVignette(W: number, H: number) {

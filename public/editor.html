@@ -34,9 +34,15 @@
       .list li:hover { background: #1f1822; }
       .list li.on { background: #2a2014; outline: 1px solid var(--accent); }
       .list li.fighters { color: var(--accent); cursor: default; background: #1a1410; }
-      .list .move { margin-left: auto; display: flex; gap: 2px; }
+      .list .move { display: flex; gap: 2px; }
       .list .move button { padding: 0 5px; font-size: 10px; line-height: 16px; }
-      h3 small { color: var(--muted); font-weight: normal; }
+      h3 small, .list small { color: var(--muted); font-weight: normal; }
+      .list .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .pair { display: flex; gap: 8px; } .pair label { flex: 1; }
+      .size { margin: 6px 0; color: var(--muted); } .size.ok b { color: #7ddc8a; } .size.bad { color: #ff7a6e; }
+      header .row h2 { flex: 1; margin: 0; }
+      button.collapse { padding: 2px 8px; }
+      body.collapsed #panel { position: absolute; z-index: 2; width: auto; height: auto; padding: 6px; background: none; border: none; overflow: visible; }
       .status { min-height: 1.4em; margin: 0; color: var(--accent); }
       .hint { color: var(--muted); margin: 4px 0; }
     </style>

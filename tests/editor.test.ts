@@ -1,45 +1,32 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { behindOf, insertPiece, removePiece, restack, stack } from '../src/editor/model';
-import type { Layout } from '../src/render/scenes/locations';
+import { moveTo, reorder } from '../src/editor/model';
+import { locationOf } from '../src/render/scenes/locations';
+import type { SceneLayer } from '../src/render/scenes/locations';
+import { shiftX } from '../src/render/scenes/scale';
 
-const layout = (): Layout => ({
-  props: [],
-  pieces: [
-    { sheet: 'fen_chapel', x: 0.4, at: 'far', height: 28 },
-    { sheet: 'fen_barrels', x: 0.5, at: 'ground', height: 0.9 },
-    { sheet: 'fen_tree', x: 0, at: 'left' },
-  ],
-});
-const names = (l: Layout) => stack(l).map((r) => (r.kind === 'fighters' ? 'F' : l.pieces[r.i]!.sheet));
-
-describe('scene editor draw order', () => {
-  it('without `behind`, every piece is behind the fighters; far pieces are not in the order', () => {
-    assert.deepEqual(names(layout()), ['fen_barrels', 'fen_tree', 'F']);
+describe('scene layout', () => {
+  it('reordering swaps a layer with its neighbour (the draw order is the list order)', () => {
+    const layers: SceneLayer[] = [{ part: 'ground' }, { part: 'sprite', sheet: 'fen_barrels', x: 0, y: 0 }, { part: 'sprite', sheet: 'fen_tree', x: 0, y: 0 }, { part: 'fighters' }];
+    assert.equal(reorder(layers, 1, 1), 2);
+    assert.deepEqual(layers.map((l) => (l.part === 'sprite' ? l.sheet : l.part)), ['ground', 'fen_tree', 'fen_barrels', 'fighters']);
+    assert.equal(reorder(layers, 3, 1), 3); // already in front
   });
 
-  it('moving a piece back past another swaps them (barrels behind the tree)', () => {
-    const l = layout();
-    const i = restack(l, { kind: 'piece', i: 1 }, 1);
-    assert.deepEqual(names(l), ['fen_tree', 'fen_barrels', 'F']);
-    assert.equal(l.pieces[i!]!.sheet, 'fen_barrels');
+  it('on wider screens, things stay with the centre; pinned ones stay with their nearest edge', () => {
+    assert.equal(shiftX(100, 40, false, 384), 32);
+    assert.equal(shiftX(10, 40, true, 384), 0); // left half: stays at the left edge
+    assert.equal(shiftX(250, 40, true, 384), 64); // right half: moves with the right edge
+    assert.equal(shiftX(250, 40, true, 320), 0);
   });
 
-  it('moving the fighters back puts the pieces they pass in front of them', () => {
-    const l = layout();
-    restack(l, { kind: 'fighters' }, -1);
-    assert.deepEqual(names(l), ['fen_barrels', 'F', 'fen_tree']);
-    assert.equal(behindOf(l), 2); // the far chapel and the barrels
-  });
-
-  it('new pieces go just behind the fighters; duplicates next to their original; removal keeps the fighters in place', () => {
-    const l = layout();
-    restack(l, { kind: 'fighters' }, -1);
-    insertPiece(l, { sheet: 'fen_shrine', x: 0.2, at: 'ground', height: 1.2 });
-    assert.deepEqual(names(l), ['fen_barrels', 'fen_shrine', 'F', 'fen_tree']);
-    insertPiece(l, { sheet: 'fen_lantern', x: 0, at: 'hang', from: [60, 50] }, l.pieces.findIndex((p) => p.sheet === 'fen_tree'));
-    assert.deepEqual(names(l), ['fen_barrels', 'fen_shrine', 'F', 'fen_tree', 'fen_lantern']);
-    removePiece(l, l.pieces.findIndex((p) => p.sheet === 'fen_barrels'));
-    assert.deepEqual(names(l), ['fen_shrine', 'F', 'fen_tree', 'fen_lantern']);
+  it('dragging on a wide screen stores the position in the 320 px scene', () => {
+    const loc = locationOf('veridia');
+    const free: SceneLayer = { part: 'sprite', sheet: 'fen_barrels', x: 100, y: 90 };
+    moveTo(loc, free, 384, 140, 95);
+    assert.deepEqual([free.x, free.y], [108, 95]);
+    const pinned: SceneLayer = { part: 'sprite', sheet: 'fen_barrels', x: 250, y: 90, pinned: true };
+    moveTo(loc, pinned, 384, 330, 90);
+    assert.deepEqual([pinned.x, pinned.y], [266, 90]);
   });
 });
