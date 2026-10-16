@@ -49,6 +49,8 @@ SHEETS = [
 GREEN, CANDLE = [(75, 160)], [(35, 60)]  # glow hues: the Choir's sickly green, candle flames
 # Sheets whose frames are colour-matched to their base.png (see main).
 LOCKED = {'fen_leech', 'rotwired_penitent', 'choir_cantor', 'archcantor'}
+# Sheets where only the glowing parts animate (the rest is held at the first frame).
+STILL = {'fen_barrels'}
 # PixelLab sheets: name, frame files in art/pixellab/<name>/ (in order), glow hue ranges.
 # The matriarch: an 8-frame idle loop, then a 5-frame claw swipe (wind-up, strike, recover).
 PIXEL = [
@@ -64,6 +66,9 @@ PIXEL = [
     ('fen_shrine', [f'loop-{i}.png' for i in range(6)], GREEN + CANDLE),
     ('fen_barrels', [f'loop-{i}.png' for i in range(6)], GREEN),
     ('fen_lantern', [f'loop-{i}.png' for i in range(4)], GREEN),
+    # Edge structures (replace the painted frames): the swamp tree on the left, the colony house on the right.
+    ('fen_tree', ['base.png'], []),
+    ('fen_house', ['base.png'], [(15, 45)]),
 ]
 # Rigged PixelLab sheets (see scripts/rig.py): frames posed from one base sprite, so the
 # feet never move. All frames share one crop, and the weapon hand is known in each.
@@ -434,7 +439,17 @@ def main():
                     px[:, c] = ref[np.round(rank * (len(ref) - 1)).astype(int), c]
                 near = ((px[:, None, :] - palette[None, :, :]) ** 2).sum(axis=2).argmin(axis=1)
                 rgba[on, :3] = palette[near]
-            sprites.append(trim(rgba))
+            sprites.append(rgba)
+        if name in STILL:
+            # Only the glowing parts move (the acid); everything else is held at the first frame.
+            first = sprites[0]
+            still = first.copy()
+            still[glow_mask(first, hues)] = 0
+            for k, f in enumerate(sprites):
+                g = glow_mask(f, hues)
+                sprites[k] = still.copy()
+                sprites[k][g] = f[g]
+        sprites = [trim(f) for f in sprites]
         meta.append(write_strip(name, sprites, hues))
     rigs = {}
     for name, hues in RIGGED:

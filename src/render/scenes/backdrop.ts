@@ -11,7 +11,7 @@ import { Ambient } from './ambient';
 import { paintGround } from './ground';
 import { Layer } from './layer';
 import { locationOf } from './locations';
-import { Pieces, paintDistant } from './pieces';
+import { Pieces, drawEdge, paintDistant } from './pieces';
 import { paintEclipse, paintMoon, paintSky } from './sky';
 import { paintHaze, paintRank } from './skyline';
 import { FRAME_WIDTH, paintFrame, paintProp } from './structures';
@@ -56,6 +56,9 @@ export function buildBackdrop(key: string, W: number, H: number, lift = 0): Back
   const s = H / 180, fw = Math.ceil(FRAME_WIDTH * s), inset = Math.max(0, fw - Math.round(W * 0.2));
   const fp = new Painter(fw, H);
   for (const side of [1, -1] as const) {
+    // A generated structure for this edge, if the location has one (and its sheet is in).
+    const edge = loc.pieces?.find((p) => p.at === (side === 1 ? 'left' : 'right'));
+    if (edge && drawEdge(scene.ctx, scene.gctx, edge, W, H)) continue;
     fp.begin(0, 0, s);
     paintFrame(fp, loc.frames[side === 1 ? 0 : 1], side, loc.accent);
     fp.finish({ inner: 0.5, rimDir: [side, 0], rimCol: loc.rim, rimAmt: 0.18 });

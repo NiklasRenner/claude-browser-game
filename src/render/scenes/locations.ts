@@ -60,8 +60,10 @@ const LOCATIONS: Record<string, Location> = {
     pieces: [
       { sheet: 'fen_chapel', x: 0.43, at: 'horizon', rank: 1, sink: 12, haze: 0.4 },
       { sheet: 'fen_shrine', x: 0.14, at: 'ground', fps: 7 },
-      { sheet: 'fen_barrels', x: 0.7, at: 'ground', y: 0.93, haze: 0.1, fps: 6 },
-      { sheet: 'fen_lantern', x: 0.1, at: 'hang', y: 0.24, fps: 6 },
+      { sheet: 'fen_barrels', x: 0.7, at: 'ground', y: 0.81, haze: 0.12, fps: 6 },
+      { sheet: 'fen_lantern', x: 0, at: 'hang', from: [62, 52], chain: 10, fps: 6 },
+      { sheet: 'fen_tree', x: 0, at: 'left' },
+      { sheet: 'fen_house', x: 1, at: 'right' },
     ],
     accent: 0x3a6a3a,
     ambient: { weather: 'spores', tint: '#9affb0', fog: '#4a6a5a', sky: ['lightning'], skyAt: [0.6, 0.2] },

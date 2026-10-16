@@ -21,11 +21,17 @@ export interface Piece {
    * Where it stands: 'ground' with its base at `y` (fraction of the height; default the prop line),
    * 'hang' from a chain whose top is at `y`, or 'horizon': part of the skyline, painted after skyline
    * rank `rank`, its bottom `sink` pixels under the waterline and faded into the mist above it.
+   * 'left' / 'right': the structure framing that edge of the screen (instead of the painted frame),
+   * coming down from the top edge (it continues off screen) and standing on the floor; on a screen
+   * shorter than the piece, it stands on the bottom edge instead.
    */
-  at: 'ground' | 'horizon' | 'hang';
+  at: 'ground' | 'horizon' | 'hang' | 'left' | 'right';
   y?: number;
   rank?: number;
   sink?: number;
+  /** 'hang': hang from this point (pixels from the screen's top-left, e.g. a branch of the left edge piece) on a chain this long, instead of from the top edge. */
+  from?: [number, number];
+  chain?: number;
   /** Frames per second of its loop (default 6). */
   fps?: number;
   /** How much of the location's haze colour it takes on (0..1): a little for the middle distance, more far away. */
@@ -81,6 +87,20 @@ function bake(frames: Frame[], haze: string, amount: number): Baked {
   return { img, glow, w: frames[0]!.w, h: frames[0]!.h };
 }
 
+/** An edge piece drawn onto the scene canvases (once, when the backdrop is built). False if its sheet isn't in. */
+export function drawEdge(ctx: CanvasRenderingContext2D, gctx: CanvasRenderingContext2D, p: Piece, W: number, H: number): boolean {
+  const frames = framesOf(p.sheet);
+  if (!frames) return false;
+  const b = bake(frames.slice(0, 1), '#000000', 0);
+  const x = p.at === 'left' ? 0 : W - b.w, y = Math.min(0, H - b.h);
+  // Contact shadow where it meets the floor, then the piece.
+  ctx.fillStyle = 'rgba(4,8,6,0.45)';
+  ctx.fillRect(x + 2, y + b.h - 2, b.w - 4, 2);
+  ctx.drawImage(b.img[0]!, x, y);
+  gctx.drawImage(b.glow[0]!, x, y);
+  return true;
+}
+
 export class Pieces {
   private baked = new Map<Piece, Baked>();
 
@@ -88,7 +108,7 @@ export class Pieces {
 
   draw(ctx: CanvasRenderingContext2D, glow: CanvasRenderingContext2D, t: number) {
     for (const p of this.list) {
-      if (p.at === 'horizon') continue;
+      if (p.at === 'horizon' || p.at === 'left' || p.at === 'right') continue;
       let b = this.baked.get(p);
       if (!b) {
         const frames = framesOf(p.sheet);
@@ -100,12 +120,13 @@ export class Pieces {
       const cx = Math.round(this.W * p.x);
       let x = cx - Math.floor(b.w / 2), y: number;
       if (p.at === 'hang') {
-        // A slow pendulum on a chain from above the screen edge.
-        const top = Math.round(this.H * (p.y ?? 0.2));
+        // A slow pendulum on a chain, from a branch or from above the screen edge.
+        const [ax, ay] = p.from ?? [cx, 0];
+        const top = p.from ? ay + (p.chain ?? 8) : Math.round(this.H * (p.y ?? 0.2));
         const sway = Math.round(Math.sin(t * 1.1) * 1.5);
-        x += sway;
+        x = ax - Math.floor(b.w / 2) + sway;
         ctx.fillStyle = '#1a1612';
-        for (let yy = 0; yy < top; yy += 2) ctx.fillRect(cx + Math.round((sway * yy) / Math.max(1, top)), yy, 1, 1);
+        for (let yy = ay; yy < top; yy += 2) ctx.fillRect(ax + Math.round((sway * (yy - ay)) / Math.max(1, top - ay)), yy, 1, 1);
         y = top;
       } else {
         y = (p.y !== undefined ? Math.round(this.H * p.y) : this.propY) - b.h;

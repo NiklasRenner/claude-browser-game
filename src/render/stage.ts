@@ -67,6 +67,8 @@ export class Stage {
   private scale = 1;
   /** Figures are drawn smaller on narrow screens. */
   private zoom = 1;
+  /** Draw only the location (no figures or markers): for judging backdrops (`npm run scene`). */
+  sceneryOnly = false;
   private lift = 0;
   private fx: Effects;
   private time = 0;
@@ -198,12 +200,12 @@ export class Stage {
     glow.setTransform(1, 0, 0, 1, sx, sy);
 
     bd.drawBack(ctx, glow, this.time, dt);
-    const actors = [...(this.hero ? [this.hero] : []), ...this.hostiles].filter((a) => a.visible);
+    const actors = this.sceneryOnly ? [] : [...(this.hero ? [this.hero] : []), ...this.hostiles].filter((a) => a.visible);
     for (const a of actors) this.shadow(a);
-    this.targetRing();
+    if (!this.sceneryOnly) this.targetRing();
     actors.sort((a, b) => a.y - b.y);
     actors.forEach((a, i) => this.drawActor(a, a === this.hero, i));
-    this.targetArrow();
+    if (!this.sceneryOnly) this.targetArrow();
     this.fx.draw(ctx, glow, dt);
     bd.drawFront(ctx, glow, this.time, dt);
 

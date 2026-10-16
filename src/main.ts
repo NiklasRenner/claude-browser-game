@@ -52,6 +52,8 @@ const api = {
   speed: (n: number) => { if (stage) stage.tweens.speed = n; },
   stage: stage !== null,
   hostileScreenPoint: (slot: number) => stage?.hostileScreenPoint(slot) ?? null,
+  /** Hide the figures and markers, to look at the location alone. */
+  scenery: (on: boolean) => { if (stage) stage.sceneryOnly = on; },
   /** Jump to any (validated) game state — handy for testing a specific fight. */
   load: (state: GameState) => game.loadState(state),
 };

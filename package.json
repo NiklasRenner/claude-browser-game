@@ -18,6 +18,7 @@
     "test:e2e": "node scripts/build.mjs && node scripts/e2e.mjs",
     "sim": "tsx scripts/simulate.ts",
     "gallery": "node scripts/build.mjs && node scripts/gallery.mjs",
+    "scene": "node scripts/build.mjs && node scripts/scene.mjs",
     "check": "npm run lint && npm test && npm run test:e2e"
   },
   "devDependencies": {
