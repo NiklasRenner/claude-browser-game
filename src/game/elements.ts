@@ -1,4 +1,4 @@
-/** Colours and icons for damage types and statuses, shared by the UI and the 3D stage. */
+/** Colours and icons for damage types and statuses, shared by the UI and the stage. */
 import type { Element, StatusId } from '../core';
 
 export const ELEMENT_COLORS: Record<Element, number> = {

@@ -67,10 +67,9 @@ function drillPanel(btn: BtnFn, drill: string[]) {
           No rewards and no losses: you are fully restored afterwards, and you can always beam out.</div>
         <div class="drill-picks">${slots}</div></div>
       ${btn({ type: 'startDrill', hostileIds: drill.filter(Boolean) }, 'Begin drill', 'primary')}
-    </div>${typeof __DEV__ !== 'undefined' && __DEV__ ? editorLink(drill) : ''}</div>`;
+    </div>${__DEV__ ? editorLink(drill) : ''}</div>`;
 }
 
-declare const __DEV__: boolean;
 
 /** Dev builds: open the picked world in the scene editor (a new tab; the game is untouched). */
 function editorLink(drill: string[]) {

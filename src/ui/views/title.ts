@@ -1,5 +1,5 @@
 /** Title screen and the end-of-campaign modal. */
-import { BASE_STAT, FINAL_MISSION, START_POINTS, START_WEAPON, STATS, STAT_INFO, abilitiesFor, getItem, getMission } from '../../core';
+import { BASE_STAT, FINAL_MISSION, MAX_LOADOUT, START_WEAPON, STATS, STAT_INFO, abilitiesFor, getItem, getMission, startPointsLeft } from '../../core';
 import type { GameState, Stats } from '../../core';
 import { esc } from '../html';
 
@@ -11,7 +11,7 @@ const GAME_TITLE = 'STARWARD';
  * `problem`: why the officer can't enlist yet (checkAction), or null.
  */
 export function titleScreen(start: Stats, customizing: boolean, problem: string | null, hasSave: boolean) {
-  const left = STATS.reduce((n, k) => n - start[k], START_POINTS);
+  const left = startPointsLeft(start);
   const rows = STATS.map((k) => {
     const info = STAT_INFO[k];
     const ctl = customizing
@@ -34,7 +34,7 @@ export function titleScreen(start: Stats, customizing: boolean, problem: string 
         <div class="muted small">${getItem(START_WEAPON).name} · learns ${kit}</div>
       </div>
       <button class="btn primary big" data-ui="start" id="start-game" ${problem ? `disabled title="${esc(problem)}"` : ''}>Report for duty</button>
-      <p class="muted small">Combat: A attack · 1–9 abilities · Tab switch target · F beam out. Between fights: Enter/Space advance · R return to ship.</p>
+      <p class="muted small">Combat: A attack · 1–${MAX_LOADOUT} abilities · Tab switch target · F beam out. Between fights: Enter/Space advance · R return to ship.</p>
     </div>`;
 }
 

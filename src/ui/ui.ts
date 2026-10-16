@@ -7,7 +7,7 @@
  * queue). The markup lives in views/ (pure functions of state → HTML), shared
  * chips in widgets.ts, string helpers in html.ts, key bindings in keys.ts.
  */
-import { START_POINTS, STATS, checkAction, defaultStart, drillRoster } from '../core';
+import { checkAction, defaultStart, drillRoster, startPointsLeft } from '../core';
 import type { Action, Stat, Stats } from '../core';
 import type { GameController } from '../game/controller';
 import { actionAttr, esc } from './html';
@@ -90,8 +90,7 @@ export class UI {
       case 'customize': this.customizing = !this.customizing; if (!this.customizing) this.titleStart = defaultStart(); break;
       case 'stat+': case 'stat-': {
         const k = value as Stat;
-        const left = STATS.reduce((n, x) => n - this.titleStart[x], START_POINTS);
-        if (kind === 'stat+' && left > 0) this.titleStart[k] += 1;
+        if (kind === 'stat+' && startPointsLeft(this.titleStart) > 0) this.titleStart[k] += 1;
         if (kind === 'stat-' && this.titleStart[k] > 0) this.titleStart[k] -= 1;
         break;
       }

@@ -4,8 +4,6 @@ import { UI } from './ui/ui';
 import { chooseAction } from './core';
 import type { Action, GameState } from './core';
 
-declare const __DEV__: boolean;
-
 const canvas = document.querySelector<HTMLCanvasElement>('#scene')!;
 const overlay = document.querySelector<HTMLElement>('#fx')!;
 const uiRoot = document.querySelector<HTMLElement>('#ui')!;

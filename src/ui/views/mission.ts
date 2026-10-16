@@ -2,7 +2,7 @@
 import {
   ELEMENTS, checkAction, countItem, derive, fleeChance, getMission, getItem, getHostile, getWeapon, hostileEvasion,
   hostileHitChance, hostileLabels, hostileLevel, hostileSpeed, loadoutAbilities, levelPenalty, missionEncounters,
-  toughestAliveLevel, upcomingTurns, xpToNext,
+  toughestAliveLevel, ownedConsumables, upcomingTurns, xpToNext,
 } from '../../core';
 import type { GameState, Player, StatusEffect } from '../../core';
 import { ELEMENT_ICONS } from '../../game/elements';
@@ -66,7 +66,7 @@ export function hostileCard(s: GameState, busy: boolean) {
     <div class="hostile-card panel ${def.boss ? 'boss' : ''}">
       ${roster}
       <div class="hud-name"><strong>${esc(labels[b.target]!)}</strong> <span class="muted">Lv ${hostileLevel(target)}${def.boss ? ' · PRIORITY TARGET' : ''}</span>${levelPenalty(s.player!, target) ? ` <span class="warn" title="It is above your level: your hit chance is lower">−${levelPenalty(s.player!, target)}% hit</span>` : ''}</div>
-      ${bar('hp enemy', target.hp, target.maxHp, 'HP')}
+      ${bar('hp hostile', target.hp, target.maxHp, 'HP')}
       <div class="hud-row">${statusChips(target.statuses)}</div>
       <div class="res profile" title="Speed vs. the normal 100 · its evasion against your attacks · its chance to hit you">Speed <b>${speedText(hostileSpeed(target))}</b> · Evasion <b>${Math.round(hostileEvasion(target))}%</b> · Hit <b>${Math.round(hostileHitChance(s.player!, b, b.target))}%</b></div>
       ${weak.length ? `<div class="res">Vulnerable: ${chips(weak)}</div>` : ''}
@@ -81,13 +81,13 @@ export function missionPanel(s: GameState, btn: BtnFn) {
   const total = contacts + 1;
   const pips = Array.from({ length: total }, (_, i) => `<span class="pip ${i < q.cleared ? 'done' : ''} ${i === total - 1 ? 'boss' : ''}"></span>`).join('');
   const bossNext = q.cleared >= contacts;
-  const potions = Object.keys(s.player!.inventory).filter((id) => getItem(id).kind === 'consumable');
+  const supplies = ownedConsumables(s.player!);
   return `
     <h2>${q.patrol ? `<span class="muted">Patrol ·</span> ` : ''}${mission.name}${q.patrol ? ` <span class="badge">Lv ${q.patrol.level}</span>` : ''}</h2>
     <div class="pips">${pips}</div>
     <p class="muted">${bossNext ? 'Sensors show a massive life sign ahead…' : `Contact ${q.cleared + 1} of ${contacts}, then the priority target.`} Earned so far: ${q.earnedXp} XP, ◈ ${q.earnedCredits}.</p>
     <div class="actions">${btn({ type: 'continue' }, `<span class="key">Enter</span>${bossNext ? 'Engage priority target' : 'Advance'}`, 'primary big')}${btn({ type: 'retreat' }, '<span class="key">R</span>Beam up to ship', 'ghost')}</div>
-    ${potions.length ? `<div class="actions small-actions">${potions.map((id) => btn({ type: 'useItem', itemId: id }, `${getItem(id).name} ×${countItem(s.player!, id)}`, 'small')).join('')}</div>` : ''}`;
+    ${supplies.length ? `<div class="actions small-actions">${supplies.map((id) => btn({ type: 'useItem', itemId: id }, `${getItem(id).name} ×${countItem(s.player!, id)}`, 'small')).join('')}</div>` : ''}`;
 }
 
 export function battlePanel(s: GameState, btn: BtnFn, menu: BattleMenu, busy: boolean) {
@@ -97,11 +97,11 @@ export function battlePanel(s: GameState, btn: BtnFn, menu: BattleMenu, busy: bo
   const back = '<button class="btn ghost" data-ui="menu:main">◂ Back</button>';
   switch (menu) {
     case 'abilities':
-      return `<div class="actions grid">${loadoutAbilities(p).map((sp, i) => btn({ type: 'useAbility', abilityId: sp.id },
-        `<span class="key">${i + 1}</span><span class="skill-name">${sp.name}</span> <span class="energy-cost">${sp.energy} EN</span>${abilityTags(p, sp, b)}`,
-        'skill', sp.description)).join('')}${back}</div>`;
+      return `<div class="actions grid">${loadoutAbilities(p).map((a, i) => btn({ type: 'useAbility', abilityId: a.id },
+        `<span class="key">${i + 1}</span><span class="ability-name">${a.name}</span> <span class="energy-cost">${a.energy} EN</span>${abilityTags(p, a, b)}`,
+        'ability', a.description)).join('')}${back}</div>`;
     case 'items': {
-      const items = Object.keys(p.inventory).filter((id) => getItem(id).kind === 'consumable');
+      const items = ownedConsumables(p);
       return `<div class="actions grid">${items.map((id) => btn({ type: 'useItem', itemId: id }, `${getItem(id).name} ×${countItem(p, id)}`, '', getItem(id).description)).join('') || '<span class="muted">No items.</span>'}${back}</div>`;
     }
     case 'gear': {

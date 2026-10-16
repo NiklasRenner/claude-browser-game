@@ -7,9 +7,7 @@
  *   npm run scene -- veridia      (one mission)
  *   npm run scene -- veridia 1700x720   (another viewport; default 1280x720, a 16:9 screen)
  */
-import { mkdir } from 'node:fs/promises';
-import { chromium } from 'playwright';
-import { serve } from './serve.mjs';
+import { OUT, openBrowser } from './browser.mjs';
 
 // A hostile from each world: a drill against it shows that world's backdrop.
 const WORLDS = { ship: null, veridia: 'fen_leech', kethra: 'cave_glider', glacies: 'frost_serpent', void_rift: 'void_shade', xenith: 'hive_drone' };
@@ -17,15 +15,11 @@ const only = process.argv[2];
 const [width, height] = (process.argv[3] ?? '1280x720').split('x').map(Number);
 const suffix = process.argv[3] ? `-${process.argv[3]}` : '';
 
-await mkdir('test-results', { recursive: true });
-const server = await serve('dist', 4195);
-const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width, height } });
-const errors = [];
-page.on('pageerror', (e) => errors.push(String(e)));
+const browser = await openBrowser();
+const page = await browser.newPage({ width, height });
 for (const [mission, hostile] of Object.entries(WORLDS)) {
   if (only && only !== mission) continue;
-  await page.goto('http://127.0.0.1:4195/');
+  await page.goto(browser.url());
   await page.evaluate(() => localStorage.clear());
   await page.reload();
   await page.waitForSelector('#start-game');
@@ -37,9 +31,8 @@ for (const [mission, hostile] of Object.entries(WORLDS)) {
   await page.evaluate(() => window.__qf.scenery(true));
   await page.addStyleTag({ content: 'body *:not(canvas) { visibility: hidden !important } canvas { visibility: visible !important }' });
   await page.waitForTimeout(1500);
-  await page.screenshot({ path: `test-results/scene-${mission}${suffix}.png` });
-  console.log(`Wrote test-results/scene-${mission}${suffix}.png`);
+  await page.screenshot({ path: `${OUT}/scene-${mission}${suffix}.png` });
+  console.log(`Wrote ${OUT}/scene-${mission}${suffix}.png`);
 }
 await browser.close();
-server.close();
-if (errors.length) { console.error(errors.join('\n')); process.exit(1); }
+if (browser.errors.length) { console.error(browser.errors.join('\n')); process.exit(1); }

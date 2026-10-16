@@ -1,4 +1,4 @@
-import { loadoutAbilities } from '../core';
+import { loadoutAbilities, nextLivingTarget } from '../core';
 import type { Action, GameState } from '../core';
 
 /**
@@ -12,13 +12,8 @@ export function keyAction(s: GameState, key: string, shift = false): Action | nu
     case 'battle': {
       if (k === 'tab') {
         // Cycle through living hostiles (Shift+Tab goes backwards).
-        const b = s.battle!;
-        const n = b.hostiles.length;
-        for (let step = 1; step < n; step++) {
-          const i = (b.target + (shift ? n - step : step)) % n;
-          if (b.hostiles[i]!.hp > 0) return { type: 'target', index: i };
-        }
-        return null;
+        const i = nextLivingTarget(s.battle!, shift ? -1 : 1);
+        return i === null ? null : { type: 'target', index: i };
       }
       if (k === 'a') return { type: 'attack' };
       if (k === 'f') return { type: 'flee' };

@@ -5,30 +5,17 @@
  *
  *   npm run test:e2e
  */
-import { mkdir } from 'node:fs/promises';
-import { chromium } from 'playwright';
-import { serve } from './serve.mjs';
+import { OUT, openBrowser } from './browser.mjs';
 
-const OUT = 'test-results';
-await mkdir(OUT, { recursive: true });
-const server = await serve('dist', 4199);
-const browser = await chromium.launch({
-  args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
-});
-
-const errors = [];
+const browser = await openBrowser();
+const { errors } = browser;
 let failures = 0;
 const check = (ok, msg) => {
   console.log(`${ok ? '  ✓' : '  ✗'} ${msg}`);
   if (!ok) failures++;
 };
 
-async function newPage(viewport) {
-  const page = await browser.newPage({ viewport });
-  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-  page.on('pageerror', (e) => errors.push(String(e)));
-  return page;
-}
+const newPage = (viewport) => browser.newPage(viewport);
 
 /** Fraction of distinct colours in a downscaled canvas snapshot — near 0 means a blank render. */
 const canvasVariety = (page) => page.evaluate(() => {
@@ -48,7 +35,7 @@ const waitIdle = (page) => page.waitForFunction(() => !window.__qf.busy, null, {
 try {
   console.log('Desktop flow');
   const page = await newPage({ width: 1280, height: 800 });
-  await page.goto('http://127.0.0.1:4199/');
+  await page.goto(browser.url());
   await page.waitForSelector('#start-game');
   check(await page.evaluate(() => window.__qf.stage), 'stage initialised');
   await page.waitForTimeout(500);
@@ -157,14 +144,14 @@ try {
   // Ability menu: every damaging ability shows its damage type, with effectiveness against this foe.
   await page.click('[data-ui="menu:abilities"]');
   const chips = await page.evaluate(() => {
-    const buttons = [...document.querySelectorAll('.btn.skill')];
+    const buttons = [...document.querySelectorAll('.btn.ability')];
     return {
       buttons: buttons.length,
       withTag: buttons.filter((b) => b.querySelector('.chip')).length,
-      elementChips: document.querySelectorAll('.btn.skill .chip.el').length,
-      effectiveness: document.querySelectorAll('.btn.skill .eff').length,
+      elementChips: document.querySelectorAll('.btn.ability .chip.el').length,
+      effectiveness: document.querySelectorAll('.btn.ability .eff').length,
       // Expected markers: damage chips whose type this hostile doesn't take at 100%.
-      expected: [...document.querySelectorAll('.btn.skill .chip.el')].filter((c) => /vulnerable|resists|immune/.test(c.getAttribute('title') ?? '')).length,
+      expected: [...document.querySelectorAll('.btn.ability .chip.el')].filter((c) => /vulnerable|resists|immune/.test(c.getAttribute('title') ?? '')).length,
       foeHasModifiers: document.querySelectorAll('.hostile-card .res').length > 0,
     };
   });
@@ -326,7 +313,7 @@ try {
 
   console.log('Mobile layout');
   const mobile = await newPage({ width: 390, height: 844 });
-  await mobile.goto('http://127.0.0.1:4199/');
+  await mobile.goto(browser.url());
   await mobile.waitForSelector('[data-ui="continue"]').catch(() => {});
   await mobile.click('#start-game');
   await mobile.click('[data-action*="veridia"]');
@@ -349,7 +336,7 @@ try {
 
   console.log('Scene editor');
   const ed = await newPage({ width: 1280, height: 720 });
-  await ed.goto('http://127.0.0.1:4199/editor.html#veridia');
+  await ed.goto(browser.url('editor.html#veridia'));
   await ed.waitForSelector('.list li');
   await ed.waitForTimeout(1500);
   check(await canvasVariety(ed) > 0.05, 'editor draws the scene');
@@ -376,7 +363,6 @@ try {
   failures++;
 } finally {
   await browser.close();
-  server.close();
 }
 
 check(errors.length === 0, `no console errors${errors.length ? `:\n    ${errors.join('\n    ')}` : ''}`);

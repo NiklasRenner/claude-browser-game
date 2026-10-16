@@ -20,7 +20,7 @@ npm run dev        # http://localhost:5173 with live reload
 | `npm run preview` | Serve `dist/` at http://localhost:4173 |
 | `npm run typecheck` | Strict TypeScript check of everything (incl. unused locals/parameters) |
 | `npm run lint` | Typecheck + dead exports + layering rules (`scripts/lint.ts`, built on the TypeScript compiler) |
-| `npm test` | Unit, property/fuzz, playthrough and golden tests (~4 s) |
+| `npm test` | Unit, property/fuzz, playthrough and golden tests (~4 s, one process) |
 | `npm run test:e2e` | Builds, then drives the real UI in headless Chromium; screenshots in `test-results/` |
 | `npm run test:update-golden` | Re-record golden files after an *intentional* gameplay change |
 | `npm run gallery` | Paints every officer kit and hostile side by side to `test-results/gallery.png` (`npm run gallery -- heroes` / `hostiles` for one group, `npm run gallery -- all 1.3 0.4` for everyone mid-attack). Use it after changing sprites |
@@ -63,7 +63,7 @@ The e2e test needs a Playwright Chromium (`npx playwright install chromium` once
 - **Level gap:** your hit chance drops 10% per level a hostile is above you (no bonus below). Escape chance is 60% at equal level, ±12% per level of difference (5–95%), plus a little from speed; the Beam out button shows it. Story bosses fight at the mission's recommended level + 1 (`bossLevel` on a mission overrides it).
 - **Progression:** XP levels grant 4 stat points; abilities unlock by level; going down costs 10% credits.
 - **Saves:** autosaved to `localStorage` after every action; *Resume duty* on the title screen. Saves are versioned (see `src/core/save.ts`); the history was reset at version 1, so pre-reset saves no longer load.
-- **Keys:** Combat `A` attack · `1–9` abilities · `Tab`/`Shift+Tab` switch target · `F` beam out · `Esc` back. Between fights `Enter`/`Space` advance · `R` return to ship. Keys pressed during an animation are queued.
+- **Keys:** Combat `A` attack · `1–8` abilities · `Tab`/`Shift+Tab` switch target · `F` beam out · `Esc` back. Between fights `Enter`/`Space` advance · `R` return to ship. Keys pressed during an animation are queued.
 
 Naming: code uses the same words as the game (credits, energy, abilities, missions, hostiles, the ship). The repository name `questforge` is the only leftover.
 
@@ -73,45 +73,51 @@ Naming: code uses the same words as the game (credits, energy, abilities, missio
 src/
   core/            Pure, deterministic game rules. No DOM, no rendering.
     types.ts       All state / action / event types (plain JSON data)
-    data/          Content tables: items, abilities, hostiles, missions (+ validateContent)
-    stats.ts       Stat formulas and every balance knob
+    data/          Content tables: items, abilities, hostiles, missions; effects.ts (STATUSES: every
+                   status's rules) (+ validateContent)
+    stats.ts       Stat formulas and every balance knob (patrol scaling: patrol.ts)
     game.ts        Reducer: step(state, action) → { state, events }
     rules.ts       checkAction() / legalActions() and read-only queries (prices, unlocks)
-    flow.ts        Mission flow: starting fights, victory rewards, defeat, mission/patrol completion
+    flow.ts        Runs (story, patrol, drill): newRun, who the next fight is against (lineupFor),
+                   victory rewards, defeat, mission/patrol completion
     combat/        battle.ts (helpers, statuses) · formulas.ts (hit, evasion, damage) ·
                    timeline.ts (speed turn order) · actions.ts (attacks, abilities, items) ·
                    round.ts (sequencing a round)
     player.ts      Derived stats, XP curve, level-ups, inventory
     patrol.ts      Random level-scaled runs: lineups, scaling, rewards
     drill.ts       Combat drills: one practice fight against any picked lineup
-    save.ts        Versioned save format with validation and migrations
+    save.ts        Versioned save format (SAVE_VERSION) with validation and migrations
     describe.ts    Events → log lines with a tone (UI log and golden transcripts)
     bot.ts         Autoplayer used by tests, the balance sim and __qf.botStep()
     rng.ts         Seeded PRNG; its state lives inside GameState
   game/            controller.ts (live state, dispatch, autosave, animator hook);
                    elements.ts (colours/icons shared by UI and stage)
-  render/          2D canvas stage (low-res, integer-scaled, with bloom), effects, tweens;
+  render/          2D canvas stage (low-res, integer-scaled): stage.ts (sizing, frame loop, sync) ·
+                   actor.ts (figures and their geometry, pure) · director.ts (plays a step's events) ·
+                   markers.ts (shadows, target, shields, decoys) · bloom.ts · fx.ts (particles, bolts,
+                   floating text; FX_COLORS) · ability-fx.ts (each ability's look) · tween.ts;
                    pixel/ (painter: shaded parts → outlined sprites; palette; noise);
-                   sprites/ (hero, weapons, creatures, beings, hostiles);
+                   sprites/ (hero, weapons, creatures, beings, hostiles, sprite sheets; sizes.ts);
                    scenes/ (per-location layers: sky, skyline, ground, frames, props, ambient; scale.ts)
   editor/          Scene editor (dist/editor.html): model.ts (hit tests, drags, undo) · panel.ts (side panel HTML) · main.ts
   ui/              ui.ts (input + UI-only state) · views/ (title, ship, mission: state → HTML) ·
                    widgets.ts (chips) · html.ts (helpers) · keys.ts (keyboard bindings)
-tests/             node:test suites (run via tsx) + golden files
-scripts/           build, dev server, e2e, sim, golden updater
+tests/             node:test suites (run via tsx, all in one process) + golden files; helpers.ts
+scripts/           build, dev server, lint, sim, golden updater; browser.mjs (shared Chromium set-up)
+                   for e2e, gallery and scene; sprites.py / rig.py / pixel-font.py (art pipeline)
 ```
 
 Key design rules:
 
 1. **All game logic lives in `src/core` and is pure.** `step()` never mutates its input; every random roll comes from `state.rng`. The same seed and actions always give the same result, and a save/load continues identically.
 2. **One source of truth for legality.** `checkAction()` and `legalActions()` are used by the reducer, the UI, the bot and the fuzz tests. Illegal actions return the unchanged state plus an `error` event, never an exception.
-3. **Rendering only reacts.** The reducer emits events (`attack`, `statusApplied`, `levelUp`, …). The stage animates them and the UI re-renders from state. If the stage fails to start the game still works. The UI and the stage never import each other (`npm run lint` checks this). While a step's events play, the UI shows `GameController.shown`, which catches up one event at a time (the stage reports each as it finishes), so HP bars and log lines change when a hit lands, not when the button is pressed.
+3. **Rendering only reacts.** The reducer emits events (`attack`, `statusApplied`, `levelUp`, …). The stage animates them and the UI re-renders from state. If the stage fails to start the game still works. The UI and the stage never import each other (`npm run lint` checks who may import whom: `LAYERS` in `scripts/lint.ts`; inside core, data, stats and combat can't reach missions, saves or the bot). While a step's events play, the UI shows `GameController.shown`, which catches up one event at a time (the stage reports each as it finishes), so HP bars and log lines change when a hit lands, not when the button is pressed.
 4. **Views are functions.** Each view takes state (plus the UI-only bits it needs, like the open tab) and returns HTML; the `UI` class only handles input and decides what to render. Log text and its tone (good/bad/loot) come from core events, never from matching strings.
 
 ## Testing strategy
 
-- **Unit tests** for formulas, statuses (e.g. "a 3-turn guard covers exactly 3 enemy turns"), shop, quest flow and saves.
-- **Fuzz tests:** 40 seeds × 1500 random (partly garbage) actions, asserting invariants after every step: no softlocks, HP/MP/gold in bounds, mode consistency, rejected actions don't change state, and every state survives save/load.
+- **Unit tests** for formulas, statuses (e.g. "a 3-turn shield covers exactly 3 hostile turns"), shops, mission flow, saves, the stage's geometry and the editor. `tests/helpers.ts` sets up states (`newGame`, `inBattle(state, lineup)`, `teach`, `fightOut`, `endlessFight`, `sureHit`); content tables are frozen in tests.
+- **Fuzz tests:** 40 seeds × 1500 random (partly garbage) actions, asserting invariants after every step: no softlocks, HP, energy and credits in bounds, mode consistency, a valid loadout, no status twice on anyone, rejected actions don't change state, and step() never mutates its input; plus save/load round trips on three seeds.
 - **Playthrough tests:** the bot must finish the whole game (six seeds).
 - **Golden tests** (`tests/golden/`): exact seeded transcripts and bot summaries. Any change to formulas, content or turn order shows up as a readable diff. If the change was intended, run `npm run test:update-golden` and review `git diff tests/golden`.
 - **E2E** (`scripts/e2e.mjs`): real clicks through title → ship → battle, a 400-action bot run through the real UI and renderer, a HUD/state sync check, a non-blank canvas check, reload/continue, a mobile layout check, and zero console errors.

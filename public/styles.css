@@ -161,7 +161,7 @@ h3 { font-size: 10px; line-height: 1; margin-top: 12px; text-transform: uppercas
 .bar-energy .fill { background: linear-gradient(#9ae4ff 0 2px, #2f88c8 2px calc(100% - 3px), #173a6a calc(100% - 3px)); }
 .bar-xp { height: 8px; }
 .bar-xp .fill { background: linear-gradient(#f2d589 0 1px, #c8913c 1px); }
-.bar-enemy .fill { background: linear-gradient(#e08ad8 0 2px, #8e2a8a 2px calc(100% - 3px), #3e1048 calc(100% - 3px)); }
+.bar-hostile .fill { background: linear-gradient(#e08ad8 0 2px, #8e2a8a 2px calc(100% - 3px), #3e1048 calc(100% - 3px)); }
 .status { font-size: 12px; padding: 0 5px; background: rgba(5, 4, 7, 0.55); box-shadow: inset 0 0 0 1px #3a3342; }
 .hostile-card.boss { border-image-source: var(--frame-boss); box-shadow: 0 6px 0 rgba(0, 0, 0, 0.35), 0 0 24px rgba(255, 90, 74, 0.3); }
 .res { font-size: 12px; margin-top: 4px; color: var(--muted); }
@@ -276,9 +276,9 @@ h3 { font-size: 10px; line-height: 1; margin-top: 12px; text-transform: uppercas
 .res.profile b { color: #f6ead2; font-weight: 600; }
 .eff { font-size: 10px; margin-left: 2px; }
 .eff-good { color: #7dff8a; } .eff-bad { color: #ff9a7a; } .eff-immune { color: #ff5a4a; }
-.actions.grid .btn.skill { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; text-align: left; white-space: normal; }
-.actions.grid .btn.skill .tags { margin-left: 0; flex-basis: 100%; }
-.actions.grid .btn.skill .energy-cost { margin-left: auto; }
+.actions.grid .btn.ability { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; text-align: left; white-space: normal; }
+.actions.grid .btn.ability .tags { margin-left: 0; flex-basis: 100%; }
+.actions.grid .btn.ability .energy-cost { margin-left: auto; }
 
 /* ─── Target roster (multi-hostile fights) ───────────────────────────────── */
 .roster { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(207, 154, 69, 0.2); }
