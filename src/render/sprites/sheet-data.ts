@@ -5,7 +5,7 @@ export const SHEETS = {
   plague_matriarch: { file: 'sprites/plague_matriarch.png', frames: 13, w: 80, h: 108, ax: 41 },
   fen_leech: { file: 'sprites/fen_leech.png', frames: 11, w: 82, h: 56, ax: 44 },
   rotwired_penitent: { file: 'sprites/rotwired_penitent.png', frames: 11, w: 69, h: 98, ax: 39 },
-  choir_cantor: { file: 'sprites/choir_cantor.png', frames: 9, w: 84, h: 104, ax: 46 },
+  choir_cantor: { file: 'sprites/choir_cantor.png', frames: 11, w: 84, h: 104, ax: 46 },
   archcantor: { file: 'sprites/archcantor.png', frames: 11, w: 119, h: 123, ax: 62 },
   fen_chapel: { file: 'sprites/fen_chapel.png', frames: 1, w: 107, h: 81, ax: 54 },
   fen_shrine: { file: 'sprites/fen_shrine.png', frames: 6, w: 44, h: 52, ax: 22 },

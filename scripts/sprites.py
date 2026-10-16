@@ -20,7 +20,8 @@ Sprites face the way the game wants: the officer right, hostiles left.
 
 Sheets made with PixelLab (art/pixellab/<name>/*.png, see PIXEL below) are
 already pixel art at game size on a transparent background: their frames are
-only trimmed and lined up on their feet (step 4), never resized or recoloured.
+only trimmed and lined up on their feet (step 4), never resized. LOCKED ones are
+colour-matched to their base sprite, except for what glows (see lit_by_effect).
 """
 import sys
 from pathlib import Path
@@ -59,7 +60,7 @@ PIXEL = [
     # are the input frame). Frames: idle 0-4, then the attack.
     ('fen_leech', [f'idle-{i}.png' for i in range(5)] + [f'attack-{i}.png' for i in range(1, 7)], GREEN),
     ('rotwired_penitent', [f'idle-{i}.png' for i in range(5)] + [f'attack-{i}.png' for i in range(1, 7)], GREEN),
-    ('choir_cantor', [f'idle-{i}.png' for i in range(5)] + [f'attack-{i}.png' for i in range(1, 5)], GREEN),
+    ('choir_cantor', [f'idle-{i}.png' for i in range(5)] + [f'attack-{i}.png' for i in range(1, 7)], GREEN),
     ('archcantor', [f'idle-{i}.png' for i in range(5)] + [f'attack-{i}.png' for i in range(1, 7)], GREEN + CANDLE),
     # Veridia set pieces (sprite layers in src/render/scenes/layouts.json; sizes in src/render/sprites/sizes.ts): a looping animation each (loop-0 is the input).
     ('fen_chapel', ['base.png'], GREEN),
@@ -140,14 +141,40 @@ def glow_mask(rgba: np.ndarray, hues) -> np.ndarray:
     return on & (rgba[:, :, 3] > 0)
 
 
+def lit_by_effect(rgba: np.ndarray, hues, palette: np.ndarray) -> np.ndarray:
+    """
+    The pixels of a frame that are an effect lighting up (a staff flaring, a spell), not the figure:
+    in the sheet's glow hues and bright (or unlike any colour of the base sprite), plus the near-white
+    cores joined to them. These keep their colour when the frame is colour-matched, and glow.
+    """
+    hsv = cv2.cvtColor(np.ascontiguousarray(rgba[:, :, :3]), cv2.COLOR_RGB2HSV).astype(int)
+    hue, sat, val = hsv[:, :, 0] * 2, hsv[:, :, 1], hsv[:, :, 2]
+    rgb = rgba[:, :, :3].astype(int)
+    far = ((rgb[:, :, None, :] - palette[None, None, :, :]) ** 2).sum(axis=3).min(axis=2) > 40 ** 2
+    tinted = np.zeros(hue.shape, bool)
+    for lo, hi in hues:
+        tinted |= (hue >= lo) & (hue <= hi)
+    # Glow-coloured and either bright or unlike the base (the figure's own greens are dim).
+    lit = tinted & (sat > 50) & (val > 130) & (far | (val > 200))
+    # White-hot cores: near-white pixels joined to a lit one.
+    pale = (val > 200) & (sat <= 50)
+    core = lit.copy()
+    for _ in range(12):
+        grown = cv2.dilate(core.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool) & (pale | lit)
+        if (grown == core).all():
+            break
+        core = grown
+    return core & (rgba[:, :, 3] > 0)
+
+
 def feet(s: np.ndarray) -> int:
     """x of the feet: the middle of the lowest fifth of the figure."""
     ys, xs = np.nonzero(s[:, :, 3])
     return int(round(xs[ys > ys.max() - s.shape[0] // 5].mean()))
 
 
-def write_strip(name: str, sprites: list[np.ndarray], hues) -> tuple:
-    """Lines the frames up on their feet and writes the strip (row 2: glow mask)."""
+def write_strip(name: str, sprites: list[np.ndarray], hues, lit: list | None = None) -> tuple:
+    """Lines the frames up on their feet and writes the strip (row 2: glow mask; `lit`: more glowing pixels per frame)."""
     left = max(feet(s) for s in sprites) + 2
     right = max(s.shape[1] - feet(s) for s in sprites) + 2
     fw, ax = left + right, left
@@ -157,7 +184,7 @@ def write_strip(name: str, sprites: list[np.ndarray], hues) -> tuple:
         bottom = np.nonzero(s[:, :, 3])[0].max()
         ox, oy = k * fw + ax - feet(s), fh - 1 - bottom
         sheet[oy:oy + s.shape[0], ox:ox + s.shape[1]][s[:, :, 3] > 0] = s[s[:, :, 3] > 0]
-        g = glow_mask(s, hues)
+        g = glow_mask(s, hues) | (lit[k] if lit else False)
         region = sheet[fh + oy:fh + oy + s.shape[0], ox:ox + s.shape[1]]
         region[g] = [255, 255, 255, 255]
     Image.fromarray(sheet).save(OUT / f'{name}.png')
@@ -431,10 +458,14 @@ def main():
             b = np.array(Image.open(base).convert('RGBA'))
             palette = np.unique(b[b[:, :, 3] > 127][:, :3], axis=0).astype(int)
             ref = np.sort(b[b[:, :, 3] > 127][:, :3].astype(float), axis=0)
+        lit = []
         for file in files:
             rgba = np.array(Image.open(ROOT / 'art' / 'pixellab' / name / file).convert('RGBA'))
             rgba[:, :, 3] = np.where(rgba[:, :, 3] > 127, 255, 0)
             if palette is not None:
+                # What lights up keeps its colour (and glows); the rest of the figure is matched.
+                keep = lit_by_effect(rgba, hues, palette)
+                kept = rgba[keep].copy()
                 on = rgba[:, :, 3] > 0
                 px = rgba[on][:, :3].astype(float)
                 # Match each channel's distribution to the base sprite's (undoes a frame lit up overall).
@@ -443,6 +474,8 @@ def main():
                     px[:, c] = ref[np.round(rank * (len(ref) - 1)).astype(int), c]
                 near = ((px[:, None, :] - palette[None, :, :]) ** 2).sum(axis=2).argmin(axis=1)
                 rgba[on, :3] = palette[near]
+                rgba[keep] = kept
+                lit.append(keep)
             sprites.append(rgba)
         if name in STILL:
             # Only the glowing parts move (the acid); everything else is held at the first frame.
@@ -453,8 +486,12 @@ def main():
                 g = glow_mask(f, hues)
                 sprites[k] = still.copy()
                 sprites[k][g] = f[g]
+        if lit:
+            # Trim the masks with their frames.
+            boxes = [np.nonzero(f[:, :, 3]) for f in sprites]
+            lit = [m[ys.min():ys.max() + 1, xs.min():xs.max() + 1] for m, (ys, xs) in zip(lit, boxes)]
         sprites = [trim(f) for f in sprites]
-        meta.append(write_strip(name, sprites, hues))
+        meta.append(write_strip(name, sprites, hues, lit or None))
     rigs = {}
     for name, hues in RIGGED:
         meta += write_rigged(name, hues, rigs)

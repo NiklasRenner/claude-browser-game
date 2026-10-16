@@ -25,7 +25,7 @@ const hostiles: HostileDef[] = [
       { name: 'Litany Flare', element: 'photon', damage: [3, 5], weight: 1, effect: { status: 'blind', chance: 40, turns: 2, power: 25 } },
     ],
     xp: 26, credits: [15, 30], drops: [{ itemId: 'medkit', chance: 25 }],
-    look: { body: 'humanoid', color: 0x3a4232, accent: 0x9aff6a, scale: 1, features: ['coat', 'staff'], sprite: { sheet: 'choir_cantor', idle: [0, 1, 2, 3], attack: [5, 6, 7, 8, 0], fps: 5 }, height: 2.25 } },
+    look: { body: 'humanoid', color: 0x3a4232, accent: 0x9aff6a, scale: 1, features: ['coat', 'staff'], sprite: { sheet: 'choir_cantor', idle: [0, 1, 2, 3], attack: [5, 6, 7, 8, 9, 10], fps: 5 }, height: 2.25 } },
   { id: 'archcantor', name: 'The Bloated Archcantor', level: 4, hp: 115, accuracy: 80, evasion: 1, crit: 4, speed: 90, boss: true,
     resist: { kinetic: 85, plasma: 125 },
     attacks: [
