@@ -10,7 +10,7 @@ export * from './save';
 export * from './bot';
 export { Rng } from './rng';
 export * from './patrol';
-export { drillHostile, drillRoster } from './drill';
+export { drillHostile, drillRoster, drillWorld } from './drill';
 export { describeLog, describeStep, hostileLabels } from './describe';
 export type { LogEntry, Tone } from './describe';
 export * from './stats';

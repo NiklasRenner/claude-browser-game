@@ -4,7 +4,7 @@ import { HOSTILES } from '../src/core/data/hostiles';
 import { frameAt } from '../src/render/sprites/hostiles';
 import { MISSION_ORDER } from '../src/core/data';
 import { PX_PER_M, depthOf } from '../src/render/scenes/depth';
-import { locationOf } from '../src/render/scenes/locations';
+import { LAYOUT_DATA, LOCATION_IDS, locationOf } from '../src/render/scenes/locations';
 import { SHEETS } from '../src/render/sprites/sheet-data';
 
 describe('sprite sheets', () => {
@@ -43,9 +43,22 @@ describe('sprite sheets', () => {
     }
   });
 
+  it('every location has a valid saved layout (layouts.json, written by the scene editor)', () => {
+    assert.deepEqual(Object.keys(LAYOUT_DATA).sort(), [...LOCATION_IDS].sort());
+    for (const [id, l] of Object.entries(LAYOUT_DATA)) {
+      assert.ok(Array.isArray(l.props) && Array.isArray(l.pieces), `${id}: props and pieces`);
+      for (const p of l.pieces) {
+        assert.ok(p.sheet in SHEETS, `${id}: unknown sheet ${p.sheet}`);
+        assert.ok(['ground', 'far', 'hang', 'left', 'right'].includes(p.at), `${id} ${p.sheet}: at ${p.at}`);
+        assert.ok(Number.isFinite(p.x), `${id} ${p.sheet}: x`);
+        if (p.at === 'hang') assert.ok(p.from?.length === 2, `${id} ${p.sheet}: a hanging piece needs from`);
+      }
+    }
+  });
+
   it('set pieces on the ground or the skyline stand at a sensible depth for their size', () => {
     for (const id of MISSION_ORDER) {
-      for (const p of locationOf(id).pieces ?? []) {
+      for (const p of locationOf(id).pieces) {
         if (p.at !== 'ground' && p.at !== 'far') continue;
         assert.ok(p.height, `${id} ${p.sheet}: needs a height (metres)`);
         const d = depthOf(SHEETS[p.sheet].h - 2, p.height);

@@ -3,7 +3,7 @@
  * `sync(state)` makes the scene match a state, and `animate(events, ...)`
  * plays a step's events.
  *
- * The scene is drawn at a low resolution (about 200 px tall) and scaled up by
+ * The scene is drawn at a low, fixed resolution (see below) and scaled up by
  * a whole number, so every art pixel is the same size. Glowing pixels are
  * also drawn into a glow canvas that is blurred and added on top (bloom).
  */
@@ -18,6 +18,7 @@ import type { RGB } from './pixel/palette';
 import { buildBackdrop } from './scenes/backdrop';
 import { FEET, MAX_W, MIN_W, SCENE_H, sceneX } from './scenes/depth';
 import type { Backdrop } from './scenes/backdrop';
+import type { Layout } from './scenes/locations';
 import { heroFigure, hostileFigure, loadSheets, paintFigure } from './sprites';
 import type { Figure } from './sprites';
 import { Tweens, easeOutCubic } from './tween';
@@ -75,6 +76,8 @@ export class Stage {
   private top = 0;
   /** Draw only the location (no figures or markers): for judging backdrops (`npm run scene`). */
   sceneryOnly = false;
+  /** Scene editor (src/editor): an unsaved layout, parts to hide (see backdropParts, plus 'fighters' and 'bloom'), guides drawn on top. */
+  private editing: { layout: Layout; hide: ReadonlySet<string>; overlay: (ctx: CanvasRenderingContext2D) => void; width: number } | null = null;
   private fx: Effects;
   private time = 0;
   private last = performance.now();
@@ -107,9 +110,11 @@ export class Stage {
     const host = this.canvas.parentElement ?? this.canvas;
     const cw = Math.max(1, host.clientWidth), ch = Math.max(1, host.clientHeight);
     const dpr = window.devicePixelRatio || 1;
-    // Device pixels per art pixel: the most whole pixels that fit the height, and the narrowest width.
-    const k = Math.max(1, Math.floor(Math.min((ch * dpr) / SCENE_H, (cw * dpr) / MIN_W)));
-    this.W = Math.min(MAX_W, Math.max(MIN_W, Math.floor((cw * dpr) / k)));
+    // Device pixels per art pixel: the most whole pixels that fit the height, and the narrowest width
+    // (the editor picks the width).
+    const fixed = this.editing?.width;
+    const k = Math.max(1, Math.floor(Math.min((ch * dpr) / SCENE_H, (cw * dpr) / (fixed ?? MIN_W))));
+    this.W = fixed ?? Math.min(MAX_W, Math.max(MIN_W, Math.floor((cw * dpr) / k)));
     this.H = SCENE_H;
     this.scale = k / dpr;
     // Centred (on a phone, that's the gap between the top cards and the panels below).
@@ -127,6 +132,27 @@ export class Stage {
     this.blur.forEach((c, i) => { c.width = Math.ceil(this.W / sizes[i]!); c.height = Math.ceil(this.H / sizes[i]!); });
     this.backdropKey = '';
     this.layout();
+  }
+
+  // ─── Scene editor ────────────────────────────────────────────────────────
+
+  /** Show this layout with these parts hidden, `width` art pixels wide (rebuilds the backdrop on the next frame). */
+  edit(layout: Layout, hide: ReadonlySet<string>, overlay: (ctx: CanvasRenderingContext2D) => void, width: number) {
+    const resize = width !== this.editing?.width;
+    this.editing = { layout, hide, overlay, width };
+    this.backdropKey = '';
+    if (resize) this.resize();
+  }
+
+  /** The scene's size and lines, for the editor. */
+  get geometry() {
+    return { W: this.W, H: this.H, horizon: this.backdrop?.horizon ?? 0, feet: this.backdrop?.feet ?? 0 };
+  }
+
+  /** A page point in scene pixels. */
+  toScene(clientX: number, clientY: number): [number, number] {
+    const r = this.canvas.getBoundingClientRect();
+    return [((clientX - r.left) / r.width) * this.W, ((clientY - r.top) / r.height) * this.H];
   }
 
   // ─── Scene sync ──────────────────────────────────────────────────────────
@@ -196,7 +222,7 @@ export class Stage {
     this.tweens.tick(dt);
     const key = `${this.location}@${this.W}x${this.H}`;
     if (key !== this.backdropKey) {
-      this.backdrop = buildBackdrop(this.location, this.W, this.H);
+      this.backdrop = buildBackdrop(this.location, this.W, this.H, this.editing ?? {});
       this.backdropKey = key;
     }
     const { ctx, glow, W, H } = this;
@@ -210,7 +236,8 @@ export class Stage {
     glow.setTransform(1, 0, 0, 1, sx, sy);
 
     bd.drawBack(ctx, glow, this.time, dt);
-    const actors = this.sceneryOnly ? [] : [...(this.hero ? [this.hero] : []), ...this.hostiles].filter((a) => a.visible);
+    const hide = this.editing?.hide;
+    const actors = this.sceneryOnly || hide?.has('fighters') ? [] : [...(this.hero ? [this.hero] : []), ...this.hostiles].filter((a) => a.visible);
     for (const a of actors) this.shadow(a);
     if (!this.sceneryOnly) this.targetRing();
     actors.sort((a, b) => a.y - b.y);
@@ -222,7 +249,8 @@ export class Stage {
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     glow.setTransform(1, 0, 0, 1, 0, 0);
-    this.bloom();
+    if (!hide?.has('bloom')) this.bloom();
+    this.editing?.overlay(ctx);
   }
 
   private drawActor(a: Actor, isHero: boolean, i: number) {
@@ -311,11 +339,6 @@ export class Stage {
   }
 
   // ─── Targeting ─────────────────────────────────────────────────────────────
-
-  private toScene(clientX: number, clientY: number): [number, number] {
-    const r = this.canvas.getBoundingClientRect();
-    return [((clientX - r.left) / r.width) * this.W, ((clientY - r.top) / r.height) * this.H];
-  }
 
   /** Screen (client) coordinates of a hostile's body centre — used by tests to click it. */
   hostileScreenPoint(slot: number): { x: number; y: number } | null {

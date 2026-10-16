@@ -43,7 +43,25 @@ export interface Piece {
 }
 
 /** A piece's depth: from its sprite's height and its real height (1 = the fighters' line). */
-const depthOfPiece = (p: Piece, f: Frame) => (p.height ? depthOf(f.h, p.height) : 1);
+const depthOfPiece = (p: Piece, f: { h: number }) => (p.height ? depthOf(f.h, p.height) : 1);
+
+/** Where a piece's sprite (w × h) goes in a W × H scene: its top-left corner, and its depth. Hanging ones at rest. */
+export function placePiece(p: Piece, f: { w: number; h: number }, W: number, H: number, horizon: number, feet: number) {
+  const depth = depthOfPiece(p, f);
+  let x: number, y: number;
+  if (p.at === 'left' || p.at === 'right') {
+    x = p.at === 'left' ? 0 : W - f.w;
+    y = Math.min(0, H - f.h);
+  } else if (p.at === 'hang') {
+    const [ax, ay] = p.from ?? [sceneX(W, p.x), 0];
+    x = ax - Math.floor(f.w / 2);
+    y = ay + (p.chain ?? 8);
+  } else {
+    x = sceneX(W, p.x) - Math.floor(f.w / 2);
+    y = groundY(depth, horizon, feet) - f.h;
+  }
+  return { x, y, w: f.w, h: f.h, depth };
+}
 
 /** Haze for something at this depth: none on the fighters' line and nearer, more the farther it is. */
 const hazeAt = (depth: number) => Math.min(0.6, Math.max(0, (1 - depth) * 0.75));
@@ -52,9 +70,8 @@ const hazeAt = (depth: number) => Math.min(0.6, Math.max(0, (1 - depth) * 0.75))
 export function paintFar(L: Layer, p: Piece, horizon: number, feet: number, haze: string): boolean {
   const f = framesOf(p.sheet)?.[0];
   if (!f) return false;
-  const depth = depthOfPiece(p, f);
+  const { x: x0, y: y0, depth } = placePiece(p, f, L.W, L.H, horizon, feet);
   const tint = hex(haze), base = hazeAt(depth);
-  const x0 = sceneX(L.W, p.x) - Math.round(f.w / 2), y0 = groundY(depth, horizon, feet) - f.h;
   for (let j = 0; j < f.h; j++) {
     const y = y0 + j;
     // Fog thickens toward the water: the lower third fades out completely.
@@ -105,7 +122,7 @@ export function drawEdge(ctx: CanvasRenderingContext2D, gctx: CanvasRenderingCon
   const frames = framesOf(p.sheet);
   if (!frames) return false;
   const b = bake(p, frames.slice(0, 1), haze);
-  const x = p.at === 'left' ? 0 : W - b.w, y = Math.min(0, H - b.h);
+  const { x, y } = placePiece(p, b, W, H, 0, 0);
   // Contact shadow where it meets the floor, then the piece.
   ctx.fillStyle = 'rgba(4,8,6,0.45)';
   ctx.fillRect(x + 2, y + b.h - 2, b.w - 4, 2);
@@ -117,7 +134,7 @@ export function drawEdge(ctx: CanvasRenderingContext2D, gctx: CanvasRenderingCon
 export class Pieces {
   private baked = new Map<Piece, Baked>();
 
-  constructor(private list: Piece[], private W: number, private horizon: number, private feet: number, private haze: string) {}
+  constructor(private list: Piece[], private W: number, private H: number, private horizon: number, private feet: number, private haze: string) {}
 
   /** The pieces behind the fighters (`near` false) or in front of them (`near` true). */
   draw(ctx: CanvasRenderingContext2D, glow: CanvasRenderingContext2D, t: number, near: boolean) {
@@ -132,21 +149,18 @@ export class Pieces {
       }
       if ((p.at === 'ground' && b.depth > 1) !== near) continue;
       const k = Math.floor(t * (p.fps ?? 6)) % b.img.length;
-      const cx = sceneX(this.W, p.x);
-      let x = cx - Math.floor(b.w / 2), y: number;
+      let { x, y } = placePiece(p, b, this.W, this.H, this.horizon, this.feet);
       if (p.at === 'hang') {
         // A slow pendulum on a chain.
-        const [ax, ay] = p.from ?? [cx, 0];
-        const top = ay + (p.chain ?? 8);
+        const [ax, ay] = p.from ?? [x + Math.floor(b.w / 2), 0];
         const sway = Math.round(Math.sin(t * 1.1) * 1.5);
-        x = ax - Math.floor(b.w / 2) + sway;
+        x += sway;
         ctx.fillStyle = '#1a1612';
-        for (let yy = ay; yy < top; yy += 2) ctx.fillRect(ax + Math.round((sway * (yy - ay)) / Math.max(1, top - ay)), yy, 1, 1);
-        y = top;
+        for (let yy = ay; yy < y; yy += 2) ctx.fillRect(ax + Math.round((sway * (yy - ay)) / Math.max(1, y - ay)), yy, 1, 1);
       } else {
-        y = groundY(b.depth, this.horizon, this.feet) - b.h;
         // A soft contact shadow, so it stands in the mire instead of floating on it.
         ctx.fillStyle = 'rgba(4,8,6,0.5)';
+        const cx = x + Math.floor(b.w / 2);
         const rx = Math.round(b.w * 0.45), base = y + b.h - 1;
         for (let dy = -1; dy <= 1; dy++) {
           const w = Math.round(rx * (dy === 0 ? 1 : 0.75));

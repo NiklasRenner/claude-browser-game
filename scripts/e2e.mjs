@@ -336,6 +336,24 @@ try {
   await mobile.waitForTimeout(1500);
   await mobile.screenshot({ path: `${OUT}/12-mobile-multi.png` });
   await mobile.close();
+
+  console.log('Scene editor');
+  const ed = await newPage({ width: 1280, height: 720 });
+  await ed.goto('http://127.0.0.1:4199/editor.html#veridia');
+  await ed.waitForSelector('.list li');
+  await ed.waitForTimeout(1500);
+  check(await canvasVariety(ed) > 0.05, 'editor draws the scene');
+  await ed.click('.list li:has-text("fen_barrels")');
+  const x0 = await ed.locator('[data-field=x]').inputValue();
+  await ed.keyboard.press('ArrowRight');
+  const x1 = await ed.locator('[data-field=x]').inputValue();
+  check(Number(x1) > Number(x0) && !(await ed.locator('[data-act=save]').isDisabled()), `arrow key moves the selected piece (x ${x0} → ${x1}) and enables Save`);
+  await ed.keyboard.press('Control+z');
+  check(await ed.locator('[data-field=x]').inputValue() === x0 && await ed.locator('[data-act=save]').isDisabled(), 'undo restores it');
+  await ed.click('[data-act=layer][data-id=fighters]');
+  await ed.waitForTimeout(300);
+  await ed.screenshot({ path: `${OUT}/15-scene-editor.png` });
+  await ed.close();
 } catch (err) {
   console.error(err);
   failures++;

@@ -1,7 +1,7 @@
 /** The ship: Mission Board, Quartermaster, Locker, Personnel File and Sickbay tabs. */
 import {
   MAX_HOSTILES, MISSION_ORDER, ELEMENTS, PATROL_CONTACTS, PLAYER_EVASION_CAP, QUARTERMASTER_STOCK, STATS, STAT_INFO, countItem, derive, getMission,
-  drillHostile, drillRoster, getHostile, getItem, hostileLevel, isMissionUnlocked, isEquipped, knownAbilities, patrolReward, patrolWorlds, treatmentCost, sellPrice,
+  drillHostile, drillRoster, drillWorld, getHostile, getItem, hostileLevel, isMissionUnlocked, isEquipped, knownAbilities, patrolReward, patrolWorlds, treatmentCost, sellPrice,
 } from '../../core';
 import type { GameState, ItemDef, Player } from '../../core';
 import { ELEMENT_ICONS } from '../../game/elements';
@@ -66,7 +66,17 @@ function drillPanel(btn: BtnFn, drill: string[]) {
           No rewards and no losses: you are fully restored afterwards, and you can always beam out.</div>
         <div class="drill-picks">${slots}</div></div>
       ${btn({ type: 'startDrill', hostileIds: drill.filter(Boolean) }, 'Begin drill', 'primary')}
-    </div></div>`;
+    </div>${typeof __DEV__ !== 'undefined' && __DEV__ ? editorLink(drill) : ''}</div>`;
+}
+
+declare const __DEV__: boolean;
+
+/** Dev builds: open the picked world in the scene editor (a new tab; the game is untouched). */
+function editorLink(drill: string[]) {
+  const world = drillWorld(drill.find(Boolean) ?? '') ?? 'veridia';
+  return `<div class="row drill-row"><div class="row-main"><strong>✎ Scene editor</strong> <span class="badge">Dev</span>
+      <div class="muted small">Move this world's set pieces around and switch its layers on and off; saves to layouts.json.</div></div>
+      <a class="btn" href="editor.html#${world}" target="_blank" rel="noopener">Edit ${esc(getMission(world).name)}</a></div>`;
 }
 
 function quartermaster(p: Player, btn: BtnFn) {

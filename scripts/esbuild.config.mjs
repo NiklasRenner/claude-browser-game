@@ -9,8 +9,9 @@ export const outdir = path.join(root, 'dist');
 /** @param {{ dev?: boolean }} opts */
 export function buildOptions({ dev = false } = {}) {
   return {
-    // main = the game; gallery = a model viewer for art work (dist/gallery.html, `npm run gallery`).
-    entryPoints: { main: path.join(root, 'src/main.ts'), gallery: path.join(root, 'src/gallery.ts') },
+    // main = the game; gallery = a model viewer for art work (dist/gallery.html, `npm run gallery`);
+    // editor = the scene editor (dist/editor.html; saving needs `npm run dev`).
+    entryPoints: { main: path.join(root, 'src/main.ts'), gallery: path.join(root, 'src/gallery.ts'), editor: path.join(root, 'src/editor/main.ts') },
     outdir: path.join(outdir, 'assets'),
     bundle: true,
     format: 'esm',

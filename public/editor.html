@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Starward — scene editor</title>
+    <style>
+      :root { --bg: #07060a; --panel: #15111a; --line: #3a2e22; --accent: #d9a64e; --text: #e8dfd0; --muted: #978c98; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 13px/1.4 Bahnschrift, 'Segoe UI', system-ui, sans-serif; }
+      body { display: flex; }
+      #panel { width: 300px; flex: none; height: 100%; overflow-y: auto; background: var(--panel); border-right: 1px solid var(--line); padding: 10px 12px; }
+      #view { position: relative; flex: 1; height: 100%; overflow: hidden; }
+      #scene { position: absolute; image-rendering: pixelated; touch-action: none; }
+      #fx { position: absolute; inset: 0; pointer-events: none; }
+      h2 { margin: 0 0 8px; font-size: 16px; color: var(--accent); }
+      h3 { margin: 8px 0 6px; font-size: 13px; color: var(--accent); }
+      section, details { border-top: 1px solid var(--line); padding: 6px 0; }
+      summary { cursor: pointer; color: var(--accent); font-weight: 600; padding: 2px 0; }
+      .row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin: 6px 0; }
+      label { display: block; margin: 4px 0; color: var(--muted); }
+      label input[type=number], label select { display: block; width: 100%; margin-top: 2px; }
+      label small { display: block; color: var(--text); }
+      label.check { display: flex; gap: 6px; align-items: center; color: var(--text); margin: 2px 0; }
+      input, select, button { font: inherit; color: var(--text); background: #0d0a10; border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px; }
+      button { cursor: pointer; }
+      button:hover:not(:disabled) { border-color: var(--accent); }
+      button:disabled { opacity: 0.4; cursor: default; }
+      button.primary { background: #4a3214; border-color: var(--accent); }
+      button.on { background: #2a2014; border-color: var(--accent); }
+      button.danger { border-color: #7a2a2a; }
+      .list { list-style: none; margin: 0; padding: 0; }
+      .list li { display: flex; align-items: center; gap: 6px; padding: 3px 6px; border-radius: 4px; cursor: pointer; }
+      .list li:hover { background: #1f1822; }
+      .list li.on { background: #2a2014; outline: 1px solid var(--accent); }
+      .status { min-height: 1.4em; margin: 0; color: var(--accent); }
+      .hint { color: var(--muted); margin: 4px 0; }
+    </style>
+  </head>
+  <body>
+    <aside id="panel"></aside>
+    <main id="view"><canvas id="scene"></canvas><div id="fx"></div></main>
+    <script type="module" src="./assets/editor.js"></script>
+  </body>

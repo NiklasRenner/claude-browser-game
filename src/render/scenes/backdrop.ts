@@ -11,6 +11,7 @@ import { Ambient } from './ambient';
 import { paintGround } from './ground';
 import { Layer } from './layer';
 import { locationOf } from './locations';
+import type { Layout } from './locations';
 import { FEET } from './depth';
 import { Pieces, drawEdge, paintFar } from './pieces';
 import { paintEclipse, paintMoon, paintSky } from './sky';
@@ -19,6 +20,8 @@ import { FRAME_WIDTH, paintFrame, paintProp } from './structures';
 
 export interface Backdrop {
   readonly horizon: number;
+  /** The fighters' line (y). */
+  readonly feet: number;
   readonly rim: RGB;
   /** Sky, sky effects, skyline, ground and set pieces. */
   drawBack(ctx: CanvasRenderingContext2D, glow: CanvasRenderingContext2D, t: number, dt: number): void;
@@ -31,36 +34,66 @@ export interface Backdrop {
 /** Where the horizon sits, as a fraction of the screen height. */
 const HORIZON = 0.56;
 
-export function buildBackdrop(key: string, W: number, H: number): Backdrop {
+/** Where a painted prop's canvas (40 × 50, feet at 20, 46) goes: its top-left corner. */
+export const propSpot = (x: number, W: number, H: number, horizon: number): [number, number] =>
+  [Math.round(W * x) - 20, Math.round(horizon + (H - horizon) * 0.42) - 46];
+
+/** For the scene editor: another layout (unsaved edits), and parts to leave out (ids from backdropParts). */
+export interface BackdropOptions {
+  layout?: Layout;
+  hide?: ReadonlySet<string>;
+}
+
+/** The parts of a location's backdrop, back to front, that the scene editor can hide. */
+export function backdropParts(key: string): { id: string; label: string }[] {
   const loc = locationOf(key);
+  return [
+    { id: 'sky', label: 'Sky' },
+    { id: 'body', label: loc.body ? `Sky body (${loc.body.kind})` : 'Sky body' },
+    { id: 'sky-fx', label: 'Sky effects' },
+    ...loc.skyline.map((r, i) => ({ id: `rank${i}`, label: `Skyline ${i + 1}: ${r.style}` })),
+    { id: 'far', label: 'Far pieces' },
+    { id: 'haze', label: 'Horizon haze' },
+    { id: 'ground', label: 'Ground' },
+    { id: 'edges', label: 'Edges' },
+    { id: 'props', label: 'Painted props' },
+    { id: 'pieces', label: 'Ground & hanging pieces' },
+    { id: 'front', label: 'Weather & fog' },
+    { id: 'vignette', label: 'Vignette' },
+  ];
+}
+
+export function buildBackdrop(key: string, W: number, H: number, opts: BackdropOptions = {}): Backdrop {
+  const loc = locationOf(key, opts.layout);
+  const show = (part: string) => !opts.hide?.has(part);
   const horizon = Math.round(H * HORIZON);
   const feet = Math.round(H * FEET);
 
   const sky = new Layer(W, H);
-  paintSky(sky, loc.sky, horizon);
-  const b = loc.body;
+  if (show('sky')) paintSky(sky, loc.sky, horizon);
+  const b = show('body') ? loc.body : undefined;
   if (b?.kind === 'moon') paintMoon(sky, Math.round(W * b.x), Math.round(horizon * b.y), b.r, b.col);
   if (b?.kind === 'eclipse') paintEclipse(sky, Math.round(W * b.x), Math.round(horizon * b.y), b.r, b.col);
   if (b?.kind === 'planet') paintPlanet(sky, Math.round(W * b.x), Math.round(horizon * b.y), Math.round(W * b.r), hex(b.col));
   sky.commit();
 
   const scene = new Layer(W, H);
-  const far = (loc.pieces ?? []).filter((p) => p.at === 'far');
+  const far = show('far') ? loc.pieces.filter((p) => p.at === 'far') : [];
   loc.skyline.forEach((rank, i) => {
-    paintRank(scene, rank, horizon);
+    if (show(`rank${i}`)) paintRank(scene, rank, horizon);
     for (const p of far) if ((p.rank ?? loc.skyline.length - 1) === i) paintFar(scene, p, horizon, feet, loc.haze);
   });
-  if (loc.skyline.length) paintHaze(scene, horizon, loc.haze, Math.round(horizon * 0.25));
-  if (loc.interior) paintNave(scene, horizon);
-  paintGround(scene, loc.ground, horizon);
+  if (loc.skyline.length && show('haze')) paintHaze(scene, horizon, loc.haze, Math.round(horizon * 0.25));
+  if (loc.interior && show('sky')) paintNave(scene, horizon);
+  if (show('ground')) paintGround(scene, loc.ground, horizon);
   scene.commit();
 
   // Framing structures, scaled to the screen height and pushed outward on narrow screens.
   const s = H / 180, fw = Math.ceil(FRAME_WIDTH * s), inset = Math.max(0, fw - Math.round(W * 0.2));
   const fp = new Painter(fw, H);
-  for (const side of [1, -1] as const) {
+  for (const side of show('edges') ? [1, -1] as const : []) {
     // A generated structure for this edge, if the location has one (and its sheet is in).
-    const edge = loc.pieces?.find((p) => p.at === (side === 1 ? 'left' : 'right'));
+    const edge = loc.pieces.find((p) => p.at === (side === 1 ? 'left' : 'right'));
     if (edge && drawEdge(scene.ctx, scene.gctx, edge, W, H, loc.haze)) continue;
     fp.begin(0, 0, s);
     paintFrame(fp, loc.frames[side === 1 ? 0 : 1], side, loc.accent);
@@ -72,27 +105,28 @@ export function buildBackdrop(key: string, W: number, H: number): Backdrop {
   // Props on the ground near the edges; remember where fires burn.
   const flames: [number, number][] = [];
   const pp = new Painter(40, 50);
-  const propY = Math.round(horizon + (H - horizon) * 0.42);
-  for (const prop of loc.props) {
+  for (const prop of show('props') ? loc.props : []) {
     pp.begin(20, 46, 1);
     const flame = paintProp(pp, prop.style, loc.accent);
     pp.finish({ inner: 0.5 });
-    const px = Math.round(W * prop.x);
-    scene.ctx.drawImage(pp.canvas, px - 20, propY - 46);
-    scene.gctx.drawImage(pp.glowCanvas, px - 20, propY - 46);
-    if (flame) flames.push([px + flame[0], propY + flame[1]]);
+    const [x, y] = propSpot(prop.x, W, H, horizon);
+    scene.ctx.drawImage(pp.canvas, x, y);
+    scene.gctx.drawImage(pp.glowCanvas, x, y);
+    if (flame) flames.push([x + 20 + flame[0], y + 46 + flame[1]]);
   }
 
-  const pieces = new Pieces(loc.pieces ?? [], W, horizon, feet, loc.haze);
+  const pieces = new Pieces(show('pieces') ? loc.pieces : [], W, H, horizon, feet, loc.haze);
   const ambient = new Ambient(loc.ambient, W, H, horizon, flames);
-  const vignette = buildVignette(W, H);
+  const vignette = show('vignette') ? buildVignette(W, H) : null;
+  const front = show('front'), skyFx = show('sky-fx');
   return {
     horizon,
+    feet,
     rim: loc.rim,
     drawBack(ctx, glow, t, dt) {
       ctx.drawImage(sky.img, 0, 0);
       glow.drawImage(sky.glow, 0, 0);
-      ambient.drawSky(ctx, glow, t, dt);
+      if (skyFx) ambient.drawSky(ctx, glow, t, dt);
       ctx.drawImage(scene.img, 0, 0);
       glow.globalAlpha = 0.8 + Math.sin(t * 5.3) * 0.08 + Math.sin(t * 13) * 0.04;
       glow.drawImage(scene.glow, 0, 0);
@@ -103,8 +137,8 @@ export function buildBackdrop(key: string, W: number, H: number): Backdrop {
       pieces.draw(ctx, glow, t, true);
     },
     drawFront(ctx, glow, t, dt) {
-      ambient.drawFront(ctx, glow, t, dt);
-      ctx.drawImage(vignette, 0, 0);
+      if (front) ambient.drawFront(ctx, glow, t, dt);
+      if (vignette) ctx.drawImage(vignette, 0, 0);
     },
   };
 }
