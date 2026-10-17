@@ -16,7 +16,7 @@ import type { Location, SceneLayer } from '../render/scenes/locations';
 import { loadSheets } from '../render/sprites/sheets';
 import { SHEETS } from '../render/sprites/sheet-data';
 import type { SheetId } from '../render/sprites/sheet-data';
-import { History, clone, isPiece, isPlaced, moveTo, newSprite, pick, reorder, sizeCheck } from './model';
+import { History, clone, isPiece, isPlaced, moveTo, newSmoke, newSprite, pick, reorder, sizeCheck } from './model';
 import { renderPanel } from './panel';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#scene')!;
@@ -176,11 +176,11 @@ panel.addEventListener('click', (e) => {
     case 'select': sel = i; break;
     case 'eye': if (l && !hidden.delete(l)) hidden.add(l); break;
     case 'up': case 'down': if (i !== null) { change(); sel = reorder(layers, i, act === 'up' ? 1 : -1); } break;
-    case 'add': {
+    case 'add': case 'add-smoke': {
       // Just behind the fighters.
       change();
       const at = Math.max(0, layers.findIndex((x) => x.part === 'fighters'));
-      layers.splice(at, 0, newSprite(sheet));
+      layers.splice(at, 0, act === 'add' ? newSprite(sheet) : newSmoke());
       sel = at;
       break;
     }

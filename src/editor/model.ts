@@ -3,6 +3,7 @@
  * the size check for generated sprites, and undo history. No DOM here.
  */
 import { layerBox, spotSize } from '../render/scenes/backdrop';
+import { SMOKE_H, SMOKE_W } from '../render/scenes/smoke';
 import type { Location, SceneLayer } from '../render/scenes/locations';
 import { FEET, MIN_W, PLANES, shiftX, sizeFit } from '../render/scenes/scale';
 import type { Plane } from '../render/scenes/scale';
@@ -22,6 +23,7 @@ function hits(loc: Location, l: SceneLayer, W: number, x: number, y: number): bo
   if (!b || x < b.x || y < b.y || x >= b.x + b.w || y >= b.y + b.h) return false;
   if (l.part === 'body') return Math.hypot(x - b.x - b.w / 2, y - b.y - b.h / 2) <= b.w / 2;
   if (l.part === 'prop') return x >= b.x + 6 && x < b.x + b.w - 6 && y >= b.y + 6;
+  if (l.part === 'smoke') return true;
   if (l.part !== 'sprite') return false;
   const f = framesOf(l.sheet)?.[0];
   if (!f) return true;
@@ -49,8 +51,9 @@ export function moveTo(loc: Location, l: SceneLayer, W: number, x: number, y: nu
   l.y = Math.round(y);
 }
 
-/** Sprites and props are set pieces: they can be added, duplicated and deleted (the rest belongs to the location's look). */
-export const isPiece = (l: SceneLayer | undefined): l is Extract<SceneLayer, { part: 'sprite' | 'prop' }> => l?.part === 'sprite' || l?.part === 'prop';
+/** Sprites, props and smoke are set pieces: they can be added, duplicated and deleted (the rest belongs to the location's look). */
+export const isPiece = (l: SceneLayer | undefined): l is Extract<SceneLayer, { part: 'sprite' | 'prop' | 'smoke' }> =>
+  l?.part === 'sprite' || l?.part === 'prop' || l?.part === 'smoke';
 
 /** Swaps layer i with its neighbour toward the front (1) or the back (-1); returns its new index. */
 export function reorder(layers: SceneLayer[], i: number, dir: 1 | -1): number {
@@ -65,6 +68,9 @@ export function newSprite(sheet: SheetId): SceneLayer {
   const { w, h } = SHEETS[sheet];
   return { part: 'sprite', sheet, x: Math.round(MIN_W / 2 - w / 2), y: FEET - h };
 }
+
+/** A new smoke plume, in the middle of the scene, rising from the fighters' line. */
+export const newSmoke = (): SceneLayer => ({ part: 'smoke', x: Math.round(MIN_W / 2 - SMOKE_W / 2), y: FEET - SMOKE_H });
 
 /** How a sprite's size compares with what its label (metres, plane) asks for; null if it has no label. */
 export function sizeCheck(sheet: SheetId): { metres: number; plane: Plane; scale: number; px: number; expected: number; ok: boolean } | null {

@@ -71,7 +71,8 @@ describe('sprite sheets', () => {
         if (l.part === 'sprite') assert.ok(l.sheet in SHEETS, `${id}: unknown sheet ${l.sheet}`);
         if (l.part === 'skyline') assert.ok(loc.skyline[l.rank], `${id}: no skyline rank ${l.rank}`);
         if (l.part === 'body') assert.ok(loc.body, `${id}: a body layer but no body in the look`);
-        assert.ok(['sky', 'sky-fx', 'nave', 'haze', 'ground', 'weather', 'vignette', 'fighters', 'skyline', 'frame', 'body', 'prop', 'sprite'].includes(l.part), `${id}: unknown part ${l.part}`);
+        if (l.part === 'smoke') assert.ok(l.size === undefined || (l.size > 0 && l.size <= 4), `${id}: smoke size ${l.size}`);
+        assert.ok(['sky', 'sky-fx', 'nave', 'haze', 'ground', 'weather', 'vignette', 'fighters', 'skyline', 'frame', 'body', 'prop', 'sprite', 'smoke'].includes(l.part), `${id}: unknown part ${l.part}`);
       }
     }
   });

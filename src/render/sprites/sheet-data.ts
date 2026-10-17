@@ -18,7 +18,7 @@ export const SHEETS = {
   plasma_sprite: { file: 'sprites/plasma_sprite.png', frames: 11, w: 66, h: 60, ax: 35 },
   magma_colossus: { file: 'sprites/magma_colossus.png', frames: 11, w: 108, h: 108, ax: 51 },
   kethra_headframe: { file: 'sprites/kethra_headframe.png', frames: 4, w: 130, h: 96, ax: 59 },
-  kethra_rig: { file: 'sprites/kethra_rig.png', frames: 4, w: 84, h: 169, ax: 40 },
+  kethra_rig: { file: 'sprites/kethra_rig.png', frames: 4, w: 77, h: 163, ax: 40 },
   kethra_hab: { file: 'sprites/kethra_hab.png', frames: 4, w: 77, h: 170, ax: 44 },
   kethra_crates: { file: 'sprites/kethra_crates.png', frames: 4, w: 37, h: 41, ax: 18 },
   kethra_cart: { file: 'sprites/kethra_cart.png', frames: 4, w: 54, h: 39, ax: 27 },

@@ -50,7 +50,8 @@
       { "part": "fighters" },
       { "part": "sprite", "sheet": "kethra_cart", "x": 131, "y": 135, "fps": 6, "fog": 0.1, "pinned": true },
       { "part": "sprite", "sheet": "kethra_hab", "x": 273, "y": 12, "fps": 6, "pinned": true },
-      { "part": "sprite", "sheet": "kethra_rig", "x": -16, "y": 4, "fps": 6, "pinned": true },
+      { "part": "smoke", "x": 17, "y": 5, "size": 1.2, "pinned": true },
+      { "part": "sprite", "sheet": "kethra_rig", "x": -16, "y": 10, "fps": 6, "pinned": true },
       { "part": "weather" },
       { "part": "vignette" }
     ]

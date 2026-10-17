@@ -21,6 +21,7 @@ import type { Layout, Location, SceneLayer } from './locations';
 import { FEET, HORIZON, SCENE_H, shiftX } from './scale';
 import { paintEclipse, paintMoon, paintSky } from './sky';
 import { paintHaze, paintRank } from './skyline';
+import { SMOKE_H, SMOKE_W, paintSmoke } from './smoke';
 import { FRAME_WIDTH, paintFrame, paintProp } from './structures';
 
 export interface Backdrop {
@@ -40,6 +41,7 @@ const PROP_W = 40, PROP_H = 50;
 export function spotSize(loc: Location, l: SceneLayer): { w: number; h: number } | null {
   if (l.part === 'sprite') return { w: SHEETS[l.sheet].w, h: SHEETS[l.sheet].h };
   if (l.part === 'prop') return { w: PROP_W, h: PROP_H };
+  if (l.part === 'smoke') return { w: Math.round(SMOKE_W * (l.size ?? 1)), h: Math.round(SMOKE_H * (l.size ?? 1)) };
   if (l.part === 'body' && loc.body) return { w: loc.body.r * 2, h: loc.body.r * 2 };
   return null;
 }
@@ -56,6 +58,7 @@ export function layerName(loc: Location, l: SceneLayer): string {
   switch (l.part) {
     case 'sprite': return l.sheet;
     case 'prop': return `prop: ${l.style}`;
+    case 'smoke': return 'smoke';
     case 'body': return loc.body?.kind ?? 'body';
     case 'skyline': return `skyline ${l.rank + 1}: ${loc.skyline[l.rank]?.style ?? '?'}`;
     case 'frame': return `frame ${l.side}: ${loc.frames[l.side === 'left' ? 0 : 1]}`;
@@ -110,6 +113,12 @@ export function buildBackdrop(key: string, W: number, H: number, opts: BackdropO
         if (l.part === 'sky-fx') { glow.globalAlpha = 1; ambient.drawSky(ctx, glow, t, dt); continue; }
         if (l.part === 'weather') { glow.globalAlpha = 1; ambient.drawFront(ctx, glow, t, dt); continue; }
         if (l.part === 'sprite') { drawSprite(ctx, glow, l, W, t, haze); continue; }
+        if (l.part === 'smoke') {
+          const box = layerBox(loc, l, W)!, img = paintSmoke(box.w, box.h, t, haze);
+          ctx.drawImage(img, box.x, box.y);
+          occlude(glow, img, box.x, box.y);
+          continue;
+        }
         const c = paint(l);
         if (!c) continue;
         ctx.drawImage(c.img, 0, 0);

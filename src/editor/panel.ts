@@ -48,6 +48,7 @@ function inspector(s: PanelState): string {
       ? `<p class="size ${c.ok ? 'ok' : 'bad'}">Made for <b>${c.plane}</b> (×${c.scale}): ${c.metres} m → ${c.expected} px expected, sprite is ${c.px} px ${c.ok ? '✓' : '✗'}<br><small>The ${c.plane} line is shown in the scene.</small></p>`
       : '<p class="size">No size label (src/render/sprites/sizes.ts).</p>');
   }
+  if (l.part === 'smoke') rows.push(`<div class="pair">${num('size', 'size (×)', l.size ?? 1, 0.1)}</div><p class="hint">The fire it rises from is near the bottom left of its box.</p>`);
   const buttons = !isPiece(l) ? '' : '<div class="row"><button data-act="dup">Duplicate</button><button data-act="del" class="danger">Delete</button></div>';
   return name + rows.join('') + buttons;
 }
@@ -73,7 +74,7 @@ export function renderPanel(s: PanelState): string {
       <p class="status">${esc(s.status)}</p>
     </header>
     <section><h3>Layers <small>front ↑ · back ↓</small></h3><ul class="list">${rows}</ul>
-      <div class="row"><select data-act="sheet">${sheets}</select><button data-act="add">Add sprite</button></div></section>
+      <div class="row"><select data-act="sheet">${sheets}</select><button data-act="add">Add sprite</button><button data-act="add-smoke">Add smoke</button></div></section>
     <section class="inspector">${inspector(s)}</section>
     <details open><summary>View</summary>${check('bloom', s.bloom, 'Glow (bloom)')}${check('guides', s.guides, 'Guides: horizon, fighters’ line, 320 px frame, outlines')}
       <div class="row">Scene width: ${widths}</div></details>

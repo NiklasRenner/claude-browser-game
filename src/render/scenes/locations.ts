@@ -36,7 +36,9 @@ export type SceneLayer =
   /** A small painted prop (brazier, candles...). */
   | ({ part: 'prop'; style: PropStyle } & Spot)
   /** A generated sprite: looping its frames at `fps` (default 6), mirrored with `flip`, tinted toward the location's haze by `fog` (0–1). */
-  | ({ part: 'sprite'; sheet: SheetId; flip?: boolean; fps?: number; fog?: number } & Spot);
+  | ({ part: 'sprite'; sheet: SheetId; flip?: boolean; fps?: number; fog?: number } & Spot)
+  /** A smoke plume rising from a fire near its bottom left (scenes/smoke.ts), `size` times the default (1). */
+  | ({ part: 'smoke'; size?: number } & Spot);
 
 export interface Layout { layers: SceneLayer[] }
 
