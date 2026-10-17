@@ -10,7 +10,7 @@
 import { OUT, openBrowser } from './browser.mjs';
 
 // A hostile from each world: a drill against it shows that world's backdrop.
-const WORLDS = { ship: null, veridia: 'fen_leech', kethra: 'cave_glider', glacies: 'frost_serpent', void_rift: 'void_shade', xenith: 'hive_drone' };
+const WORLDS = { ship: null, veridia: 'fen_leech', kethra: 'lava_worm', glacies: 'frost_serpent', void_rift: 'void_shade', xenith: 'hive_drone' };
 const only = process.argv[2];
 const [width, height] = (process.argv[3] ?? '1280x720').split('x').map(Number);
 const suffix = process.argv[3] ? `-${process.argv[3]}` : '';

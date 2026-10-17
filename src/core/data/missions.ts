@@ -10,8 +10,8 @@ const missions: MissionDef[] = [
   },
   {
     id: 'kethra', name: 'Kethra Mining Moon', minLevel: 4, requires: 'veridia',
-    description: 'A volcanic moon whose mining crew stopped reporting. Their equipment did not stop working.',
-    hostiles: ['cave_glider', 'plasma_sprite', 'nanite_husk'], boss: 'magma_colossus', encounters: 3,
+    description: 'A volcanic mining moon whose landing field is burning. Something came up from the deep shafts: lava worms, living flame, and the colony\'s own mining machines, still running, still drilling, on fire.',
+    hostiles: ['lava_worm', 'plasma_sprite', 'slag_automaton'], boss: 'magma_colossus', encounters: 3,
     reward: { xp: 120, credits: 90 },
     palette: { sky: 0x2a1410, ground: 0x4a2d22, fog: 0x5a2a1a },
   },

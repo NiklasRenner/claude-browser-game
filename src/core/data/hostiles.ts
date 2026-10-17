@@ -36,15 +36,15 @@ const hostiles: HostileDef[] = [
     xp: 70, credits: [60, 90], drops: [{ itemId: 'trauma_kit', chance: 50 }],
     look: { body: 'brute', color: 0x4a5236, accent: 0x9aff6a, scale: 1.45, features: ['crown'], sprite: { sheet: 'archcantor', idle: [0, 1, 2, 3, 4, 3, 2, 1], attack: [5, 6, 7, 8, 9, 10], fps: 5 }, height: 2.7 } },
 
-  // ── Kethra Mining Moon (volcanic) ──
-  { id: 'cave_glider', name: 'Cave Glider', level: 4, hp: 26, accuracy: 82, evasion: 35, crit: 5, speed: 125,
-    resist: { photon: 150, void: 50 },
+  // ── Kethra Mining Moon (the colony landing site, on fire) ──
+  { id: 'lava_worm', name: 'Lava Worm', level: 4, hp: 26, accuracy: 82, evasion: 35, crit: 5, speed: 125,
+    resist: { plasma: 50, cryo: 150 },
     attacks: [
-      { name: 'Raking Claws', element: 'kinetic', damage: [3, 4], hits: 2, weight: 3 },
-      { name: 'Sonic Shriek', element: 'ion', damage: [3, 6], weight: 1, effect: { status: 'stun', chance: 15, turns: 1, power: 0 } },
+      { name: 'Thrashing Bite', element: 'kinetic', damage: [3, 4], hits: 2, weight: 3 },
+      { name: 'Magma Spit', element: 'plasma', damage: [3, 6], weight: 1, effect: { status: 'burn', chance: 25, turns: 2, power: 3 } },
     ],
     xp: 40, credits: [12, 21],
-    look: { body: 'flyer', color: 0x4b3b5c, accent: 0xd94a4a, scale: 0.9, features: ['tail'] } },
+    look: { body: 'blob', color: 0x3a2420, accent: 0xff7a1f, scale: 0.9, sprite: { sheet: 'lava_worm', idle: [0, 1, 2, 3, 4, 3, 2, 1], attack: [5, 6, 7, 8, 9, 10], fps: 5 }, height: 1.55 } },
   { id: 'plasma_sprite', name: 'Plasma Sprite', level: 5, hp: 48, accuracy: 84, evasion: 15, crit: 5, speed: 110,
     resist: { plasma: 25, cryo: 160 },
     attacks: [
@@ -52,15 +52,15 @@ const hostiles: HostileDef[] = [
       { name: 'Claw', element: 'kinetic', damage: [5, 8], weight: 2 },
     ],
     xp: 50, credits: [15, 27], drops: [{ itemId: 'energy_cell', chance: 20 }],
-    look: { body: 'elemental', color: 0xe0482b, accent: 0xffd000, scale: 0.85 } },
-  { id: 'nanite_husk', name: 'Nanite Husk', level: 6, hp: 62, accuracy: 80, evasion: 0, crit: 4, speed: 90,
-    resist: { kinetic: 80, corrosive: 0, photon: 175, void: 50 },
+    look: { body: 'elemental', color: 0xe0482b, accent: 0xffd000, scale: 0.85, sprite: { sheet: 'plasma_sprite', idle: [0, 1, 2, 3, 4, 3, 2, 1], attack: [5, 6, 7, 8, 9, 10], fps: 6 }, height: 1.27 } },
+  { id: 'slag_automaton', name: 'Slag Automaton', level: 6, hp: 62, accuracy: 80, evasion: 0, crit: 4, speed: 90,
+    resist: { kinetic: 80, plasma: 50, ion: 175, corrosive: 125 },
     attacks: [
       { name: 'Drill Arm', element: 'kinetic', damage: [8, 12], weight: 3 },
-      { name: 'Nanite Spray', element: 'void', damage: [5, 8], weight: 1 },
+      { name: 'Slag Spray', element: 'plasma', damage: [5, 8], weight: 1, effect: { status: 'burn', chance: 30, turns: 2, power: 4 } },
     ],
     xp: 60, credits: [21, 36], drops: [{ itemId: 'medkit', chance: 25 }],
-    look: { body: 'husk', color: 0x8a929c, accent: 0x3fe0ff, scale: 1.15 } },
+    look: { body: 'husk', color: 0x5a4a32, accent: 0xff7a1f, scale: 1.15, sprite: { sheet: 'slag_automaton', idle: [0, 1, 2, 3, 4, 3, 2, 1], attack: [5, 6, 7, 8, 9], fps: 5 }, height: 2.02 } },
   { id: 'magma_colossus', name: 'Magma Colossus', level: 8, hp: 250, accuracy: 80, evasion: 0, crit: 4, speed: 80, boss: true,
     resist: { plasma: 0, kinetic: 70, cryo: 175, corrosive: 50 },
     attacks: [
@@ -69,7 +69,7 @@ const hostiles: HostileDef[] = [
       { name: 'Eruption', element: 'plasma', damage: [16, 22], weight: 1 },
     ],
     xp: 220, credits: [180, 240], drops: [{ itemId: 'nano_restorer', chance: 40 }],
-    look: { body: 'golem', color: 0x3a2a24, accent: 0xff5a1f, scale: 1.35 } },
+    look: { body: 'golem', color: 0x3a2a24, accent: 0xff5a1f, scale: 1.35, sprite: { sheet: 'magma_colossus', idle: [0, 1, 2, 3, 4, 3, 2, 1], attack: [5, 6, 7, 8, 9, 10], fps: 5 }, height: 2.33 } },
 
   // ── Glacies IV (ice world) ──
   { id: 'frost_serpent', name: 'Frost Serpent', level: 8, hp: 72, accuracy: 88, evasion: 8, crit: 5, speed: 105,

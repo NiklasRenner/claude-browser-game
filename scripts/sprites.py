@@ -47,11 +47,14 @@ SHEETS = [
 ]
 
 
-GREEN, CANDLE = [(75, 160)], [(35, 60)]  # glow hues: the Choir's sickly green, candle flames
+# glow hues: the Choir's sickly green, candle flames, Kethra's fire and lava (red through yellow)
+GREEN, CANDLE, FIRE = [(75, 160)], [(35, 60)], [(0, 55), (345, 360)]
+EMBER = [(0, 32), (345, 360)]  # fire without the yellows (for the robot, whose hazard stripes would glow)
 # Sheets whose frames are colour-matched to their base.png (see main).
-LOCKED = {'fen_leech', 'rotwired_penitent', 'choir_cantor', 'archcantor'}
+LOCKED = {'fen_leech', 'rotwired_penitent', 'choir_cantor', 'archcantor',
+          'lava_worm', 'slag_automaton', 'plasma_sprite', 'magma_colossus'}
 # Sheets where only the glowing parts animate (the rest is held at the first frame).
-STILL = {'fen_barrels'}
+STILL = {'fen_barrels', 'kethra_crates', 'kethra_cart', 'kethra_headframe', 'kethra_rig', 'kethra_hab'}
 # PixelLab sheets: name, frame files in art/pixellab/<name>/ (in order), glow hue ranges.
 # The matriarch: an 8-frame idle loop, then a 5-frame claw swipe (wind-up, strike, recover).
 PIXEL = [
@@ -70,6 +73,18 @@ PIXEL = [
     # Edge structures (replace the painted frames): the swamp tree on the left, the colony house on the right.
     ('fen_tree', ['base.png'], []),
     ('fen_house', ['base.png'], [(15, 45)]),
+    # Kethra (the burning mining colony): made like Veridia's, idle 0-4 then the attack.
+    ('lava_worm', [f'idle-{i}.png' for i in range(5)] + [f'attack-{i}.png' for i in range(1, 7)], FIRE),
+    # (its attack-3 lights the whole robot orange; the strike reads fine without it)
+    ('slag_automaton', [f'idle-{i}.png' for i in range(5)] + [f'attack-{i}.png' for i in (1, 2, 4, 5, 6)], EMBER),
+    ('plasma_sprite', [f'idle-{i}.png' for i in range(5)] + [f'attack-{i}.png' for i in range(1, 7)], FIRE),
+    ('magma_colossus', [f'idle-{i}.png' for i in range(5)] + [f'attack-{i}.png' for i in range(1, 7)], FIRE),
+    # Kethra set pieces, all burning: a 4-frame fire loop each (only the flames move, see STILL).
+    ('kethra_headframe', [f'loop-{i}.png' for i in range(4)], FIRE),
+    ('kethra_rig', [f'loop-{i}.png' for i in range(4)], FIRE),
+    ('kethra_hab', [f'loop-{i}.png' for i in range(4)], FIRE),
+    ('kethra_crates', [f'loop-{i}.png' for i in range(4)], FIRE),
+    ('kethra_cart', [f'loop-{i}.png' for i in range(4)], FIRE),
 ]
 # Rigged PixelLab sheets (see scripts/rig.py): frames posed from one base sprite, so the
 # feet never move. All frames share one crop, and the weapon hand is known in each.

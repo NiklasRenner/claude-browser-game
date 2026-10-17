@@ -15,4 +15,9 @@ export const PIECE_SIZES: Partial<Record<SheetId, { metres: number; plane: Plane
   fen_lantern: { metres: 1, plane: 'fighters' },
   fen_tree: { metres: 3, plane: 'foreground' },
   fen_house: { metres: 3, plane: 'foreground' },
+  kethra_headframe: { metres: 26, plane: 'horizon' },
+  kethra_rig: { metres: 2.9, plane: 'foreground' },
+  kethra_hab: { metres: 2.95, plane: 'foreground' },
+  kethra_crates: { metres: 1.05, plane: 'behind' },
+  kethra_cart: { metres: 1, plane: 'behind' },
 };
