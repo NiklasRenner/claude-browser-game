@@ -75,8 +75,7 @@ PIXEL = [
     ('fen_house', ['base.png'], [(15, 45)]),
     # Kethra (the burning mining colony): made like Veridia's, idle 0-4 then the attack.
     ('lava_worm', [f'idle-{i}.png' for i in range(5)] + [f'attack-{i}.png' for i in range(1, 7)], FIRE),
-    # (its attack-3 lights the whole robot orange; the strike reads fine without it)
-    ('slag_automaton', [f'idle-{i}.png' for i in range(5)] + [f'attack-{i}.png' for i in (1, 2, 4, 5, 6)], EMBER),
+    ('slag_automaton', [f'idle-{i}.png' for i in range(5)] + [f'attack-{i}.png' for i in range(1, 7)], EMBER),
     ('plasma_sprite', [f'idle-{i}.png' for i in range(5)] + [f'attack-{i}.png' for i in range(1, 7)], FIRE),
     ('magma_colossus', [f'idle-{i}.png' for i in range(5)] + [f'attack-{i}.png' for i in range(1, 7)], FIRE),
     # Kethra set pieces, all burning: a 4-frame fire loop each (only the flames move, see STILL).
@@ -180,6 +179,25 @@ def lit_by_effect(rgba: np.ndarray, hues, palette: np.ndarray) -> np.ndarray:
             break
         core = grown
     return core & (rgba[:, :, 3] > 0)
+
+
+def lit_overall(lit: np.ndarray, rgba: np.ndarray, base: np.ndarray) -> np.ndarray:
+    """
+    For sheets in LIT_BODY: a frame where the whole figure lights up (the robot glowing orange as it strikes)
+    would keep that light everywhere, since its body is then as bright and fire-coloured as the effect. If
+    more than LIT_SHARE of the figure is lit, only the light outside the base sprite's outline (the burst at
+    the drill tip) is kept; the body is colour-matched like any other frame. (Not for figures whose lit
+    body is the point, like the Plasma Sprite or the Cantor's flaring staff.)
+    """
+    on = rgba[:, :, 3] > 0
+    if base.shape != rgba.shape or lit.sum() <= LIT_SHARE * on.sum():
+        return lit
+    outline = cv2.dilate((base[:, :, 3] > 127).astype(np.uint8), np.ones((5, 5), np.uint8)).astype(bool)
+    return lit & ~outline
+
+
+LIT_SHARE = 0.15
+LIT_BODY = {'slag_automaton'}
 
 
 def against_base(rgba: np.ndarray, base: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -505,7 +523,10 @@ def main():
                 # What lights up keeps its colour (and glows); the rest of the figure is matched.
                 on = rgba[:, :, 3] > 0
                 same, source = against_base(rgba, base_rgba)
-                keep = lit_by_effect(rgba, hues, palette) | source
+                keep = lit_by_effect(rgba, hues, palette)
+                if name in LIT_BODY:
+                    keep = lit_overall(keep, rgba, base_rgba)
+                keep |= source
                 kept = rgba[keep].copy()
                 px = rgba[on][:, :3].astype(float)
                 # Match each channel's distribution to the base sprite's (undoes a frame lit up overall).

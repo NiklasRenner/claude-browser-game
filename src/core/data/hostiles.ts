@@ -44,7 +44,7 @@ const hostiles: HostileDef[] = [
       { name: 'Magma Spit', element: 'plasma', damage: [3, 6], weight: 1, effect: { status: 'burn', chance: 25, turns: 2, power: 3 } },
     ],
     xp: 40, credits: [12, 21],
-    look: { body: 'blob', color: 0x3a2420, accent: 0xff7a1f, scale: 0.9, sprite: { sheet: 'lava_worm', idle: [0, 1, 2, 3, 4, 3, 2, 1], attack: [5, 6, 7, 8, 9, 10], fps: 5 }, height: 1.55 } },
+    look: { body: 'blob', color: 0x3a2420, accent: 0xff7a1f, scale: 0.9, sprite: { sheet: 'lava_worm', idle: [0, 1, 2, 3, 4, 3, 2, 1], attack: [5, 6, 7, 8, 9, 10], fps: 5 }, height: 1.43 } },
   { id: 'plasma_sprite', name: 'Plasma Sprite', level: 5, hp: 48, accuracy: 84, evasion: 15, crit: 5, speed: 110,
     resist: { plasma: 25, cryo: 160 },
     attacks: [
@@ -60,7 +60,7 @@ const hostiles: HostileDef[] = [
       { name: 'Slag Spray', element: 'plasma', damage: [5, 8], weight: 1, effect: { status: 'burn', chance: 30, turns: 2, power: 4 } },
     ],
     xp: 60, credits: [21, 36], drops: [{ itemId: 'medkit', chance: 25 }],
-    look: { body: 'husk', color: 0x5a4a32, accent: 0xff7a1f, scale: 1.15, sprite: { sheet: 'slag_automaton', idle: [0, 1, 2, 3, 4, 3, 2, 1], attack: [5, 6, 7, 8, 9], fps: 5 }, height: 2.02 } },
+    look: { body: 'husk', color: 0x5a4a32, accent: 0xff7a1f, scale: 1.15, sprite: { sheet: 'slag_automaton', idle: [0, 1, 2, 3, 4, 3, 2, 1], attack: [5, 6, 7, 8, 9, 10], fps: 5 }, height: 2.28 } },
   { id: 'magma_colossus', name: 'Magma Colossus', level: 8, hp: 250, accuracy: 80, evasion: 0, crit: 4, speed: 80, boss: true,
     resist: { plasma: 0, kinetic: 70, cryo: 175, corrosive: 50 },
     attacks: [
