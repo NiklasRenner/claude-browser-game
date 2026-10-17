@@ -2,14 +2,14 @@
   "ship": {
     "layers": [
       { "part": "sky" },
-      { "part": "body", "x": 141, "y": 45 },
+      { "part": "body", "x": 136, "y": 43 },
       { "part": "sky-fx" },
       { "part": "nave" },
       { "part": "ground" },
       { "part": "frame", "side": "left" },
       { "part": "frame", "side": "right" },
-      { "part": "prop", "style": "candles", "x": 44, "y": 88, "pinned": true },
-      { "part": "prop", "style": "candles", "x": 246, "y": 88, "pinned": true },
+      { "part": "prop", "style": "candles", "x": 32, "y": 105, "pinned": true },
+      { "part": "prop", "style": "candles", "x": 229, "y": 72, "pinned": true },
       { "part": "fighters" },
       { "part": "weather" },
       { "part": "vignette" }
