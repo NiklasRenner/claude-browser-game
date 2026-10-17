@@ -1,6 +1,8 @@
 /**
  * Bloom: everything drawn into the glow canvas is shrunk (which blurs it) in
  * three steps and added back over the scene, so glowing pixels bleed light.
+ * Whatever is drawn in front covers the glow behind it (`occlude`), so a fire
+ * behind a figure or a wall doesn't shine through it.
  */
 import { makeCanvas } from './pixel/painter';
 
@@ -36,4 +38,14 @@ export class Bloom {
     ctx.globalCompositeOperation = 'source-over';
     ctx.imageSmoothingEnabled = false;
   }
+}
+
+/** What a layer or figure covers stops glowing from behind it (a wall in front of a lit planet hides its glow too). */
+export function occlude(glow: CanvasRenderingContext2D, img: HTMLCanvasElement, x = 0, y = 0) {
+  const prev = glow.globalCompositeOperation, alpha = glow.globalAlpha;
+  glow.globalCompositeOperation = 'destination-out';
+  glow.globalAlpha = 1;
+  glow.drawImage(img, x, y);
+  glow.globalCompositeOperation = prev;
+  glow.globalAlpha = alpha;
 }

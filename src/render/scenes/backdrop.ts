@@ -4,6 +4,7 @@
  * own canvases (cached, so moving one thing in the editor only repaints that
  * thing); sprites and moving effects are drawn every frame.
  */
+import { occlude } from '../bloom';
 import { Painter } from '../pixel/painter';
 import { makeCanvas } from '../pixel/painter';
 import { bayer, fbm } from '../pixel/noise';
@@ -167,16 +168,6 @@ function paintPart(loc: Location, l: SceneLayer, W: number, H: number) {
     if (f) flame = [box.x + 20 + f[0], box.y + 46 + f[1]];
   }
   return { img: L.img, glow: L.glow, flame };
-}
-
-/** What a layer covers stops glowing from behind it (a wall in front of a lit planet hides its glow too). */
-function occlude(glow: CanvasRenderingContext2D, img: HTMLCanvasElement, x = 0, y = 0) {
-  const prev = glow.globalCompositeOperation, alpha = glow.globalAlpha;
-  glow.globalCompositeOperation = 'destination-out';
-  glow.globalAlpha = 1;
-  glow.drawImage(img, x, y);
-  glow.globalCompositeOperation = prev;
-  glow.globalAlpha = alpha;
 }
 
 // Sprite frames as canvases: mirrored and fogged as asked. Cached per sheet and look.

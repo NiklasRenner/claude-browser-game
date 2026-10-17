@@ -63,6 +63,14 @@ function flash(scene: Scene, a: Actor, strength = 0.85) {
   void scene.tweens.run(0.25, (t) => { a.flash = strength * (1 - t); });
 }
 
+/**
+ * How long attack animations play (seconds). Slow enough to see the art: a hostile's melee swing
+ * (lunge, then recover) takes about 0.8 s for its six frames.
+ *   lunge/strike/recover: a melee attack's step in, the officer's swing, and the step back;
+ *   shot: a gun firing; cast: an orb thrown; ability: an ability with its own effect.
+ */
+const SWING = { lunge: 0.32, strike: 0.14, recover: 0.48, shot: 0.35, cast: 0.8, ability: 0.6 };
+
 /** How an attack looks: non-weapon abilities fly as an orb, ranged weapons fire a bolt, the rest is melee. */
 function attackStyle(actor: 'player' | 'hostile', element: Element, abilityId: string | undefined, state: GameState): 'orb' | 'bolt' | 'melee' {
   if (actor === 'hostile') return element === 'kinetic' ? 'melee' : 'orb';
@@ -114,25 +122,26 @@ async function play(scene: Scene, e: GameEvent, before: GameState, after: GameSt
       const from = gun?.from ?? hand(attacker, scene.time);
       const impact = style === 'melee' ? center(target) : gun?.to ?? center(target);
       const travel = e.abilityId ? ABILITY_LOOKS[e.abilityId]?.travel : undefined;
+      let swing: Promise<void> = Promise.resolve();
       if (travel && style !== 'melee' && (!followUp || travel === 'pulses')) {
         // The ability's own way of striking (see ability-fx.ts).
-        void tweens.run(0.3, (t) => { attacker.attack = t >= 1 ? 0 : t; });
+        swing = tweens.run(SWING.ability, (t) => { attacker.attack = t >= 1 ? 0 : t; });
         if (travel === 'orbital' || travel === 'heavy') scene.shake = 4;
         await playTravel(fx, travel, col, from, impact, strikes === 0, groupCenter(scene.hostiles, [scene.W * 0.7, scene.H * 0.6]));
       } else if (followUp) {
         if (style !== 'melee') await fx.bolt(from, impact, col, 0.07);
       } else if (style === 'orb') {
-        void tweens.run(0.45, (t) => { attacker.attack = t >= 1 ? 0 : t; });
+        swing = tweens.run(SWING.cast, (t) => { attacker.attack = t >= 1 ? 0 : t; });
         await fx.projectile(from, impact, col, 0.35, gun ? 0 : 12);
       } else if (style === 'bolt') {
-        void tweens.run(0.18, (t) => { attacker.attack = t >= 1 ? 0 : t; });
+        swing = tweens.run(SWING.shot, (t) => { attacker.attack = t >= 1 ? 0 : t; });
         await fx.bolt(from, impact, col);
       } else {
         // Melee: lunge up to the target, swing, and step back.
         const gap = (target.figure.left + attacker.figure.right) * 0.45;
         const dist = Math.max(0, Math.abs(target.x - attacker.x) - gap - 10) * dir;
-        await tweens.run(0.16, (t) => { attacker.ox = t * dist; attacker.attack = t * (e.actor === 'player' ? 0.3 : 0.4); }, easeOutCubic);
-        if (e.actor === 'player') await tweens.run(0.08, (t) => { attacker.attack = 0.3 + t * 0.7; }, (t) => t);
+        await tweens.run(SWING.lunge, (t) => { attacker.ox = t * dist; attacker.attack = t * (e.actor === 'player' ? 0.3 : 0.4); }, easeOutCubic);
+        if (e.actor === 'player') await tweens.run(SWING.strike, (t) => { attacker.attack = 0.3 + t * 0.7; }, (t) => t);
         if (e.hit) void fx.slash(...center(target), e.crit ? FX_COLORS.crit : col, e.crit ? 18 : 14);
       }
       if (e.hit) {
@@ -148,9 +157,11 @@ async function play(scene: Scene, e: GameEvent, before: GameState, after: GameSt
       if (style === 'melee' && !followUp) {
         const start = attacker.ox, a0 = attacker.attack;
         // The swing plays on to its end while stepping back (never in reverse).
-        await tweens.run(0.22, (t) => { attacker.ox = start * (1 - t); attacker.attack = a0 + (1 - a0) * t; });
+        await tweens.run(SWING.recover, (t) => { attacker.ox = start * (1 - t); attacker.attack = a0 + (1 - a0) * t; });
         attacker.attack = 0;
       }
+      // A shot or cast plays its whole animation before the next thing happens.
+      await swing;
       await tweens.wait(followUp ? 0.08 : 0.12);
       return;
     }

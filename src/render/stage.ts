@@ -21,7 +21,7 @@ import { getHostile } from '../core';
 import type { GameEvent, GameState } from '../core';
 import { FALLEN, HERO_X, center, hostileSpot, makeActor, pickAt } from './actor';
 import type { Actor, View } from './actor';
-import { Bloom } from './bloom';
+import { Bloom, occlude } from './bloom';
 import { playEvents } from './director';
 import type { Scene } from './director';
 import { Effects } from './fx';
@@ -238,16 +238,22 @@ export class Stage implements Scene {
       rimDir: hero ? [1, 0] : [0, -1], rimCol: this.backdrop!.rim, rimAmt: 0.3, flash: a.flash, dissolve: a.dissolve,
     });
     if (a.fall) {
-      this.ctx.save();
-      this.ctx.translate(a.x + a.ox, a.y);
-      this.ctx.rotate(a.fall);
+      for (const c of [this.ctx, this.glow]) {
+        c.save();
+        c.translate(a.x + a.ox, a.y);
+        c.rotate(a.fall);
+      }
       this.ctx.drawImage(a.painter.canvas, -ax, -ay);
+      occlude(this.glow, a.painter.canvas, -ax, -ay);
       this.ctx.restore();
+      this.glow.restore();
       return;
     }
     const x = Math.round(a.x + a.ox - ax), y = Math.round(a.y + a.oy - ay - f.hover * f.scale);
     if (a.statuses.has('evasive')) drawHoloDecoy(this.ctx, this.glow, a, x, y, this.time);
     this.ctx.drawImage(a.painter.canvas, x, y);
+    // The figure hides the glow behind it (a burning wall doesn't shine through the golem), then adds its own.
+    occlude(this.glow, a.painter.canvas, x, y);
     this.glow.drawImage(a.painter.glowCanvas, x, y);
   }
 
